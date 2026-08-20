@@ -1,0 +1,27 @@
+# Build output
+build/
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.lst
+*.su
+
+# OpenOCD / debug
+*.log
+gdb.txt
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# clangd / language server (if you set one up for register autocomplete)
+.cache/
+compile_commands.json
+
+# macOS
+.DS_Store
