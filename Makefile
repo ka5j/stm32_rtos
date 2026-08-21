@@ -27,7 +27,7 @@ MCU_FLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 ##########################################################################
 SRC_DIRS    := core device drivers api bsp rtos app startup
 C_SOURCES   := $(shell find $(SRC_DIRS) -name '*.c' 2>/dev/null)
-ASM_SOURCES := $(shell find $(SRC_DIRS) -name '*.s' 2>/dev/null)
+ASM_SOURCES := $(shell find $(SRC_DIRS) \( -name '*.s' -o -name '*.S' \) 2>/dev/null)
 
 ##########################################################################
 # Include paths - one per inc/ directory in the project structure
@@ -58,8 +58,12 @@ LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections \
 # Object files - mirrors the source tree under build/, e.g.
 # drivers/src/gpio.c -> build/drivers/src/gpio.o
 ##########################################################################
+LOWER_S_SOURCES := $(filter %.s,$(ASM_SOURCES))
+UPPER_S_SOURCES := $(filter %.S,$(ASM_SOURCES))
+
 OBJECTS := $(C_SOURCES:%.c=$(BUILD_DIR)/%.o)
-OBJECTS += $(ASM_SOURCES:%.s=$(BUILD_DIR)/%.o)
+OBJECTS += $(LOWER_S_SOURCES:%.s=$(BUILD_DIR)/%.o)
+OBJECTS += $(UPPER_S_SOURCES:%.S=$(BUILD_DIR)/%.o)
 DEPS    := $(OBJECTS:.o=.d)
 
 ##########################################################################
@@ -81,6 +85,10 @@ $(BUILD_DIR)/%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: %.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: %.S
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -c $< -o $@
 
@@ -136,7 +144,9 @@ erase:
 # ------------------------------------------------------------------------
 debug: $(BUILD_DIR)/$(TARGET).elf
 	openocd -f tools/openocd.cfg & \
-	$(GDB) $< -ex "target extended-remote :3333"
+	OCD_PID=$$!; \
+	$(GDB) $< -ex "target extended-remote :3333"; \
+	kill $$OCD_PID
 
 # ------------------------------------------------------------------------
 # make re
