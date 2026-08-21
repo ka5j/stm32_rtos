@@ -2,8 +2,8 @@ BasedOnStyle: GNU
 IndentWidth: 2
 UseTab: Never
 ColumnLimit: 100
-BreakBeforeBraces: Allman        # brace on its own line — matches HAL/CMSIS style
+BreakBeforeBraces: Allman       
 SpaceBeforeParens: ControlStatements
-PointerAlignment: Right           # int *p — matches typical embedded C
+PointerAlignment: Right         
 AlignConsecutiveAssignments: false
 IndentCaseLabels: true
