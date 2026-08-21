@@ -5,7 +5,7 @@ A from-scratch preemptive RTOS built directly on register-level access — no HA
 ## Quick Start
 
 ```sh
-git clone <this-repo>
+git clone https://github.com/ka5j/stm32_rtos.git
 cd stm32_rtos
 make            # build .elf/.bin/.hex, print a size report
 # connect the Nucleo-F446RE over USB (onboard ST-LINK/V2-1)
