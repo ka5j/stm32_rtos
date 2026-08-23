@@ -28,6 +28,10 @@ stm32_rtos/
 │       └── src/
 ├── app/             Application task code — only includes api/ and rtos/api/
 │   └── src/
+├── tests/           Host-side unit tests (native compiler, not arm-none-eabi-gcc)
+│   ├── unity/       Vendored Unity test framework
+│   └── unit/        test_<name>.c per module — see CONTRIBUTING.md's new-module
+│                     test requirement
 ├── startup/         Vector table, reset handler
 ├── linker/          STM32F446RE.ld memory layout
 └── tools/           openocd.cfg
