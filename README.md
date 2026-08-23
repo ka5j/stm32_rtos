@@ -7,6 +7,8 @@ A from-scratch preemptive RTOS built directly on register-level access — no HA
 ```sh
 git clone https://github.com/ka5j/stm32_rtos.git
 cd stm32_rtos
+git config core.hooksPath .githooks   # one-time: enable the pre-commit hook
+chmod +x .githooks/pre-commit
 make            # build .elf/.bin/.hex, print a size report
 # connect the Nucleo-F446RE over USB (onboard ST-LINK/V2-1)
 make flash      # program and reset the board
@@ -41,6 +43,7 @@ Starting from boot (linker script + startup file) and building up in layers — 
 - [GNU Arm Embedded Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-gcc`) on your `PATH`
 - [OpenOCD](https://openocd.org/) on your `PATH` — required for `flash`, `erase`, `debug`
 - GNU Make
+- `clang-format`, `cppcheck`, `doxygen` on your `PATH` — required for `make format-check`/`make lint`/`make docs`, and therefore for the pre-commit hook (see below) to run at all. On macOS: `brew install clang-format cppcheck doxygen`. On Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen`.
 - `tools/openocd.cfg` present in the repo, configured for the onboard ST-LINK and `stm32f4x` target
 - `linker/STM32F446RE.ld` present — the build will fail without it
 
