@@ -41,6 +41,8 @@ extern void test_pwr_cr_vos_scale_values_are_distinct(void);
 extern void test_iwdg_register_block_size(void);
 extern void test_iwdg_key_values_are_distinct(void);
 extern void test_wwdg_register_block_size(void);
+extern void test_exti_register_block_size(void);
+extern void test_exti_line_numbers_are_distinct_and_above_gpio_range(void);
 
 int
 main(void)
@@ -66,5 +68,7 @@ main(void)
   RUN_TEST(test_iwdg_register_block_size);
   RUN_TEST(test_iwdg_key_values_are_distinct);
   RUN_TEST(test_wwdg_register_block_size);
+  RUN_TEST(test_exti_register_block_size);
+  RUN_TEST(test_exti_line_numbers_are_distinct_and_above_gpio_range);
   return UNITY_END();
 }
