@@ -71,7 +71,7 @@ Starting from boot (linker script + startup file) and building up in layers — 
 | `make clean`        | Remove the `build/` directory                                                                      |
 | `make format`       | Apply `.clang-format` to every tracked `.c`/`.h` file in place                                     |
 | `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
-| `make lint`         | Run `cppcheck` across the project; fails on any finding                                             |
+| `make lint`         | Run `cppcheck` (incl. a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
 | `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity; fails on any test failure       |
 

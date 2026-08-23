@@ -178,11 +178,20 @@ format-check:
 # make lint
 # Runs cppcheck across the project's source/include dirs, failing (exit 1)
 # on any finding - same severity as a compile error. Catches classes of
-# bug -Wall/-Wextra don't (deeper dataflow, some MISRA-adjacent checks
-# once the addon is configured).
+# bug -Wall/-Wextra don't (deeper dataflow), plus a MISRA C:2012 subset via
+# --addon=misra (bundled with cppcheck itself, so no extra install step).
+# Findings print as e.g. "[misra-c2012-8.4]" without the rule prose - MISRA
+# doesn't allow redistributing rule text, only cppcheck's own summary. Look
+# the number up in the MISRA C:2012 document if the summary isn't enough.
+# Only checks .c files cppcheck discovers under $(SRC_DIRS) (headers are
+# checked in the context of whichever .c includes them, not standalone) -
+# so this stays quiet today since drivers/api/bsp/rtos/app are still empty,
+# and starts finding real things the moment a .c file includes a register
+# header.
 # ------------------------------------------------------------------------
 lint:
-	cppcheck --enable=warning,style,performance,portability \
+	cppcheck --addon=misra \
+	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
 	  --suppress=missingIncludeSystem \
 	  $(INCLUDES) $(SRC_DIRS)
