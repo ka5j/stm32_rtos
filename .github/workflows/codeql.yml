@@ -1,0 +1,45 @@
+name: CodeQL
+
+# Static analysis via GitHub CodeQL. Runs both build passes so CodeQL
+# actually observes the register-layer code: `make all` alone only
+# compiles startup/ + app/src/main.c (a stub, `while(1){}`) - nothing
+# cross-compiled includes a core/inc or device/inc header yet. The
+# register headers are only exercised today via tests/unit/, compiled
+# natively by `make test`, so both passes run before analysis.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (c-cpp)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@4c0873ef8656cb3c50b3f42fb63bc1ade0cfa827 # v4
+        with:
+          languages: c-cpp
+
+      - name: Build firmware and host-side tests
+        run: |
+          make all
+          make test
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@4c0873ef8656cb3c50b3f42fb63bc1ade0cfa827 # v4
+        with:
+          category: "/language:c-cpp"
