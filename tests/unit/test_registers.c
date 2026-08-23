@@ -5,10 +5,14 @@
  *        Runs natively via `make test`, not cross-compiled.
  */
 #include "gpio_reg.h"
+#include "nvic_reg.h"
 #include "rcc_reg.h"
+#include "scb_reg.h"
 #include "systick_reg.h"
 #include "uart_reg.h"
 #include "unity.h"
+
+#include <stddef.h>
 
 void
 setUp(void)
@@ -84,6 +88,64 @@ test_usart2_base_address(void)
   TEST_ASSERT_EQUAL_HEX32(0x400, USART3_BASE - USART2_BASE);
 }
 
+/**
+ * NvicRegisters_t must be exactly 0xE04 bytes (ISER..STIR, PM0214) and
+ * each register bank must land at its fixed Armv7-M architectural offset
+ * regardless of how many words this chip actually implements.
+ */
+void
+test_nvic_register_block_size_and_offsets(void)
+{
+  TEST_ASSERT_EQUAL_UINT(0xE04, sizeof(NvicRegisters_t));
+  TEST_ASSERT_EQUAL_HEX32(0x080, offsetof(NvicRegisters_t, ICER));
+  TEST_ASSERT_EQUAL_HEX32(0x100, offsetof(NvicRegisters_t, ISPR));
+  TEST_ASSERT_EQUAL_HEX32(0x180, offsetof(NvicRegisters_t, ICPR));
+  TEST_ASSERT_EQUAL_HEX32(0x200, offsetof(NvicRegisters_t, IABR));
+  TEST_ASSERT_EQUAL_HEX32(0x300, offsetof(NvicRegisters_t, IP));
+  TEST_ASSERT_EQUAL_HEX32(0xE00, offsetof(NvicRegisters_t, STIR));
+}
+
+/** IRQn_e values must match startup_stm32f446re.s's vector-table order. */
+void
+test_nvic_irqn_values_match_startup_vector_table(void)
+{
+  TEST_ASSERT_EQUAL_INT(0, WWDG_IRQn);
+  TEST_ASSERT_EQUAL_INT(38, USART2_IRQn);
+  TEST_ASSERT_EQUAL_INT(96, FMPI2C1_Error_IRQn);
+}
+
+/**
+ * ScbRegisters_t must be exactly 0x8C bytes (CPUID..CPACR, PM0214) with
+ * CPACR landing at its fixed offset past the CPU-ID register block.
+ */
+void
+test_scb_register_block_size_and_offset(void)
+{
+  TEST_ASSERT_EQUAL_UINT(0x8C, sizeof(ScbRegisters_t));
+  TEST_ASSERT_EQUAL_HEX32(0x88, offsetof(ScbRegisters_t, CPACR));
+}
+
+/** FpuRegisters_t must be exactly 3 words (FPCCR, FPCAR, FPDSCR). */
+void
+test_fpu_register_block_size(void)
+{
+  TEST_ASSERT_EQUAL_UINT(0xC, sizeof(FpuRegisters_t));
+}
+
+/** SCB_CFSR's MMFSR/BFSR/UFSR byte fields must not overlap. */
+void
+test_scb_cfsr_fault_status_byte_fields_do_not_overlap(void)
+{
+  uint32_t mmfsr_bits = SCB_CFSR_IACCVIOL | SCB_CFSR_DACCVIOL | SCB_CFSR_MUNSTKERR
+                        | SCB_CFSR_MSTKERR | SCB_CFSR_MMARVALID;
+  uint32_t bfsr_bits = SCB_CFSR_IBUSERR | SCB_CFSR_PRECISERR | SCB_CFSR_IMPRECISERR
+                       | SCB_CFSR_UNSTKERR | SCB_CFSR_STKERR | SCB_CFSR_BFARVALID;
+
+  TEST_ASSERT_EQUAL_HEX32(0x00U, mmfsr_bits & 0xFFFFFF00U);
+  TEST_ASSERT_EQUAL_HEX32(0x00U, bfsr_bits & 0xFFFF00FFU);
+  TEST_ASSERT_EQUAL_HEX32(0x00U, mmfsr_bits & bfsr_bits);
+}
+
 int
 main(void)
 {
@@ -95,5 +157,10 @@ main(void)
   RUN_TEST(test_uart_register_block_size);
   RUN_TEST(test_usart_sr_flag_bits_do_not_overlap);
   RUN_TEST(test_usart2_base_address);
+  RUN_TEST(test_nvic_register_block_size_and_offsets);
+  RUN_TEST(test_nvic_irqn_values_match_startup_vector_table);
+  RUN_TEST(test_scb_register_block_size_and_offset);
+  RUN_TEST(test_fpu_register_block_size);
+  RUN_TEST(test_scb_cfsr_fault_status_byte_fields_do_not_overlap);
   return UNITY_END();
 }
