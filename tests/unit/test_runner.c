@@ -33,6 +33,8 @@ extern void test_nvic_irqn_values_match_startup_vector_table(void);
 extern void test_scb_register_block_size_and_offset(void);
 extern void test_fpu_register_block_size(void);
 extern void test_scb_cfsr_fault_status_byte_fields_do_not_overlap(void);
+extern void test_mpu_register_block_size(void);
+extern void test_mpu_rasr_ap_values_are_distinct_and_in_range(void);
 
 int
 main(void)
@@ -50,5 +52,7 @@ main(void)
   RUN_TEST(test_scb_register_block_size_and_offset);
   RUN_TEST(test_fpu_register_block_size);
   RUN_TEST(test_scb_cfsr_fault_status_byte_fields_do_not_overlap);
+  RUN_TEST(test_mpu_register_block_size);
+  RUN_TEST(test_mpu_rasr_ap_values_are_distinct_and_in_range);
   return UNITY_END();
 }
