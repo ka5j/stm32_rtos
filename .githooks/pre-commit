@@ -7,6 +7,9 @@ set -e
 echo "[pre-commit] make format-check"
 make format-check
 
+echo "[pre-commit] make test"
+make test
+
 echo "[pre-commit] make lint"
 make lint
 

@@ -1,5 +1,6 @@
 # Build output
 build/
+tests/build/
 *.o
 *.d
 *.elf
