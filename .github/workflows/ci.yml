@@ -1,0 +1,32 @@
+name: CI
+
+# Public-facing gate: build + docs + format + lint, on a GitHub-hosted
+# runner. Runs on every push and PR - this is the badge/status a reviewer
+# sees. Hardware-in-the-loop testing lives in hil.yml on a self-hosted
+# runner instead, deliberately not triggered here (see that file for why).
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi doxygen cppcheck clang-format
+
+      - name: make all
+        run: make all
+
+      - name: make format-check
+        run: make format-check
+
+      - name: make lint
+        run: make lint
+
+     # - name: make docs
+     #   run: make docs

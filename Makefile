@@ -65,7 +65,7 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re
+.PHONY: all clean flash erase debug size re docs format format-check lint
 
 # ------------------------------------------------------------------------
 # make / make all
@@ -157,6 +157,46 @@ re: clean all
 # ------------------------------------------------------------------------
 clean:
 	rm -rf $(BUILD_DIR)
+
+# ------------------------------------------------------------------------
+# make format
+# Applies .clang-format to every tracked .c/.h file in place.
+# Use case: fix formatting drift before committing.
+# ------------------------------------------------------------------------
+format:
+	clang-format -i $(shell git ls-files '*.c' '*.h')
+
+# ------------------------------------------------------------------------
+# make format-check
+# Same as format, but non-mutating: fails (exit 1) if any tracked file
+# would be reformatted. Safe for CI and the pre-commit hook.
+# ------------------------------------------------------------------------
+format-check:
+	clang-format --dry-run --Werror $(shell git ls-files '*.c' '*.h')
+
+# ------------------------------------------------------------------------
+# make lint
+# Runs cppcheck across the project's source/include dirs, failing (exit 1)
+# on any finding - same severity as a compile error. Catches classes of
+# bug -Wall/-Wextra don't (deeper dataflow, some MISRA-adjacent checks
+# once the addon is configured).
+# ------------------------------------------------------------------------
+lint:
+	cppcheck --enable=warning,style,performance,portability \
+	  --std=c11 --error-exitcode=1 --inline-suppr \
+	  --suppress=missingIncludeSystem \
+	  $(INCLUDES) $(SRC_DIRS)
+
+# ------------------------------------------------------------------------
+# make docs
+# Runs Doxygen against Doxyfile. WARN_AS_ERROR is on, so this fails the
+# moment a public function is undocumented or missing a @param/@return -
+# treat a failing `make docs` the same as a failing `make all`.
+# Use case: check documentation coverage before committing, or as a CI
+# gate alongside the build.
+# ------------------------------------------------------------------------
+docs:
+	doxygen Doxyfile
 
 # Auto-generated per-file header dependencies (from -MMD -MP above) -
 # lets Make recompile only the .o files whose included headers changed.
