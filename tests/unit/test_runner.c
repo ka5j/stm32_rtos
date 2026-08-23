@@ -28,6 +28,8 @@ extern void test_systick_base_address(void);
 extern void test_uart_register_block_size(void);
 extern void test_usart_sr_flag_bits_do_not_overlap(void);
 extern void test_usart2_base_address(void);
+extern void test_nvic_register_block_size_and_offsets(void);
+extern void test_nvic_irqn_values_match_startup_vector_table(void);
 
 int
 main(void)
@@ -40,5 +42,7 @@ main(void)
   RUN_TEST(test_uart_register_block_size);
   RUN_TEST(test_usart_sr_flag_bits_do_not_overlap);
   RUN_TEST(test_usart2_base_address);
+  RUN_TEST(test_nvic_register_block_size_and_offsets);
+  RUN_TEST(test_nvic_irqn_values_match_startup_vector_table);
   return UNITY_END();
 }
