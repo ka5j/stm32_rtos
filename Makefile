@@ -32,7 +32,7 @@ ASM_SOURCES := $(shell find $(SRC_DIRS) \( -name '*.s' -o -name '*.S' \) 2>/dev/
 ##########################################################################
 # Include paths - one per inc/ directory in the project structure
 ##########################################################################
-INC_DIRS := core/inc device/inc drivers/inc api/inc bsp/inc \
+INC_DIRS := . core/inc device/inc drivers/inc api/inc bsp/inc \
             rtos/kernel/inc rtos/api/inc
 INCLUDES := $(addprefix -I,$(INC_DIRS))
 

@@ -58,7 +58,7 @@ Starting from boot (linker script + startup file) and building up in layers — 
 
 ## Status
 
-Work in progress. Boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. Core/device register structs, drivers, the API/BSP layers, and the RTOS kernel/API are being implemented layer by layer — `device/inc/rcc_reg.h` is the furthest along; most other headers are currently empty scaffolding. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout.
+Work in progress. Boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. This branch's goal is an LED blink on the Nucleo board: the register layer it needs is done — `device/inc/rcc_reg.h` (clock control), `device/inc/gpio_reg.h` (pin control), and `core/inc/systick_reg.h` (delay timing). Drivers, BSP, API, and the app blink loop are next. RTOS kernel/API and UART are out of scope for this branch — sequenced for later, not abandoned. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout.
 
 ## License
 
