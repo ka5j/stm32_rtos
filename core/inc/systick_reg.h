@@ -28,13 +28,11 @@ typedef struct SysTickRegisters_t
 #define SYSTICK ((SysTickRegisters_t *)SYSTICK_BASE) ///< Pointer to the SysTick register block
 
 /* --- SYSTICK_CTRL bit definitions --- */
-#define SYSTICK_CTRL_ENABLE_Pos (0U) ///< Bit position of SYSTICK_CTRL_ENABLE within SYSTICK_CTRL
+#define SYSTICK_CTRL_ENABLE_Pos (0U)                        ///< Bit position within SYSTICK_CTRL
 #define SYSTICK_CTRL_ENABLE (1U << SYSTICK_CTRL_ENABLE_Pos) ///< WRITE
-#define SYSTICK_CTRL_CLKSOURCE_Pos                                                                 \
-  (2U) ///< Bit position of SYSTICK_CTRL_CLKSOURCE within SYSTICK_CTRL
+#define SYSTICK_CTRL_CLKSOURCE_Pos (2U)                     ///< Bit position within SYSTICK_CTRL
 #define SYSTICK_CTRL_CLKSOURCE (1U << SYSTICK_CTRL_CLKSOURCE_Pos) ///< WRITE, 1=processor clock
-#define SYSTICK_CTRL_COUNTFLAG_Pos                                                                 \
-  (16U) ///< Bit position of SYSTICK_CTRL_COUNTFLAG within SYSTICK_CTRL
+#define SYSTICK_CTRL_COUNTFLAG_Pos (16U) ///< Bit position within SYSTICK_CTRL
 #define SYSTICK_CTRL_COUNTFLAG (1U << SYSTICK_CTRL_COUNTFLAG_Pos) ///< READ only, clears on read
 
 #endif /* SYSTICK_REG_H */
