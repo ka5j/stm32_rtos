@@ -70,7 +70,9 @@ Two checks run in `ci.yml` that aren't obvious from running `make docs`/`make te
 
 `hil.yml` is separate and much narrower: it only runs on `workflow_dispatch` (manual) or a direct `push` to `main`, on a self-hosted runner physically wired to a Nucleo-F446RE (`make all` → `make flash` → a hardware smoke test). It deliberately never runs on `pull_request` — a self-hosted runner executing PR-triggered workflows on a public repo would run arbitrary fork code on that physical machine.
 
-**Branch convention:** feature/topic branches PR into `develop`. `develop` is PR'd into `main` occasionally, at release points — not on every merge — which is also why hardware-in-the-loop only fires on `main`, not on every `develop` commit.
+`pages.yml` is also `main`-only for a related but different reason: it builds `make docs` and publishes `docs/html/` to GitHub Pages (<https://ka5j.github.io/stm32_rtos/>), so the live site always reflects the last tagged release (`PROJECT_NUMBER` is only ever bumped on a `develop`→`main` release PR — see [docs/VERSIONING.md](docs/VERSIONING.md)), not in-progress `develop` work, and a PR from an untrusted fork can't publish to it. Nothing under `docs/html/` is ever committed — `pages.yml` rebuilds it fresh in the runner every time and hands it to GitHub's Pages deploy action directly.
+
+**Branch convention:** feature/topic branches PR into `develop`. `develop` is PR'd into `main` occasionally, at release points — not on every merge — which is also why hardware-in-the-loop only fires on `main`, not on every `develop` commit. See [docs/VERSIONING.md](docs/VERSIONING.md) for what makes something release-worthy and how the version number is chosen.
 
 ## Formatting
 

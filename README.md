@@ -43,7 +43,7 @@ A from-scratch preemptive RTOS built directly on register-level access — no HA
 
 ## Overview
 
-Starting from boot (linker script + startup file) and building up in layers — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full directory tree and layer diagram:
+Starting from boot (linker script + startup file) and building up in layers — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full directory tree and layer diagram. Generated API docs (Doxygen) are published at <https://ka5j.github.io/stm32_rtos/>, rebuilt on every push to `main` — see [docs/VERSIONING.md](docs/VERSIONING.md) for what "on `main`" means here.
 
 1. **Core / device registers** — hand-written structs for Cortex-M4 core peripherals (NVIC, SysTick, SCB) and F446-specific peripherals (GPIO, RCC, UART)
 2. **Drivers** — direct register manipulation (GPIO, RCC/clock config, UART, NVIC, SysTick) — no app-facing logic
