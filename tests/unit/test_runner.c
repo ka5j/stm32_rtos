@@ -36,6 +36,8 @@ extern void test_scb_cfsr_fault_status_byte_fields_do_not_overlap(void);
 extern void test_mpu_register_block_size(void);
 extern void test_mpu_rasr_ap_values_are_distinct_and_in_range(void);
 extern void test_flash_register_block_size(void);
+extern void test_pwr_register_block_size(void);
+extern void test_pwr_cr_vos_scale_values_are_distinct(void);
 
 int
 main(void)
@@ -56,5 +58,7 @@ main(void)
   RUN_TEST(test_mpu_register_block_size);
   RUN_TEST(test_mpu_rasr_ap_values_are_distinct_and_in_range);
   RUN_TEST(test_flash_register_block_size);
+  RUN_TEST(test_pwr_register_block_size);
+  RUN_TEST(test_pwr_cr_vos_scale_values_are_distinct);
   return UNITY_END();
 }
