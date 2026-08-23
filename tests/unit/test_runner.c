@@ -24,6 +24,7 @@ tearDown(void)
 extern void test_gpio_base_addresses_are_evenly_spaced(void);
 extern void test_gpio_register_block_size(void);
 extern void test_rcc_ahb1enr_gpio_enable_bits_do_not_overlap(void);
+extern void test_systick_base_address(void);
 
 int
 main(void)
@@ -32,5 +33,6 @@ main(void)
   RUN_TEST(test_gpio_base_addresses_are_evenly_spaced);
   RUN_TEST(test_gpio_register_block_size);
   RUN_TEST(test_rcc_ahb1enr_gpio_enable_bits_do_not_overlap);
+  RUN_TEST(test_systick_base_address);
   return UNITY_END();
 }
