@@ -57,6 +57,12 @@ Every public function needs `@brief`/`@param`/`@return` — and `@return` must e
 
 **Gotcha, worth knowing before it surprises you**: `make docs` only enforces coverage on a file *once it has at least one Doxygen comment in it* (e.g. an `@file` block). A file with zero doc comments anywhere is currently invisible to the gate — it won't fail the build, but it also isn't actually being checked. Add the `@file`/`@brief` header to a new file as step one, before you write anything else in it, so the gate is actually watching it from the start rather than after the fact.
 
+## New-module test requirement (CI-enforced)
+
+Any PR that adds or fills in a `.c` file under `drivers/`, `api/`, `bsp/`, or `rtos/` must include a matching `tests/unit/test_<name>.c` (e.g. `drivers/src/uart.c` requires `tests/unit/test_uart.c`) — enforced by a CI check, not just convention. `app/src/main.c` is exempt (entry point, not logic worth a dedicated unit test). A new or filled-in `*_reg.h` under `core/inc`/`device/inc` must be `#include`d by at least one file in `tests/unit/` — no 1:1 naming requirement there, since one test file can reasonably cover several related headers (see `test_registers.c`).
+
+This check runs on every PR regardless of target branch, so it applies the same way to a feature branch's PR into `develop` and to a `develop`→`main` PR. It compares the PR against its base branch, which is why it only runs on `pull_request` events, not plain pushes — and it checks *modified* files, not just newly-added ones, since several `.c` files in this repo started as empty scaffolding in the initial commit and filling one in is a modification, not a new file.
+
 ## Formatting
 
 `.clang-format` is enforced via `make format-check` (CI + pre-commit hook) — don't hand-format. Run `make format` to auto-fix before committing.
