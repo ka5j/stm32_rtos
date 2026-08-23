@@ -1,0 +1,39 @@
+name: Hardware-in-the-loop
+
+# Runs on the self-hosted runner (spare laptop, Nucleo-F446RE attached over
+# USB) - the only place that can actually flash and verify real hardware.
+# Manual-only (workflow_dispatch, no automatic trigger): the rig isn't
+# always physically connected, so this is opt-in - run it by hand from the
+# Actions tab when the hardware is actually plugged in, and it simply
+# never runs otherwise. That also means a routine push to main never sits
+# queued waiting on a runner that isn't there.
+#
+# SECURITY: deliberately NOT triggered on pull_request, and deliberately
+# not on push either (even to main). A self-hosted runner on a public repo
+# that ran PR-triggered (or even just automatic) workflows would execute
+# arbitrary code from anyone's fork - or from a compromised push - on this
+# physical machine. Never widen the `on:` trigger here without re-reading
+# that tradeoff.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flash-and-verify:
+    runs-on: [self-hosted, nucleo-f446re]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: make all
+        run: make all
+
+      - name: make flash
+        run: make flash
+
+      - name: Smoke test
+        run: |
+          echo "TODO: define the actual hardware check once there's a driver to verify"
+          echo "e.g. read back a GPIO state, or check a UART heartbeat over the ST-LINK VCP"
+          exit 1

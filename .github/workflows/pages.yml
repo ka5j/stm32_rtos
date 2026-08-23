@@ -1,0 +1,51 @@
+name: Deploy Docs
+
+# Builds the Doxygen site and publishes it to GitHub Pages. Only runs on
+# push to main - not develop, not pull_request - so the published site
+# always reflects the last tagged release (PROJECT_NUMBER in Doxyfile is
+# only ever bumped as part of a develop->main release PR, see
+# docs/VERSIONING.md), never in-progress work, and a PR from an untrusted
+# fork can't publish to the live site.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; let an in-flight one finish rather
+# than cancel it mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen
+
+      - name: make docs
+        run: make docs
+
+      - name: Upload docs/html as the Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: docs/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

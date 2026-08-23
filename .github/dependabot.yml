@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # This project has no package-manager dependencies (bare-metal C, no
+  # HAL/CMSIS, no npm/pip/cargo) - the actual supply-chain surface is the
+  # GitHub Actions used in .github/workflows/, which are pinned to commit
+  # SHAs (see SECURITY.md). Dependabot opens a PR bumping the pin (and its
+  # version comment) when an action publishes a new release, so pinning
+  # doesn't silently calcify into running a stale, unpatched action forever.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

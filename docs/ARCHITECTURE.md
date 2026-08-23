@@ -1,5 +1,7 @@
 # Architecture
 
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for naming conventions, the layering rule, error-handling contract, and the local dev workflow (formatting/lint/docs gates, pre-commit hook).
+
 ## Directory layout
 
 ```
@@ -26,6 +28,12 @@ stm32_rtos/
 │       └── src/
 ├── app/             Application task code — only includes api/ and rtos/api/
 │   └── src/
+├── tests/           Host-side unit tests (native compiler, not arm-none-eabi-gcc)
+│   ├── unity/       Vendored Unity test framework
+│   └── unit/        test_<peripheral>_reg.c per register header (aggregated
+│                     by test_runner.c), test_<name>.c per driver/api/bsp/
+│                     rtos module — see CONTRIBUTING.md's new-module test
+│                     requirement
 ├── startup/         Vector table, reset handler
 ├── linker/          STM32F446RE.ld memory layout
 └── tools/           openocd.cfg

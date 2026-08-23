@@ -1,0 +1,117 @@
+name: CI
+
+# Public-facing gate: build + docs + format + lint, on a GitHub-hosted
+# runner. Runs on every push and PR - this is the badge/status a reviewer
+# sees. Hardware-in-the-loop testing lives in hil.yml on a self-hosted
+# runner instead, deliberately not triggered here (see that file for why).
+on:
+  push:
+  pull_request:
+
+# Least-privilege default: this workflow only ever reads the repo and
+# runs local build/lint/test/docs commands - it never needs to write
+# anything back to GitHub.
+permissions:
+  contents: read
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0   # full history - required to diff PR head against its base branch below
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi doxygen cppcheck clang-format
+
+      - name: make all
+        run: make all
+
+      - name: make format-check
+        run: make format-check
+
+      - name: make test
+        run: make test
+
+      - name: make lint
+        run: make lint
+
+      - name: make docs
+        run: make docs
+
+      - name: Check touched source files have a Doxygen @file block
+        # `make docs` only enforces per-member documentation on a file once
+        # it has at least one Doxygen comment (e.g. @file) - a file with
+        # zero doc comments is otherwise invisible to that gate. This check
+        # closes that gap by requiring @file on every touched source file,
+        # which is also what activates the per-member checking in the first
+        # place. Same PR-diff approach as the test-coverage check below.
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          BASE="origin/${{ github.event.pull_request.base.ref }}"
+          missing=0
+
+          changed=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- \
+            'core/inc/*.h' 'device/inc/*.h' \
+            'drivers/inc/*.h' 'drivers/src/*.c' \
+            'api/inc/*.h' 'api/src/*.c' \
+            'bsp/inc/*.h' 'bsp/src/*.c' \
+            'rtos/kernel/inc/*.h' 'rtos/kernel/src/*.c' \
+            'rtos/api/inc/*.h' 'rtos/api/src/*.c' \
+            'app/src/*.c' | awk '{print $2}')
+          for f in $changed; do
+            if ! grep -q '@file' "$f"; then
+              echo "::error file=$f::Missing Doxygen @file block - make docs won't check this file at all without one"
+              missing=1
+            fi
+          done
+
+          exit $missing
+
+      - name: Check new modules have unit tests
+        # PR-only: needs the PR's base branch to diff against, which a plain
+        # push doesn't have. Runs on every PR regardless of target branch,
+        # so this applies to feature->develop and develop->main alike.
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          BASE="origin/${{ github.event.pull_request.base.ref }}"
+          missing=0
+
+          # .c files added OR modified under drivers/, api/, bsp/, rtos/ (and
+          # app/, except main.c - the entry point, not logic worth a
+          # dedicated unit test) need a matching tests/unit/test_<name>.c.
+          # Modified (not just added) matters here: several .c files in this
+          # repo started as empty scaffolding in the initial commit, so
+          # filling one in shows up as a modification, not an addition.
+          added_c=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- \
+            'drivers/*.c' 'api/*.c' 'bsp/*.c' 'rtos/*.c' 'app/*.c' | awk '{print $2}')
+          for f in $added_c; do
+            if [ "$f" = "app/src/main.c" ]; then
+              continue
+            fi
+            base=$(basename "$f" .c)
+            if [ ! -f "tests/unit/test_${base}.c" ]; then
+              echo "::error file=$f::New module $f has no matching tests/unit/test_${base}.c"
+              missing=1
+            fi
+          done
+
+          # *_reg.h files added OR modified under core/inc, device/inc
+          # (register data, no .c file to match 1:1) must be #include'd by
+          # some test.
+          added_reg=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- \
+            'core/inc/*_reg.h' 'device/inc/*_reg.h' | awk '{print $2}')
+          for f in $added_reg; do
+            base=$(basename "$f")
+            if ! grep -rl "\"$base\"" tests/unit/ >/dev/null 2>&1; then
+              echo "::error file=$f::New register header $f is not included by any file in tests/unit/"
+              missing=1
+            fi
+          done
+
+          exit $missing

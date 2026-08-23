@@ -1,0 +1,22 @@
+#!/bin/sh
+# Tracked pre-commit hook - enabled via `git config core.hooksPath .githooks`
+# (see README.md). Same checks CI runs remotely, run here first so a
+# failure is caught before you even push. Cheapest check first.
+set -e
+
+echo "[pre-commit] make format-check"
+make format-check
+
+echo "[pre-commit] make test"
+make test
+
+echo "[pre-commit] make lint"
+make lint
+
+echo "[pre-commit] make docs"
+make docs
+
+echo "[pre-commit] make all"
+make all
+
+echo "[pre-commit] all checks passed"
