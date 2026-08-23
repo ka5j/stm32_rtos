@@ -29,4 +29,4 @@ jobs:
         run: make lint
 
       - name: make docs
-       run: make docs
+        run: make docs
