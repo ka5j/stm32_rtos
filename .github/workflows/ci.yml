@@ -28,5 +28,5 @@ jobs:
       - name: make lint
         run: make lint
 
-     # - name: make docs
-     #   run: make docs
+      - name: make docs
+       run: make docs
