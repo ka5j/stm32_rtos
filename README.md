@@ -2,17 +2,44 @@
 
 A from-scratch preemptive RTOS built directly on register-level access — no HAL/LL, no CMSIS device headers. All peripheral and core register structs are hand-derived from the reference manual and mapped to raw addresses.
 
-## Quick Start
+## Getting Started
 
-```sh
-git clone https://github.com/ka5j/stm32_rtos.git
-cd stm32_rtos
-git config core.hooksPath .githooks   # one-time: enable the pre-commit hook
-chmod +x .githooks/pre-commit
-make            # build .elf/.bin/.hex, print a size report
-# connect the Nucleo-F446RE over USB (onboard ST-LINK/V2-1)
-make flash      # program and reset the board
-```
+**Prerequisites:**
+- [GNU Arm Embedded Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-gcc`) on your `PATH`
+- [OpenOCD](https://openocd.org/) on your `PATH` — required for `flash`, `erase`, `debug`
+- GNU Make
+- `clang-format`, `cppcheck`, `doxygen` on your `PATH` — required for `make format-check`/`make lint`/`make docs`, and therefore for the pre-commit hook below to run at all
+  - macOS: `brew install clang-format cppcheck doxygen`
+  - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen`
+- Reference docs (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
+
+**Setup, step by step:**
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/ka5j/stm32_rtos.git
+   cd stm32_rtos
+   ```
+
+2. Enable the pre-commit hook (one-time — without this, commits skip the format/lint/docs/build checks entirely):
+   ```sh
+   git config core.hooksPath .githooks
+   chmod +x .githooks/pre-commit
+   ```
+
+3. Build — produces `.elf`/`.bin`/`.hex` in `build/` and prints a size report:
+   ```sh
+   make
+   ```
+
+4. Connect the Nucleo-F446RE over USB (onboard ST-LINK/V2-1), then flash:
+   ```sh
+   make flash
+   ```
+
+`tools/openocd.cfg` and `linker/STM32F446RE.ld` already ship in the repo — the build fails without them, but there's nothing to configure, they're just there.
+
+**Before writing or committing any code**, read [CONTRIBUTING.md](CONTRIBUTING.md) — it covers naming/layering conventions, the error-handling contract, and what the pre-commit hook you just enabled checks on every commit.
 
 ## Overview
 
@@ -31,22 +58,6 @@ Starting from boot (linker script + startup file) and building up in layers — 
 - NUCLEO-F446RE (STM32F446RE, Cortex-M4F, 512 KB flash / 128 KB SRAM)
 - Onboard LED (LD2) on PA5, user button (B1) on PC13, ST-LINK virtual COM port on USART2 (PA2/PA3)
 
-## Tools
-
-- `arm-none-eabi-gcc` — cross-compiler/toolchain
-- OpenOCD — flashing and debugging via onboard ST-LINK/V2-1
-- GNU Make
-- Reference docs: RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
-
-## Prerequisites
-
-- [GNU Arm Embedded Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-gcc`) on your `PATH`
-- [OpenOCD](https://openocd.org/) on your `PATH` — required for `flash`, `erase`, `debug`
-- GNU Make
-- `clang-format`, `cppcheck`, `doxygen` on your `PATH` — required for `make format-check`/`make lint`/`make docs`, and therefore for the pre-commit hook (see below) to run at all. On macOS: `brew install clang-format cppcheck doxygen`. On Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen`.
-- `tools/openocd.cfg` present in the repo, configured for the onboard ST-LINK and `stm32f4x` target
-- `linker/STM32F446RE.ld` present — the build will fail without it
-
 ## Make Commands
 
 | Command             | Description                                                                                        |
@@ -62,8 +73,6 @@ Starting from boot (linker script + startup file) and building up in layers — 
 | `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
 | `make lint`         | Run `cppcheck` across the project; fails on any finding                                             |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for naming/layering conventions, the error-handling contract, and one-time setup for the local pre-commit hook (`git config core.hooksPath .githooks`).
 
 ## Status
 
