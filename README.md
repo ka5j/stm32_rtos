@@ -77,7 +77,7 @@ Starting from boot (linker script + startup file) and building up in layers — 
 
 ## Status
 
-**Done:** boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. Register layer for GPIO, RCC, and SysTick (`device/inc/`, `core/inc/`) is complete, documented, and covered by host-side unit tests. The full dev pipeline — build, formatting, lint, Doxygen coverage, unit tests, pre-commit hook, CI — is built and verified, including CI checks that enforce doc coverage and test coverage on every new or modified source file.
+**Done:** boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. Register layer for GPIO, RCC, SysTick, and UART (`device/inc/`, `core/inc/`) is complete, documented, and covered by host-side unit tests — NVIC and SCB registers are still open. The full dev pipeline — build, formatting, lint (incl. a MISRA C:2012 subset), Doxygen coverage, unit tests, pre-commit hook, CI — is built and verified, including CI checks that enforce doc coverage and test coverage on every new or modified source file.
 
 **Not started:** drivers, API, BSP, and RTOS kernel/API layers are still empty scaffolding — no driver logic exists yet. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout and [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions that layer needs to follow as it's written.
 
