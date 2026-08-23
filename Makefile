@@ -65,7 +65,7 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re docs format format-check lint
+.PHONY: all clean flash erase debug size re docs format format-check lint test
 
 # ------------------------------------------------------------------------
 # make / make all
@@ -164,7 +164,7 @@ clean:
 # Use case: fix formatting drift before committing.
 # ------------------------------------------------------------------------
 format:
-	clang-format -i $(shell git ls-files '*.c' '*.h')
+	clang-format -i $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
 
 # ------------------------------------------------------------------------
 # make format-check
@@ -172,7 +172,7 @@ format:
 # would be reformatted. Safe for CI and the pre-commit hook.
 # ------------------------------------------------------------------------
 format-check:
-	clang-format --dry-run --Werror $(shell git ls-files '*.c' '*.h')
+	clang-format --dry-run --Werror $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
 
 # ------------------------------------------------------------------------
 # make lint
@@ -186,6 +186,34 @@ lint:
 	  --std=c11 --error-exitcode=1 --inline-suppr \
 	  --suppress=missingIncludeSystem \
 	  $(INCLUDES) $(SRC_DIRS)
+
+# ------------------------------------------------------------------------
+# make test
+# Compiles and runs the host-side unit tests (tests/unit/) against Unity
+# (vendored in tests/unity/), using the NATIVE compiler - not
+# arm-none-eabi-gcc. Only pure-logic code with no direct hardware access
+# is testable this way (register-header data, driver logic once it takes
+# its register block as a parameter instead of reaching for the global
+# macro). Separate build dir (tests/build/) so it never touches build/.
+# Use case: fast feedback on register/driver logic correctness, no board
+# or cross-toolchain required. Run this before make docs/make all in the
+# pre-commit hook and CI - it's the cheapest real check available.
+# ------------------------------------------------------------------------
+HOST_CC        := cc
+TEST_DIR       := tests
+TEST_BUILD_DIR := $(TEST_DIR)/build
+TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c
+TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
+TEST_OBJECTS   := $(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(notdir $(TEST_SOURCES)))
+vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity
+
+$(TEST_BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -Wall -Wextra $(TEST_INCLUDES) -c $< -o $@
+
+test: $(TEST_OBJECTS)
+	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
+	$(TEST_BUILD_DIR)/run_tests
 
 # ------------------------------------------------------------------------
 # make docs
