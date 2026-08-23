@@ -23,6 +23,7 @@ tearDown(void)
 
 extern void test_gpio_base_addresses_are_evenly_spaced(void);
 extern void test_gpio_register_block_size(void);
+extern void test_rcc_ahb1enr_gpio_enable_bits_do_not_overlap(void);
 
 int
 main(void)
@@ -30,5 +31,6 @@ main(void)
   UNITY_BEGIN();
   RUN_TEST(test_gpio_base_addresses_are_evenly_spaced);
   RUN_TEST(test_gpio_register_block_size);
+  RUN_TEST(test_rcc_ahb1enr_gpio_enable_bits_do_not_overlap);
   return UNITY_END();
 }
