@@ -36,6 +36,36 @@ jobs:
       - name: make docs
         run: make docs
 
+      - name: Check touched source files have a Doxygen @file block
+        # `make docs` only enforces per-member documentation on a file once
+        # it has at least one Doxygen comment (e.g. @file) - a file with
+        # zero doc comments is otherwise invisible to that gate. This check
+        # closes that gap by requiring @file on every touched source file,
+        # which is also what activates the per-member checking in the first
+        # place. Same PR-diff approach as the test-coverage check below.
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.event.pull_request.base.ref }}"
+          BASE="origin/${{ github.event.pull_request.base.ref }}"
+          missing=0
+
+          changed=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- \
+            'core/inc/*.h' 'device/inc/*.h' \
+            'drivers/inc/*.h' 'drivers/src/*.c' \
+            'api/inc/*.h' 'api/src/*.c' \
+            'bsp/inc/*.h' 'bsp/src/*.c' \
+            'rtos/kernel/inc/*.h' 'rtos/kernel/src/*.c' \
+            'rtos/api/inc/*.h' 'rtos/api/src/*.c' \
+            'app/src/*.c' | awk '{print $2}')
+          for f in $changed; do
+            if ! grep -q '@file' "$f"; then
+              echo "::error file=$f::Missing Doxygen @file block - make docs won't check this file at all without one"
+              missing=1
+            fi
+          done
+
+          exit $missing
+
       - name: Check new modules have unit tests
         # PR-only: needs the PR's base branch to diff against, which a plain
         # push doesn't have. Runs on every PR regardless of target branch,

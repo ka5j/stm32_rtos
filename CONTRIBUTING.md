@@ -36,9 +36,15 @@ core/, device/  (register structs)
 
 Use bare filenames resolved via the Makefile's `-I` search paths (e.g. `#include "rcc_reg.h"`), **not** root-relative paths (`#include "device/inc/rcc_reg.h"`). Every `inc/` directory in the project is already on the include path — a root-relative include is redundant and was the reason an earlier commit had to add `.` to `INC_DIRS` unnecessarily. If a bare include doesn't resolve, that's a signal the layering rule above is being violated (you're reaching for a header two layers away), not a reason to fully-qualify the path.
 
+## Documentation (Doxygen)
+
+Every public function needs `@brief`/`@param`/`@return` — and `@return` must enumerate every `DriverStatus_e` value the function can actually return and the condition that produces it, not just "returns a status." Every public struct/enum needs a `@brief`. Preconditions/postconditions that aren't obvious from the signature go in `@pre`/`@post`.
+
+**Gotcha, worth knowing before it surprises you**: `make docs` only enforces coverage on a file *once it has at least one Doxygen comment in it* (e.g. an `@file` block). A file with zero doc comments anywhere is currently invisible to the gate — it won't fail the build, but it also isn't actually being checked. Add the `@file`/`@brief` header to a new file as step one, before you write anything else in it, so the gate is actually watching it from the start rather than after the fact. CI also enforces this directly (see below), so it's not just a local habit — a PR that skips it fails the build either way.
+
 ## Error-handling contract
 
-Every driver function that can fail returns `DriverStatus_e` (`drivers/inc/driver_errors.h`) — a small, closed set of failure *categories* (`DRIVER_STATUS_ERR_INVALID_PARAM`, `_NOT_INITIALIZED`, `_TIMEOUT`, `_HW_FAULT`, `_BUSY`, `_UNSUPPORTED`), used for control-flow decisions at the call site. Always compare explicitly:
+Every driver function that can fail returns `DriverStatus_e` (defined in `drivers/inc/driver_errors.h`) — a small, closed set of failure *categories* (`DRIVER_STATUS_ERR_INVALID_PARAM`, `_NOT_INITIALIZED`, `_TIMEOUT`, `_HW_FAULT`, `_BUSY`, `_UNSUPPORTED`), used for control-flow decisions at the call site. **This is the required pattern for any new driver code, not something already implemented** — `driver_errors.h` doesn't exist on `develop` yet; the first driver work should create it with this exact enum before anything returns it. Always compare explicitly:
 
 ```c
 DriverStatus_e status = rccGpioClockEnable(GPIO_PORT_A);
@@ -51,17 +57,12 @@ Module-specific failure detail (which check failed, on which peripheral) belongs
 
 Mark fallible functions `__attribute__((warn_unused_result))` so an ignored return value is a compiler error, not a silent bug.
 
-## Documentation (Doxygen)
+## CI-enforced checks on new/modified files
 
-Every public function needs `@brief`/`@param`/`@return` — and `@return` must enumerate every `DriverStatus_e` value the function can actually return and the condition that produces it, not just "returns a status." Every public struct/enum needs a `@brief`. Preconditions/postconditions that aren't obvious from the signature go in `@pre`/`@post`.
+Two checks run in `ci.yml` that aren't obvious from running `make docs`/`make test` locally — both work the same way: they diff the PR against its base branch, so they only run on `pull_request` events (a plain push has no "base" to compare against), and they apply identically regardless of target branch — a feature branch's PR into `develop` and a `develop`→`main` PR are checked the same way. Both check *modified* files, not just newly-added ones, since several files in this repo started as empty scaffolding in the initial commit, so filling one in is a modification, not a new file.
 
-**Gotcha, worth knowing before it surprises you**: `make docs` only enforces coverage on a file *once it has at least one Doxygen comment in it* (e.g. an `@file` block). A file with zero doc comments anywhere is currently invisible to the gate — it won't fail the build, but it also isn't actually being checked. Add the `@file`/`@brief` header to a new file as step one, before you write anything else in it, so the gate is actually watching it from the start rather than after the fact.
-
-## New-module test requirement (CI-enforced)
-
-Any PR that adds or fills in a `.c` file under `drivers/`, `api/`, `bsp/`, or `rtos/` must include a matching `tests/unit/test_<name>.c` (e.g. `drivers/src/uart.c` requires `tests/unit/test_uart.c`) — enforced by a CI check, not just convention. `app/src/main.c` is exempt (entry point, not logic worth a dedicated unit test). A new or filled-in `*_reg.h` under `core/inc`/`device/inc` must be `#include`d by at least one file in `tests/unit/` — no 1:1 naming requirement there, since one test file can reasonably cover several related headers (see `test_registers.c`).
-
-This check runs on every PR regardless of target branch, so it applies the same way to a feature branch's PR into `develop` and to a `develop`→`main` PR. It compares the PR against its base branch, which is why it only runs on `pull_request` events, not plain pushes — and it checks *modified* files, not just newly-added ones, since several `.c` files in this repo started as empty scaffolding in the initial commit and filling one in is a modification, not a new file.
+1. **Doxygen `@file` block** — every source file touched under `core/inc/`, `device/inc/`, `drivers/`, `api/`, `bsp/`, `rtos/`, or `app/src/` needs one, or `make docs` can't check it at all (the gotcha above).
+2. **Matching unit test** — every `.c` file touched under `drivers/`, `api/`, `bsp/`, or `rtos/` (except `app/src/main.c`, the entry point) needs a `tests/unit/test_<name>.c`. Every `*_reg.h` touched under `core/inc`/`device/inc` must be `#include`d by at least one file in `tests/unit/` — no 1:1 naming requirement there, since one test file can reasonably cover several related headers (see `test_registers.c`).
 
 ## Formatting
 
@@ -75,4 +76,4 @@ git config core.hooksPath .githooks
 chmod +x .githooks/pre-commit
 ```
 
-After that, `git commit` runs `format-check` → `lint` → `docs` → `all` automatically before the commit is created — same checks CI runs remotely, just local and fast. Useful standalone commands: `make format`, `make format-check`, `make lint`, `make docs`, `make all`, `make flash`.
+After that, `git commit` runs `format-check` → `test` → `lint` → `docs` → `all` automatically before the commit is created — same checks CI runs remotely, just local and fast. Useful standalone commands: `make format`, `make format-check`, `make test`, `make lint`, `make docs`, `make all`, `make flash`.
