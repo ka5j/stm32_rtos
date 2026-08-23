@@ -55,6 +55,12 @@ Starting from boot (linker script + startup file) and building up in layers — 
 | `make debug`        | Build (if needed), start OpenOCD as a GDB server, and attach GDB                                   |
 | `make re`           | `clean` followed by `all`                                                                          |
 | `make clean`        | Remove the `build/` directory                                                                      |
+| `make format`       | Apply `.clang-format` to every tracked `.c`/`.h` file in place                                     |
+| `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
+| `make lint`         | Run `cppcheck` across the project; fails on any finding                                             |
+| `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for naming/layering conventions, the error-handling contract, and one-time setup for the local pre-commit hook (`git config core.hooksPath .githooks`).
 
 ## Status
 

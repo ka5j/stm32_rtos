@@ -1,5 +1,7 @@
 # Architecture
 
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for naming conventions, the layering rule, error-handling contract, and the local dev workflow (formatting/lint/docs gates, pre-commit hook).
+
 ## Directory layout
 
 ```

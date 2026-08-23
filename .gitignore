@@ -10,6 +10,9 @@ build/
 *.lst
 *.su
 
+# Temporary - Once Doxygen documentation is completed, can be removed
+docs/html/
+
 # OpenOCD / debug
 *.log
 gdb.txt
@@ -25,3 +28,4 @@ compile_commands.json
 
 # macOS
 .DS_Store
+
