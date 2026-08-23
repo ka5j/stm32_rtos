@@ -30,8 +30,10 @@ stm32_rtos/
 │   └── src/
 ├── tests/           Host-side unit tests (native compiler, not arm-none-eabi-gcc)
 │   ├── unity/       Vendored Unity test framework
-│   └── unit/        test_<name>.c per module — see CONTRIBUTING.md's new-module
-│                     test requirement
+│   └── unit/        test_<peripheral>_reg.c per register header (aggregated
+│                     by test_runner.c), test_<name>.c per driver/api/bsp/
+│                     rtos module — see CONTRIBUTING.md's new-module test
+│                     requirement
 ├── startup/         Vector table, reset handler
 ├── linker/          STM32F446RE.ld memory layout
 └── tools/           openocd.cfg
