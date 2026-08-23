@@ -64,6 +64,14 @@ Two checks run in `ci.yml` that aren't obvious from running `make docs`/`make te
 1. **Doxygen `@file` block** — every source file touched under `core/inc/`, `device/inc/`, `drivers/`, `api/`, `bsp/`, `rtos/`, or `app/src/` needs one, or `make docs` can't check it at all (the gotcha above).
 2. **Matching unit test** — every `.c` file touched under `drivers/`, `api/`, `bsp/`, or `rtos/` (except `app/src/main.c`, the entry point) needs a `tests/unit/test_<name>.c`. Every `*_reg.h` touched under `core/inc`/`device/inc` must be `#include`d by at least one file in `tests/unit/` — CI doesn't enforce a 1:1 naming rule there, but this repo's convention is one test file per register header (`test_<peripheral>_reg.c`, e.g. `gpio_reg.h` → `test_gpio_reg.c`). All of them are aggregated into a single `run_tests` binary by `tests/unit/test_runner.c`, which owns `main()`/`setUp()`/`tearDown()` — Unity allows only one definition of each per binary, so the individual test files declare no `main()` of their own.
 
+## CI triggers and branch conventions
+
+`ci.yml` runs on every `push` (any branch) and every `pull_request` (any target branch): `make all`, `make format-check`, `make test`, `make lint`, `make docs`, in that order — the same five checks the pre-commit hook already ran locally. On `pull_request` events specifically, the two diff-based checks above also run, since only a PR has a base branch to diff against.
+
+`hil.yml` is separate and much narrower: it only runs on `workflow_dispatch` (manual) or a direct `push` to `main`, on a self-hosted runner physically wired to a Nucleo-F446RE (`make all` → `make flash` → a hardware smoke test). It deliberately never runs on `pull_request` — a self-hosted runner executing PR-triggered workflows on a public repo would run arbitrary fork code on that physical machine.
+
+**Branch convention:** feature/topic branches PR into `develop`. `develop` is PR'd into `main` occasionally, at release points — not on every merge — which is also why hardware-in-the-loop only fires on `main`, not on every `develop` commit.
+
 ## Formatting
 
 `.clang-format` is enforced via `make format-check` (CI + pre-commit hook) — don't hand-format. Run `make format` to auto-fix before committing.
