@@ -37,22 +37,22 @@
  */
 typedef struct ScbRegisters_t
 {
-  volatile uint32_t CPUID; ///< 0x00: CPUID base register (READ only)
-  volatile uint32_t ICSR;  ///< 0x04: interrupt control and state register
-  volatile uint32_t VTOR;  ///< 0x08: vector table offset register
-  volatile uint32_t AIRCR; ///< 0x0C: application interrupt and reset control register
-  volatile uint32_t SCR;   ///< 0x10: system control register
-  volatile uint32_t CCR;   ///< 0x14: configuration and control register
-  volatile uint32_t SHPR1; ///< 0x18: system handler priority register 1 (MemManage/Bus/Usage)
-  volatile uint32_t SHPR2; ///< 0x1C: system handler priority register 2 (SVCall)
-  volatile uint32_t SHPR3; ///< 0x20: system handler priority register 3 (PendSV/SysTick)
-  volatile uint32_t SHCSR; ///< 0x24: system handler control and state register
-  volatile uint32_t CFSR;  ///< 0x28: configurable fault status register (MMFSR/BFSR/UFSR)
-  volatile uint32_t HFSR;  ///< 0x2C: HardFault status register
-  volatile uint32_t DFSR;  ///< 0x30: debug fault status register
-  volatile uint32_t MMFAR; ///< 0x34: MemManage fault address register
-  volatile uint32_t BFAR;  ///< 0x38: BusFault address register
-  volatile uint32_t AFSR;  ///< 0x3C: auxiliary fault status register
+  volatile const uint32_t CPUID; ///< 0x00: CPUID base register (READ only)
+  volatile uint32_t ICSR;        ///< 0x04: interrupt control and state register
+  volatile uint32_t VTOR;        ///< 0x08: vector table offset register
+  volatile uint32_t AIRCR;       ///< 0x0C: application interrupt and reset control register
+  volatile uint32_t SCR;         ///< 0x10: system control register
+  volatile uint32_t CCR;         ///< 0x14: configuration and control register
+  volatile uint32_t SHPR1;       ///< 0x18: system handler priority register 1 (MemManage/Bus/Usage)
+  volatile uint32_t SHPR2;       ///< 0x1C: system handler priority register 2 (SVCall)
+  volatile uint32_t SHPR3;       ///< 0x20: system handler priority register 3 (PendSV/SysTick)
+  volatile uint32_t SHCSR;       ///< 0x24: system handler control and state register
+  volatile uint32_t CFSR;        ///< 0x28: configurable fault status register (MMFSR/BFSR/UFSR)
+  volatile uint32_t HFSR;        ///< 0x2C: HardFault status register
+  volatile uint32_t DFSR;        ///< 0x30: debug fault status register
+  volatile uint32_t MMFAR;       ///< 0x34: MemManage fault address register
+  volatile uint32_t BFAR;        ///< 0x38: BusFault address register
+  volatile uint32_t AFSR;        ///< 0x3C: auxiliary fault status register
   volatile uint32_t RESERVED0[18]; ///< 0x40-0x84: CPU ID/feature registers, unused by this RTOS
   volatile uint32_t CPACR;         ///< 0x88: coprocessor access control register (FPU enable)
 } ScbRegisters_t;

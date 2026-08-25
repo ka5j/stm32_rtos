@@ -25,17 +25,17 @@
  */
 typedef struct MpuRegisters_t
 {
-  volatile uint32_t TYPE;    ///< 0x00: MPU type register (READ only)
-  volatile uint32_t CTRL;    ///< 0x04: MPU control register
-  volatile uint32_t RNR;     ///< 0x08: MPU region number register
-  volatile uint32_t RBAR;    ///< 0x0C: MPU region base address register
-  volatile uint32_t RASR;    ///< 0x10: MPU region attribute and size register
-  volatile uint32_t RBAR_A1; ///< 0x14: RBAR alias 1
-  volatile uint32_t RASR_A1; ///< 0x18: RASR alias 1
-  volatile uint32_t RBAR_A2; ///< 0x1C: RBAR alias 2
-  volatile uint32_t RASR_A2; ///< 0x20: RASR alias 2
-  volatile uint32_t RBAR_A3; ///< 0x24: RBAR alias 3
-  volatile uint32_t RASR_A3; ///< 0x28: RASR alias 3
+  volatile const uint32_t TYPE; ///< 0x00: MPU type register (READ only)
+  volatile uint32_t CTRL;       ///< 0x04: MPU control register
+  volatile uint32_t RNR;        ///< 0x08: MPU region number register
+  volatile uint32_t RBAR;       ///< 0x0C: MPU region base address register
+  volatile uint32_t RASR;       ///< 0x10: MPU region attribute and size register
+  volatile uint32_t RBAR_A1;    ///< 0x14: RBAR alias 1
+  volatile uint32_t RASR_A1;    ///< 0x18: RASR alias 1
+  volatile uint32_t RBAR_A2;    ///< 0x1C: RBAR alias 2
+  volatile uint32_t RASR_A2;    ///< 0x20: RASR alias 2
+  volatile uint32_t RBAR_A3;    ///< 0x24: RBAR alias 3
+  volatile uint32_t RASR_A3;    ///< 0x28: RASR alias 3
 } MpuRegisters_t;
 
 #define MPU ((MpuRegisters_t *)MPU_BASE) ///< Pointer to the MPU register block
