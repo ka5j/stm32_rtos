@@ -19,6 +19,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define FLASH_BASE (0x40023C00UL) ///< Flash interface peripheral base address
 
 /**
@@ -58,5 +63,7 @@ typedef struct FlashRegisters_t
 #define FLASH_SR_WRPERR (1U << FLASH_SR_WRPERR_Pos) ///< READ/WRITE 1 to clear - write protect error
 #define FLASH_SR_BSY_Pos (16U)                      ///< Bit position within FLASH_SR
 #define FLASH_SR_BSY (1U << FLASH_SR_BSY_Pos)       ///< READ only - flash busy with an operation
+
+/** @} */
 
 #endif /* FLASH_REG_H */

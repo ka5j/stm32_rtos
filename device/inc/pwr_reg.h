@@ -19,6 +19,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define PWR_BASE (0x40007000UL) ///< PWR peripheral base address
 
 /**
@@ -72,5 +77,7 @@ typedef struct PwrRegisters_t
 #define PWR_CSR_ODRDY (1U << PWR_CSR_ODRDY_Pos)     ///< READ only - over-drive mode ready
 #define PWR_CSR_ODSWRDY_Pos (17U)                   ///< Bit position within PWR_CSR
 #define PWR_CSR_ODSWRDY (1U << PWR_CSR_ODSWRDY_Pos) ///< READ only - over-drive switch complete
+
+/** @} */
 
 #endif /* PWR_REG_H */

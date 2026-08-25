@@ -11,6 +11,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define RCC_BASE (0x40023800UL) ///< RCC peripheral base address
 
 /**
@@ -175,5 +180,7 @@ typedef struct RccRegisters_t
 #define RCC_CSR_WWDGRSTF (1U << RCC_CSR_WWDGRSTF_Pos) ///< READ only - window watchdog reset flag
 #define RCC_CSR_LPWRRSTF_Pos (31U)                    ///< Bit position within RCC_CSR
 #define RCC_CSR_LPWRRSTF (1U << RCC_CSR_LPWRRSTF_Pos) ///< READ only - low-power reset flag
+
+/** @} */
 
 #endif /* RCC_REG_H */

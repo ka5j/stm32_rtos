@@ -22,6 +22,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define USART1_BASE (0x40011000UL) ///< USART1 peripheral base address (APB2)
 #define USART2_BASE (0x40004400UL) ///< USART2 peripheral base address (APB1)
 #define USART3_BASE (0x40004800UL) ///< USART3 peripheral base address (APB1)
@@ -112,5 +117,7 @@ typedef struct UartRegisters_t
 /* --- USART_CR2 bit definitions --- */
 #define USART_CR2_STOP_Pos (12U)                        ///< Bit position within USART_CR2
 #define USART_CR2_STOP_Msk (0x3U << USART_CR2_STOP_Pos) ///< bits 13:12: 00=1 01=0.5 10=2 11=1.5
+
+/** @} */
 
 #endif /* UART_REG_H */

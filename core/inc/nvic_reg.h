@@ -29,6 +29,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup core_peripherals
+ * @{
+ */
+
 #define NVIC_BASE (0xE000E100UL) ///< NVIC peripheral base address (Armv7-M SCS)
 
 /**
@@ -158,5 +163,7 @@ typedef enum IRQn_e
 
 #define NVIC_PRIO_BITS (4U) ///< Implemented priority bits per IP[] entry (top nibble only)
 #define NVIC_PRIO_Pos (8U - NVIC_PRIO_BITS) ///< Shift a 0-15 priority into IP[]'s top nibble
+
+/** @} */
 
 #endif /* NVIC_REG_H */

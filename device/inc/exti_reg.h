@@ -20,6 +20,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define EXTI_BASE (0x40013C00UL) ///< EXTI peripheral base address
 
 /**
@@ -51,5 +56,7 @@ typedef struct ExtiRegisters_t
 #define EXTI_LINE_OTG_HS_WKUP (20U) ///< USB OTG HS (configured in FS) wakeup
 #define EXTI_LINE_TAMP_STAMP (21U)  ///< Tamper and TimeStamp
 #define EXTI_LINE_RTC_WKUP (22U)    ///< RTC wakeup
+
+/** @} */
 
 #endif /* EXTI_REG_H */
