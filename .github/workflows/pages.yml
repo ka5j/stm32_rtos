@@ -28,8 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install doxygen
-        run: sudo apt-get update && sudo apt-get install -y doxygen
+      - name: Install Doxygen 1.18.0
+        # Ubuntu's apt package (1.9.8 as of this writing) is far behind the
+        # version this Doxyfile targets - see the matching step in ci.yml
+        # for why the distro package isn't trustworthy here.
+        run: |
+          curl -sSL https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz \
+            | tar -xz -C /opt
+          echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
 
       - name: make docs
         run: make docs

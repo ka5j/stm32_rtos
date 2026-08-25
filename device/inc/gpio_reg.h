@@ -10,6 +10,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define GPIOA_BASE (0x40020000UL) ///< GPIOA peripheral base address
 #define GPIOB_BASE (0x40020400UL) ///< GPIOB peripheral base address
 #define GPIOC_BASE (0x40020800UL) ///< GPIOC peripheral base address
@@ -27,16 +32,16 @@
  */
 typedef struct GpioRegisters_t
 {
-  volatile uint32_t MODER;   ///< 0x00: mode register
-  volatile uint32_t OTYPER;  ///< 0x04: output type register
-  volatile uint32_t OSPEEDR; ///< 0x08: output speed register
-  volatile uint32_t PUPDR;   ///< 0x0C: pull-up/pull-down register
-  volatile uint32_t IDR;     ///< 0x10: input data register
-  volatile uint32_t ODR;     ///< 0x14: output data register
-  volatile uint32_t BSRR;    ///< 0x18: bit set/reset register
-  volatile uint32_t LCKR;    ///< 0x1C: configuration lock register
-  volatile uint32_t AFRL;    ///< 0x20: alternate function low register (pins 0-7)
-  volatile uint32_t AFRH;    ///< 0x24: alternate function high register (pins 8-15)
+  volatile uint32_t MODER;     ///< 0x00: mode register
+  volatile uint32_t OTYPER;    ///< 0x04: output type register
+  volatile uint32_t OSPEEDR;   ///< 0x08: output speed register
+  volatile uint32_t PUPDR;     ///< 0x0C: pull-up/pull-down register
+  volatile const uint32_t IDR; ///< 0x10: input data register (READ only)
+  volatile uint32_t ODR;       ///< 0x14: output data register
+  volatile uint32_t BSRR;      ///< 0x18: bit set/reset register
+  volatile uint32_t LCKR;      ///< 0x1C: configuration lock register
+  volatile uint32_t AFRL;      ///< 0x20: alternate function low register (pins 0-7)
+  volatile uint32_t AFRH;      ///< 0x24: alternate function high register (pins 8-15)
 } GpioRegisters_t;
 
 #define GPIOA ((GpioRegisters_t *)GPIOA_BASE) ///< Pointer to the GPIOA register block
@@ -68,5 +73,7 @@ typedef struct GpioRegisters_t
 #define GPIO_PUPD_NONE (0x0U) ///< PUPDR field value: none
 #define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: up
 #define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: down
+
+/** @} */
 
 #endif /* GPIO_REG_H */

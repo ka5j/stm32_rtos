@@ -4,19 +4,25 @@
  *        Cortex-M4 (Armv7-M architecture).
  *
  * Register layout derived from PM0214 (Cortex-M4 programming manual).
- * Architectural, not vendor-specific - fixed by Armv7-M's System
+ * Architectural rather than vendor-specific, fixed by Armv7-M's System
  * Control Space memory map. The STM32F446's Cortex-M4 implements 8
  * regions (readable at runtime via TYPE.DREGION).
  *
- * The RBAR_A1/RASR_A1..A3 alias pairs let a driver reprogram up to 4
- * regions back-to-back without rewriting RNR between each one - not
- * required for correctness (RNR + RBAR + RASR alone can configure any
- * region), just a throughput option this RTOS may or may not use.
+ * The RBAR_A1/RASR_A1..A3 alias pairs allow a driver to reprogram up to
+ * 4 regions consecutively without rewriting RNR between each one. This
+ * is not required for correctness (RNR, RBAR, and RASR alone can
+ * configure any region); it is an optional throughput optimization not
+ * currently used by this RTOS.
  */
 #ifndef MPU_REG_H
 #define MPU_REG_H
 
 #include <stdint.h>
+
+/**
+ * @addtogroup core_peripherals
+ * @{
+ */
 
 #define MPU_BASE (0xE000ED90UL) ///< MPU peripheral base address (Armv7-M SCS)
 
@@ -25,17 +31,17 @@
  */
 typedef struct MpuRegisters_t
 {
-  volatile uint32_t TYPE;    ///< 0x00: MPU type register (READ only)
-  volatile uint32_t CTRL;    ///< 0x04: MPU control register
-  volatile uint32_t RNR;     ///< 0x08: MPU region number register
-  volatile uint32_t RBAR;    ///< 0x0C: MPU region base address register
-  volatile uint32_t RASR;    ///< 0x10: MPU region attribute and size register
-  volatile uint32_t RBAR_A1; ///< 0x14: RBAR alias 1
-  volatile uint32_t RASR_A1; ///< 0x18: RASR alias 1
-  volatile uint32_t RBAR_A2; ///< 0x1C: RBAR alias 2
-  volatile uint32_t RASR_A2; ///< 0x20: RASR alias 2
-  volatile uint32_t RBAR_A3; ///< 0x24: RBAR alias 3
-  volatile uint32_t RASR_A3; ///< 0x28: RASR alias 3
+  volatile const uint32_t TYPE; ///< 0x00: MPU type register (READ only)
+  volatile uint32_t CTRL;       ///< 0x04: MPU control register
+  volatile uint32_t RNR;        ///< 0x08: MPU region number register
+  volatile uint32_t RBAR;       ///< 0x0C: MPU region base address register
+  volatile uint32_t RASR;       ///< 0x10: MPU region attribute and size register
+  volatile uint32_t RBAR_A1;    ///< 0x14: RBAR alias 1
+  volatile uint32_t RASR_A1;    ///< 0x18: RASR alias 1
+  volatile uint32_t RBAR_A2;    ///< 0x1C: RBAR alias 2
+  volatile uint32_t RASR_A2;    ///< 0x20: RASR alias 2
+  volatile uint32_t RBAR_A3;    ///< 0x24: RBAR alias 3
+  volatile uint32_t RASR_A3;    ///< 0x28: RASR alias 3
 } MpuRegisters_t;
 
 #define MPU ((MpuRegisters_t *)MPU_BASE) ///< Pointer to the MPU register block
@@ -92,5 +98,7 @@ typedef struct MpuRegisters_t
 #define MPU_RASR_AP_FULL_RW (0x3U) ///< AP field value: full read/write, any privilege
 #define MPU_RASR_AP_PRIV_RO (0x5U) ///< AP field value: privileged read-only
 #define MPU_RASR_AP_FULL_RO (0x6U) ///< AP field value: read-only, any privilege
+
+/** @} */
 
 #endif /* MPU_REG_H */

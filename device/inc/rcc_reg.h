@@ -11,6 +11,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define RCC_BASE (0x40023800UL) ///< RCC peripheral base address
 
 /**
@@ -93,6 +98,12 @@ typedef struct RccRegisters_t
 #define RCC_PLLCFGR_PLLSRC_Pos (22U)                      ///< Bit position within RCC_PLLCFGR
 #define RCC_PLLCFGR_PLLSRC (1U << RCC_PLLCFGR_PLLSRC_Pos) ///< 0=HSI, 1=HSE
 
+/* --- RCC_PLLCFGR_PLLP field values --- */
+#define RCC_PLLCFGR_PLLP_DIV2 (0x0U) ///< PLLP field value: PLL output / 2
+#define RCC_PLLCFGR_PLLP_DIV4 (0x1U) ///< PLLP field value: PLL output / 4
+#define RCC_PLLCFGR_PLLP_DIV6 (0x2U) ///< PLLP field value: PLL output / 6
+#define RCC_PLLCFGR_PLLP_DIV8 (0x3U) ///< PLLP field value: PLL output / 8
+
 /* --- RCC_CFGR bit definitions --- */
 #define RCC_CFGR_SW_Pos (0U)                      ///< Bit position within RCC_CFGR
 #define RCC_CFGR_SW_Msk (0x3U << RCC_CFGR_SW_Pos) ///< bits 1:0, system clock switch
@@ -108,6 +119,33 @@ typedef struct RccRegisters_t
 
 #define RCC_CFGR_PPRE2_Pos (13U)                        ///< Bit position within RCC_CFGR
 #define RCC_CFGR_PPRE2_Msk (0x7U << RCC_CFGR_PPRE2_Pos) ///< bits 15:13, APB2 prescaler
+
+/* --- RCC_CFGR field values --- */
+/* SW/SWS share one encoding (SWS mirrors back whichever source SW
+ * selected once the switch completes) - one set of values for both,
+ * shifted by RCC_CFGR_SW_Pos or RCC_CFGR_SWS_Pos at the call site. */
+#define RCC_CFGR_SYSCLK_HSI (0x0U) ///< SW/SWS field value: HSI selected
+#define RCC_CFGR_SYSCLK_HSE (0x1U) ///< SW/SWS field value: HSE selected
+#define RCC_CFGR_SYSCLK_PLL (0x2U) ///< SW/SWS field value: PLL selected
+
+/* HPRE (AHB prescaler) - note the jump from /16 to /64, no /32 encoding. */
+#define RCC_CFGR_HPRE_DIV1 (0x0U)   ///< HPRE field value: AHB clock not divided
+#define RCC_CFGR_HPRE_DIV2 (0x8U)   ///< HPRE field value: AHB clock / 2
+#define RCC_CFGR_HPRE_DIV4 (0x9U)   ///< HPRE field value: AHB clock / 4
+#define RCC_CFGR_HPRE_DIV8 (0xAU)   ///< HPRE field value: AHB clock / 8
+#define RCC_CFGR_HPRE_DIV16 (0xBU)  ///< HPRE field value: AHB clock / 16
+#define RCC_CFGR_HPRE_DIV64 (0xCU)  ///< HPRE field value: AHB clock / 64
+#define RCC_CFGR_HPRE_DIV128 (0xDU) ///< HPRE field value: AHB clock / 128
+#define RCC_CFGR_HPRE_DIV256 (0xEU) ///< HPRE field value: AHB clock / 256
+#define RCC_CFGR_HPRE_DIV512 (0xFU) ///< HPRE field value: AHB clock / 512
+
+/* PPRE1/PPRE2 (APB1/APB2 prescalers) share one encoding, shifted by
+ * RCC_CFGR_PPRE1_Pos or RCC_CFGR_PPRE2_Pos at the call site. */
+#define RCC_CFGR_PPRE_DIV1 (0x0U)  ///< PPRE1/PPRE2 field value: AHB clock not divided
+#define RCC_CFGR_PPRE_DIV2 (0x4U)  ///< PPRE1/PPRE2 field value: AHB clock / 2
+#define RCC_CFGR_PPRE_DIV4 (0x5U)  ///< PPRE1/PPRE2 field value: AHB clock / 4
+#define RCC_CFGR_PPRE_DIV8 (0x6U)  ///< PPRE1/PPRE2 field value: AHB clock / 8
+#define RCC_CFGR_PPRE_DIV16 (0x7U) ///< PPRE1/PPRE2 field value: AHB clock / 16
 
 /* --- RCC_AHB1RSTR bit definitions --- */
 #define RCC_AHB1RSTR_GPIOARST_Pos (0U) ///< Bit position within RCC_AHB1RSTR
@@ -148,10 +186,27 @@ typedef struct RccRegisters_t
 /* --- RCC_APB1RSTR bit definitions --- */
 #define RCC_APB1RSTR_USART2RST_Pos (17U) ///< Bit position within RCC_APB1RSTR
 #define RCC_APB1RSTR_USART2RST (1U << RCC_APB1RSTR_USART2RST_Pos) ///< Bit within RCC_APB1RSTR
+#define RCC_APB1RSTR_PWRRST_Pos (28U)                       ///< Bit position within RCC_APB1RSTR
+#define RCC_APB1RSTR_PWRRST (1U << RCC_APB1RSTR_PWRRST_Pos) ///< Bit within RCC_APB1RSTR
 
 /* --- RCC_APB1ENR bit definitions --- */
 #define RCC_APB1ENR_USART2EN_Pos (17U)                        ///< Bit position within RCC_APB1ENR
 #define RCC_APB1ENR_USART2EN (1U << RCC_APB1ENR_USART2EN_Pos) ///< Bit within RCC_APB1ENR
+#define RCC_APB1ENR_PWREN_Pos (28U)                           ///< Bit position within RCC_APB1ENR
+#define RCC_APB1ENR_PWREN                                                                          \
+  (1U << RCC_APB1ENR_PWREN_Pos) ///< Bit within RCC_APB1ENR - required
+                                ///< before touching any PWR register
+
+/* --- RCC_APB2RSTR bit definitions --- */
+#define RCC_APB2RSTR_SYSCFGRST_Pos (14U) ///< Bit position within RCC_APB2RSTR
+#define RCC_APB2RSTR_SYSCFGRST (1U << RCC_APB2RSTR_SYSCFGRST_Pos) ///< Bit within RCC_APB2RSTR
+
+/* --- RCC_APB2ENR bit definitions --- */
+#define RCC_APB2ENR_SYSCFGEN_Pos (14U) ///< Bit position within RCC_APB2ENR
+#define RCC_APB2ENR_SYSCFGEN                                                                       \
+  (1U << RCC_APB2ENR_SYSCFGEN_Pos) ///< Bit within RCC_APB2ENR -
+                                   ///< required before touching any
+                                   ///< SYSCFG register (e.g. EXTICR)
 
 /* --- RCC_CSR bit definitions --- */
 #define RCC_CSR_LSION_Pos (0U)                    ///< Bit position within RCC_CSR
@@ -175,5 +230,7 @@ typedef struct RccRegisters_t
 #define RCC_CSR_WWDGRSTF (1U << RCC_CSR_WWDGRSTF_Pos) ///< READ only - window watchdog reset flag
 #define RCC_CSR_LPWRRSTF_Pos (31U)                    ///< Bit position within RCC_CSR
 #define RCC_CSR_LPWRRSTF (1U << RCC_CSR_LPWRRSTF_Pos) ///< READ only - low-power reset flag
+
+/** @} */
 
 #endif /* RCC_REG_H */

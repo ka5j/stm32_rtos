@@ -5,22 +5,27 @@
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
  * reference manual), section 19: Universal synchronous asynchronous
- * receiver transmitter (USART). One register layout is shared by all six
- * instances (USART1/2/3, UART4/5, USART6) - UART4/5 simply leave the
+ * receiver transmitter (USART). One register layout is shared by all
+ * six instances (USART1/2/3, UART4/5, USART6); UART4/5 simply leave the
  * synchronous-mode and smartcard-only bits unimplemented in hardware.
  *
  * Field coverage here is scoped to what a standard 8N1 asynchronous
- * driver needs (baud rate, TX/RX enable, data/parity framing, the core
- * status flags, and the matching interrupt enables) - synchronous clock
- * output (CR2 CPOL/CPHA/CLKEN/LBCL), smartcard/IrDA (CR3 SCEN/IREN/IRLP),
- * and hardware flow control (CR3 RTSE/CTSE) are omitted since the
- * NUCLEO-F446RE's USART2 ST-LINK VCP path (PA2/PA3) doesn't route CTS/RTS
- * and none of those modes apply here.
+ * driver requires (baud rate, TX/RX enable, data/parity framing, the
+ * core status flags, and the matching interrupt enables). Synchronous
+ * clock output (CR2 CPOL/CPHA/CLKEN/LBCL), smartcard/IrDA (CR3
+ * SCEN/IREN/IRLP), and hardware flow control (CR3 RTSE/CTSE) are
+ * omitted, since the NUCLEO-F446RE's USART2 ST-LINK VCP path (PA2/PA3)
+ * does not route CTS/RTS and none of those modes apply here.
  */
 #ifndef UART_REG_H
 #define UART_REG_H
 
 #include <stdint.h>
+
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
 
 #define USART1_BASE (0x40011000UL) ///< USART1 peripheral base address (APB2)
 #define USART2_BASE (0x40004400UL) ///< USART2 peripheral base address (APB1)
@@ -112,5 +117,7 @@ typedef struct UartRegisters_t
 /* --- USART_CR2 bit definitions --- */
 #define USART_CR2_STOP_Pos (12U)                        ///< Bit position within USART_CR2
 #define USART_CR2_STOP_Msk (0x3U << USART_CR2_STOP_Pos) ///< bits 13:12: 00=1 01=0.5 10=2 11=1.5
+
+/** @} */
 
 #endif /* UART_REG_H */

@@ -4,30 +4,35 @@
  *        for the ARM Cortex-M4 (Armv7-M architecture).
  *
  * Register layout derived from PM0214 (Cortex-M4 programming manual),
- * section on the NVIC. This is architectural, not vendor-specific - the
- * base address and register offsets are fixed by Armv7-M's System
- * Control Space memory map, not the STM32F446. The ISER/ICER/ISPR/ICPR
+ * section on the NVIC. This is architectural rather than vendor-specific;
+ * the base address and register offsets are fixed by Armv7-M's System
+ * Control Space memory map, not by the STM32F446. The ISER/ICER/ISPR/ICPR
  * and IABR blocks are architecturally spaced 32 words apart regardless
  * of how many interrupts a given chip implements, so the RESERVED
- * members below aren't padding for alignment - they're the real gap
+ * members below are not padding for alignment; they are the actual gap
  * between register banks.
  *
  * The STM32F446 implements interrupt lines 0-96 (WWDG..FMPI2C1_Error, in
- * RM0390 vector-table order - see IRQn_e below), so only ISER0-3 /
+ * RM0390 vector-table order; see IRQn_e below), so only ISER0-3 /
  * ICER0-3 / ISPR0-3 / ICPR0-3 / IABR0-3 and IP[0..96] are meaningful on
- * this chip; the rest of each 8-word bank reads as unimplemented.
+ * this chip; the remainder of each 8-word bank reads as unimplemented.
  *
  * Only the top 4 bits of each IP[] priority byte are implemented on the
- * Cortex-M4 (PM0214: __NVIC_PRIO_BITS = 4) - 16 priority levels, values
- * 0x00, 0x10, 0x20, ... 0xF0. Writing a priority value with low nibble
- * bits set doesn't fault, but those bits are simply not stored in
- * hardware - a driver setting priorities should shift into the top
- * nibble, not assume all 8 bits are significant.
+ * Cortex-M4 (PM0214: __NVIC_PRIO_BITS = 4), giving 16 priority levels
+ * with values 0x00, 0x10, 0x20, ... 0xF0. Writing a priority value with
+ * low-nibble bits set does not fault, but those bits are not stored in
+ * hardware; a driver setting priorities should shift into the top
+ * nibble rather than assume all 8 bits are significant.
  */
 #ifndef NVIC_REG_H
 #define NVIC_REG_H
 
 #include <stdint.h>
+
+/**
+ * @addtogroup core_peripherals
+ * @{
+ */
 
 #define NVIC_BASE (0xE000E100UL) ///< NVIC peripheral base address (Armv7-M SCS)
 
@@ -158,5 +163,7 @@ typedef enum IRQn_e
 
 #define NVIC_PRIO_BITS (4U) ///< Implemented priority bits per IP[] entry (top nibble only)
 #define NVIC_PRIO_Pos (8U - NVIC_PRIO_BITS) ///< Shift a 0-15 priority into IP[]'s top nibble
+
+/** @} */
 
 #endif /* NVIC_REG_H */

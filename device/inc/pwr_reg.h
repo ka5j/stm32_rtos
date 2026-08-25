@@ -6,18 +6,23 @@
  * Register layout and field values derived from RM0390 (STM32F446xx
  * reference manual), section 5.4: PWR registers.
  *
- * CR.VOS pairs with flash_reg.h's ACR.LATENCY as the other half of the
- * "raising SYSCLK" story: the voltage scale must be selected (and
- * CSR.VOSRDY polled) before or alongside the flash latency change,
- * matching whatever range the target SYSCLK falls into per RM0390
- * Table 15 - see that table for the exact scale/frequency/latency
- * combination, since it's derivative- and package-specific rather than
- * a single fixed constant worth hardcoding here.
+ * CR.VOS pairs with flash_reg.h's ACR.LATENCY: raising SYSCLK requires
+ * selecting the voltage scale (and polling CSR.VOSRDY) before or
+ * alongside the flash latency change, matching whatever range the
+ * target SYSCLK falls into per RM0390 Table 15. See that table for the
+ * exact scale/frequency/latency combination, since it is derivative-
+ * and package-specific rather than a single fixed constant suitable for
+ * hardcoding here.
  */
 #ifndef PWR_REG_H
 #define PWR_REG_H
 
 #include <stdint.h>
+
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
 
 #define PWR_BASE (0x40007000UL) ///< PWR peripheral base address
 
@@ -72,5 +77,7 @@ typedef struct PwrRegisters_t
 #define PWR_CSR_ODRDY (1U << PWR_CSR_ODRDY_Pos)     ///< READ only - over-drive mode ready
 #define PWR_CSR_ODSWRDY_Pos (17U)                   ///< Bit position within PWR_CSR
 #define PWR_CSR_ODSWRDY (1U << PWR_CSR_ODSWRDY_Pos) ///< READ only - over-drive switch complete
+
+/** @} */
 
 #endif /* PWR_REG_H */

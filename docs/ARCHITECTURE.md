@@ -1,6 +1,6 @@
 # Architecture
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for naming conventions, the layering rule, error-handling contract, and the local dev workflow (formatting/lint/docs gates, pre-commit hook).
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for naming conventions, the layering rule, the error-handling contract, and the local development workflow (formatting/lint/docs gates, pre-commit hook).
 
 ## Directory layout
 
@@ -39,7 +39,7 @@ stm32_rtos/
 └── tools/           openocd.cfg
 ```
 
-`api/` and `rtos/api/` are easy to conflate: `api/` is the peripheral-facing layer (drives GPIO/UART directly, board-independent of the RTOS), while `rtos/api/` is the RTOS syscall-facing layer (tasks, semaphores, queues). Application code in `app/` calls into both but never reaches past them into `drivers/` or `rtos/kernel/` directly.
+`api/` and `rtos/api/` are readily conflated: `api/` is the peripheral-facing layer (drives GPIO/UART directly, independent of the RTOS and board), while `rtos/api/` is the RTOS syscall-facing layer (tasks, semaphores, queues). Application code in `app/` calls into both but never reaches past them into `drivers/` or `rtos/kernel/` directly.
 
 ## Layer diagram
 
@@ -80,7 +80,7 @@ Defined in [`linker/STM32F446RE.ld`](../linker/STM32F446RE.ld):
 | FLASH  | 0x08000000 | 512 KB |
 | RAM    | 0x20000000 | 128 KB |
 
-`.isr_vector` is placed first in FLASH and `KEEP()`'d so the linker can't garbage-collect it. `.data` uses `AT>FLASH` to keep its load address in FLASH while its run address is in RAM, initialized by the `.data`/`.bss` copy loop in `Reset_Handler`. `._user_heap_stack` reserves space above `.bss` so the link fails at build time if there isn't room for the requested heap + stack, rather than silently corrupting memory at runtime.
+`.isr_vector` is placed first in FLASH and `KEEP()`'d so the linker cannot garbage-collect it. `.data` uses `AT>FLASH` to keep its load address in FLASH while its run address is in RAM, initialized by the `.data`/`.bss` copy loop in `Reset_Handler`. `._user_heap_stack` reserves space above `.bss` so the link fails at build time if there is not room for the requested heap and stack, rather than silently corrupting memory at runtime.
 
 ## Vector table entry points
 

@@ -1,19 +1,19 @@
 # STM32F446RE Bare-Metal RTOS
 
-A from-scratch preemptive RTOS built directly on register-level access — no HAL/LL, no CMSIS device headers. All peripheral and core register structs are hand-derived from the reference manual and mapped to raw addresses.
+A preemptive RTOS for the STM32F446RE, built from scratch on direct register-level access, without HAL/LL or CMSIS device headers. All peripheral and core register structures are derived directly from the reference manual and mapped to their memory addresses.
 
 ## Getting Started
 
 **Prerequisites:**
-- [GNU Arm Embedded Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-gcc`) on your `PATH`
-- [OpenOCD](https://openocd.org/) on your `PATH` — required for `flash`, `erase`, `debug`
+- [GNU Arm Embedded Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-gcc`) on the `PATH`
+- [OpenOCD](https://openocd.org/) on the `PATH` — required for `flash`, `erase`, `debug`
 - GNU Make
-- `clang-format`, `cppcheck`, `doxygen` on your `PATH` — required for `make format-check`/`make lint`/`make docs`, and therefore for the pre-commit hook below to run at all
+- `clang-format`, `cppcheck`, `doxygen` on the `PATH` — required for `make format-check`, `make lint`, and `make docs`, and consequently for the pre-commit hook to execute
   - macOS: `brew install clang-format cppcheck doxygen`
   - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen`
-- Reference docs (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
+- Reference documentation (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
 
-**Setup, step by step:**
+**Setup:**
 
 1. Clone the repository:
    ```sh
@@ -21,13 +21,13 @@ A from-scratch preemptive RTOS built directly on register-level access — no HA
    cd stm32_rtos
    ```
 
-2. Enable the pre-commit hook (one-time — without this, commits skip the format/lint/docs/build checks entirely):
+2. Enable the pre-commit hook (one-time setup; without it, commits bypass the format/lint/docs/build checks):
    ```sh
    git config core.hooksPath .githooks
    chmod +x .githooks/pre-commit
    ```
 
-3. Build — produces `.elf`/`.bin`/`.hex` in `build/` and prints a size report:
+3. Build. Produces `.elf`/`.bin`/`.hex` in `build/` and prints a size report:
    ```sh
    make
    ```
@@ -37,21 +37,21 @@ A from-scratch preemptive RTOS built directly on register-level access — no HA
    make flash
    ```
 
-`tools/openocd.cfg` and `linker/STM32F446RE.ld` already ship in the repo — the build fails without them, but there's nothing to configure, they're just there.
+`tools/openocd.cfg` and `linker/STM32F446RE.ld` are included in the repository. The build fails without them; no configuration is required.
 
-**Before writing or committing any code**, read [CONTRIBUTING.md](CONTRIBUTING.md) — it covers naming/layering conventions, the error-handling contract, and what the pre-commit hook you just enabled checks on every commit.
+**Before writing or committing any code**, review [CONTRIBUTING.md](CONTRIBUTING.md), which documents naming and layering conventions, the error-handling contract, and the checks the pre-commit hook enforces on every commit.
 
 ## Overview
 
-Starting from boot (linker script + startup file) and building up in layers — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full directory tree and layer diagram. Generated API docs (Doxygen) are published at <https://ka5j.github.io/stm32_rtos/>, rebuilt on every push to `main` — see [docs/VERSIONING.md](docs/VERSIONING.md) for what "on `main`" means here.
+The system is structured in layers, starting from boot (linker script and startup file) and building upward. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the complete directory tree and layer diagram. Generated API documentation (Doxygen) is published at <https://ka5j.github.io/stm32_rtos/> and rebuilt on every push to `main` — see [docs/VERSIONING.md](docs/VERSIONING.md) for the release policy governing what is published there.
 
-1. **Core / device registers** — hand-written structs for Cortex-M4 core peripherals (NVIC, SysTick, SCB) and F446-specific peripherals (GPIO, RCC, UART)
-2. **Drivers** — direct register manipulation (GPIO, RCC/clock config, UART, NVIC, SysTick) — no app-facing logic
-3. **API** (`api/`) — the layer application code actually calls (`led_on()`, `debug_print()`, etc.) — hides which pin/peripheral is involved
-4. **BSP** — Nucleo-F446RE board-specific pin/peripheral mapping, consumed by the API layer
+1. **Core / device registers** — hand-written structures for Cortex-M4 core peripherals (NVIC, SysTick, SCB) and F446-specific peripherals (GPIO, RCC, UART)
+2. **Drivers** — direct register manipulation (GPIO, RCC/clock configuration, UART, NVIC, SysTick); no application-facing logic
+3. **API** (`api/`) — the layer application code calls directly (`led_on()`, `debug_print()`, etc.), abstracting which pin or peripheral is involved
+4. **BSP** — Nucleo-F446RE board-specific pin and peripheral mapping, consumed by the API layer
 5. **RTOS kernel** — scheduler, task control blocks, PendSV-based context switching
-6. **RTOS API** (`rtos/api/`) — the syscall-style interface app code uses (`task_create()`, `task_delay()`, semaphores, queues)
-7. **Application** — task code; only includes from `api/` and `rtos/api/`, never touches drivers or the kernel directly
+6. **RTOS API** (`rtos/api/`) — the syscall-style interface application code uses (`task_create()`, `task_delay()`, semaphores, queues)
+7. **Application** — task code; includes only from `api/` and `rtos/api/`, never from drivers or the kernel directly
 
 ## Hardware
 
@@ -68,18 +68,18 @@ Starting from boot (linker script + startup file) and building up in layers — 
 | `make erase`        | Full chip mass-erase                                                                               |
 | `make debug`        | Build (if needed), start OpenOCD as a GDB server, and attach GDB                                   |
 | `make re`           | `clean` followed by `all`                                                                          |
-| `make clean`        | Remove the `build/` directory                                                                      |
+| `make clean`        | Remove the `build/` directory and generated `docs/html/`                                          |
 | `make format`       | Apply `.clang-format` to every tracked `.c`/`.h` file in place                                     |
 | `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
-| `make lint`         | Run `cppcheck` (incl. a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
+| `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
 | `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity; fails on any test failure       |
 
 ## Status
 
-**Done:** boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. The full register layer is complete, documented, and covered by host-side unit tests — every Cortex-M4 core peripheral this project models (`core/inc/`: MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (`device/inc/`: EXTI, Flash interface, GPIO, IWDG, PWR, RCC, UART, WWDG), one `test_<peripheral>_reg.c` per header aggregated by `tests/unit/test_runner.c`. The full dev pipeline — build, formatting, lint (incl. a MISRA C:2012 subset), Doxygen coverage, unit tests, pre-commit hook, CI — is built and verified, including CI checks that enforce doc coverage and test coverage on every new or modified source file. See [CONTRIBUTING.md](CONTRIBUTING.md)'s CI-triggers section for exactly what runs locally vs. on push vs. on PR vs. on real hardware.
+**Completed:** The boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. The register layer is complete, documented, and covered by host-side unit tests, comprising every Cortex-M4 core peripheral this project models (`core/inc/`: MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (`device/inc/`: EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG), with one `test_<peripheral>_reg.c` per header aggregated by `tests/unit/test_runner.c`. The development pipeline — build, formatting, lint (including a MISRA C:2012 subset), Doxygen coverage, unit tests, pre-commit hook, and CI — is fully implemented and verified, including CI checks that enforce documentation and test coverage on every new or modified source file. See [CONTRIBUTING.md](CONTRIBUTING.md)'s CI triggers section for the exact checks run locally, on push, on pull request, and on hardware.
 
-**Not started:** drivers, API, BSP, and RTOS kernel/API layers are still empty scaffolding — no driver logic exists yet. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout and [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions that layer needs to follow as it's written.
+**Not started:** The drivers, API, BSP, and RTOS kernel/API layers remain empty scaffolding; no driver logic has been implemented. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout and [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions these layers must follow.
 
 ## License
 
