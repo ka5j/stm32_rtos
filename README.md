@@ -68,7 +68,7 @@ Starting from boot (linker script + startup file) and building up in layers — 
 | `make erase`        | Full chip mass-erase                                                                               |
 | `make debug`        | Build (if needed), start OpenOCD as a GDB server, and attach GDB                                   |
 | `make re`           | `clean` followed by `all`                                                                          |
-| `make clean`        | Remove the `build/` directory                                                                      |
+| `make clean`        | Remove the `build/` directory and generated `docs/html/`                                          |
 | `make format`       | Apply `.clang-format` to every tracked `.c`/`.h` file in place                                     |
 | `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
 | `make lint`         | Run `cppcheck` (incl. a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
@@ -77,7 +77,7 @@ Starting from boot (linker script + startup file) and building up in layers — 
 
 ## Status
 
-**Done:** boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. The full register layer is complete, documented, and covered by host-side unit tests — every Cortex-M4 core peripheral this project models (`core/inc/`: MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (`device/inc/`: EXTI, Flash interface, GPIO, IWDG, PWR, RCC, UART, WWDG), one `test_<peripheral>_reg.c` per header aggregated by `tests/unit/test_runner.c`. The full dev pipeline — build, formatting, lint (incl. a MISRA C:2012 subset), Doxygen coverage, unit tests, pre-commit hook, CI — is built and verified, including CI checks that enforce doc coverage and test coverage on every new or modified source file. See [CONTRIBUTING.md](CONTRIBUTING.md)'s CI-triggers section for exactly what runs locally vs. on push vs. on PR vs. on real hardware.
+**Done:** boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. The full register layer is complete, documented, and covered by host-side unit tests — every Cortex-M4 core peripheral this project models (`core/inc/`: MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (`device/inc/`: EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG), one `test_<peripheral>_reg.c` per header aggregated by `tests/unit/test_runner.c`. The full dev pipeline — build, formatting, lint (incl. a MISRA C:2012 subset), Doxygen coverage, unit tests, pre-commit hook, CI — is built and verified, including CI checks that enforce doc coverage and test coverage on every new or modified source file. See [CONTRIBUTING.md](CONTRIBUTING.md)'s CI-triggers section for exactly what runs locally vs. on push vs. on PR vs. on real hardware.
 
 **Not started:** drivers, API, BSP, and RTOS kernel/API layers are still empty scaffolding — no driver logic exists yet. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout and [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions that layer needs to follow as it's written.
 
