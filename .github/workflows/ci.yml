@@ -25,7 +25,20 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi doxygen cppcheck clang-format
+          sudo apt-get install -y gcc-arm-none-eabi cppcheck clang-format
+
+      - name: Install Doxygen 1.18.0
+        # Ubuntu's apt package (1.9.8 as of this writing) is far behind the
+        # version this Doxyfile targets (see its header comment and
+        # docs/groups.dox's @addtogroup usage) - dozens of tags silently
+        # ignored, and old-parser quirks can hard-fail under
+        # WARN_AS_ERROR=YES that the intended version doesn't hit. Install
+        # the exact upstream release instead of trusting the distro package
+        # to track it.
+        run: |
+          curl -sSL https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz \
+            | tar -xz -C /opt
+          echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
 
       - name: make all
         run: make all
