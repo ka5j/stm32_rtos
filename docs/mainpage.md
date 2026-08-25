@@ -10,7 +10,7 @@ reference manual and mapped directly to its memory address.
 Only the **register layer** is implemented so far: hand-written struct
 definitions for every Cortex-M4 core peripheral this project models (NVIC,
 SCB, MPU, SysTick) and every STM32F446-specific peripheral it models (GPIO,
-RCC, UART, EXTI, Flash interface, PWR, IWDG, WWDG). The driver/API/BSP/RTOS
+RCC, SYSCFG, UART, EXTI, Flash interface, PWR, IWDG, WWDG). The driver/API/BSP/RTOS
 layers built on top of these registers are still in progress — see the
 [GitHub repository](https://github.com/ka5j/stm32_rtos) for current status,
 build instructions, and contribution conventions. This site only documents
@@ -24,7 +24,7 @@ this project currently documents:
 - **Cortex-M4 Core Peripherals** — registers fixed by the Armv7-M
   architecture itself (NVIC, SCB, MPU, SysTick), derived from PM0214.
 - **STM32F446 Peripherals** — registers specific to this STM32 part (GPIO,
-  RCC, UART, EXTI, Flash, PWR, IWDG, WWDG), derived from RM0390.
+  RCC, SYSCFG, UART, EXTI, Flash, PWR, IWDG, WWDG), derived from RM0390.
 
 Each register struct documents its memory-mapped layout with a per-field
 byte offset; each bit-definition macro documents its bit position and

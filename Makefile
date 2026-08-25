@@ -4,7 +4,7 @@
 
 TARGET    := stm32_rtos
 BUILD_DIR := build
-DOXYGEN_DOCS_DIR := docs/html 
+DOXYGEN_DOCS_DIR := docs/html
 
 ##########################################################################
 # Toolchain

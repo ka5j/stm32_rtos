@@ -48,7 +48,7 @@
 /**
  * @defgroup device_peripherals STM32F446 Peripherals
  * @ingroup register_layer
- * @brief STM32F446-specific peripheral registers (GPIO, RCC, UART, EXTI,
- *        Flash interface, PWR, IWDG, WWDG). Derived from RM0390 (STM32F446xx
+ * @brief STM32F446-specific peripheral registers (GPIO, RCC, SYSCFG, UART,
+ *        EXTI, Flash interface, PWR, IWDG, WWDG). Derived from RM0390 (STM32F446xx
  *        reference manual).
  */
