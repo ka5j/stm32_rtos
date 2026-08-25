@@ -25,6 +25,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup core_peripherals
+ * @{
+ */
+
 #define SCB_BASE (0xE000ED00UL) ///< SCB peripheral base address (Armv7-M SCS)
 #define FPU_BASE (0xE000EF34UL) ///< FPU context control register base address (Armv7-M SCS)
 
@@ -185,5 +190,7 @@ typedef struct FpuRegisters_t
 #define FPU_FPCCR_ASPEN (1U << FPU_FPCCR_ASPEN_Pos)   ///< WRITE - auto FP state save on exception
 #define FPU_FPCCR_LSPEN_Pos (30U)                     ///< Bit position within FPU_FPCCR
 #define FPU_FPCCR_LSPEN (1U << FPU_FPCCR_LSPEN_Pos)   ///< WRITE - enable lazy FP context stacking
+
+/** @} */
 
 #endif /* SCB_REG_H */

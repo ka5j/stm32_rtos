@@ -19,6 +19,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define IWDG_BASE (0x40003000UL) ///< IWDG peripheral base address
 
 /**
@@ -59,5 +64,7 @@ typedef struct IwdgRegisters_t
 /* --- IWDG_WINR bit definitions --- */
 #define IWDG_WINR_WIN_Pos (0U)                          ///< Bit position within IWDG_WINR
 #define IWDG_WINR_WIN_Msk (0xFFFU << IWDG_WINR_WIN_Pos) ///< bits 11:0, 12-bit window value
+
+/** @} */
 
 #endif /* IWDG_REG_H */

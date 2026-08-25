@@ -18,6 +18,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup core_peripherals
+ * @{
+ */
+
 #define MPU_BASE (0xE000ED90UL) ///< MPU peripheral base address (Armv7-M SCS)
 
 /**
@@ -92,5 +97,7 @@ typedef struct MpuRegisters_t
 #define MPU_RASR_AP_FULL_RW (0x3U) ///< AP field value: full read/write, any privilege
 #define MPU_RASR_AP_PRIV_RO (0x5U) ///< AP field value: privileged read-only
 #define MPU_RASR_AP_FULL_RO (0x6U) ///< AP field value: read-only, any privilege
+
+/** @} */
 
 #endif /* MPU_REG_H */

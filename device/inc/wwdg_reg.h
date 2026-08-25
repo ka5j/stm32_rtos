@@ -17,6 +17,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define WWDG_BASE (0x40002C00UL) ///< WWDG peripheral base address
 
 /**
@@ -48,5 +53,7 @@ typedef struct WwdgRegisters_t
 /* --- WWDG_SR bit definitions --- */
 #define WWDG_SR_EWIF_Pos (0U)                 ///< Bit position within WWDG_SR
 #define WWDG_SR_EWIF (1U << WWDG_SR_EWIF_Pos) ///< READ/WRITE 0 to clear - early-wakeup flag
+
+/** @} */
 
 #endif /* WWDG_REG_H */

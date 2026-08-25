@@ -10,6 +10,11 @@
 
 #include <stdint.h>
 
+/**
+ * @addtogroup device_peripherals
+ * @{
+ */
+
 #define GPIOA_BASE (0x40020000UL) ///< GPIOA peripheral base address
 #define GPIOB_BASE (0x40020400UL) ///< GPIOB peripheral base address
 #define GPIOC_BASE (0x40020800UL) ///< GPIOC peripheral base address
@@ -68,5 +73,7 @@ typedef struct GpioRegisters_t
 #define GPIO_PUPD_NONE (0x0U) ///< PUPDR field value: none
 #define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: up
 #define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: down
+
+/** @} */
 
 #endif /* GPIO_REG_H */
