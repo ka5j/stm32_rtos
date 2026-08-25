@@ -103,48 +103,66 @@ typedef struct FpuRegisters_t
 #define SCB_SHCSR_USGFAULTENA (1U << SCB_SHCSR_USGFAULTENA_Pos) ///< WRITE - enable UsageFault
 
 /* --- SCB_CFSR bit definitions (MMFSR: bits 7:0, BFSR: bits 15:8, UFSR: bits 31:16) --- */
-#define SCB_CFSR_IACCVIOL_Pos (0U)                        ///< Bit position within SCB_CFSR (MMFSR)
-#define SCB_CFSR_IACCVIOL (1U << SCB_CFSR_IACCVIOL_Pos)   ///< READ only - instr access violation
-#define SCB_CFSR_DACCVIOL_Pos (1U)                        ///< Bit position within SCB_CFSR (MMFSR)
-#define SCB_CFSR_DACCVIOL (1U << SCB_CFSR_DACCVIOL_Pos)   ///< READ only - data access violation
-#define SCB_CFSR_MUNSTKERR_Pos (3U)                       ///< Bit position within SCB_CFSR (MMFSR)
-#define SCB_CFSR_MUNSTKERR (1U << SCB_CFSR_MUNSTKERR_Pos) ///< READ only - fault on exc. return
-#define SCB_CFSR_MSTKERR_Pos (4U)                         ///< Bit position within SCB_CFSR (MMFSR)
-#define SCB_CFSR_MSTKERR (1U << SCB_CFSR_MSTKERR_Pos)     ///< READ only - fault on exception entry
-#define SCB_CFSR_MMARVALID_Pos (7U)                       ///< Bit position within SCB_CFSR (MMFSR)
-#define SCB_CFSR_MMARVALID (1U << SCB_CFSR_MMARVALID_Pos) ///< READ only - MMFAR is valid
-#define SCB_CFSR_IBUSERR_Pos (8U)                         ///< Bit position within SCB_CFSR (BFSR)
-#define SCB_CFSR_IBUSERR (1U << SCB_CFSR_IBUSERR_Pos)     ///< READ only - fault on instr fetch
-#define SCB_CFSR_PRECISERR_Pos (9U)                       ///< Bit position within SCB_CFSR (BFSR)
-#define SCB_CFSR_PRECISERR (1U << SCB_CFSR_PRECISERR_Pos) ///< READ only - precise err, BFAR valid
-#define SCB_CFSR_IMPRECISERR_Pos (10U)                    ///< Bit position within SCB_CFSR (BFSR)
-#define SCB_CFSR_IMPRECISERR (1U << SCB_CFSR_IMPRECISERR_Pos) ///< READ only - imprecise bus error
-#define SCB_CFSR_UNSTKERR_Pos (11U)                       ///< Bit position within SCB_CFSR (BFSR)
-#define SCB_CFSR_UNSTKERR (1U << SCB_CFSR_UNSTKERR_Pos)   ///< READ only - fault on exception return
-#define SCB_CFSR_STKERR_Pos (12U)                         ///< Bit position within SCB_CFSR (BFSR)
-#define SCB_CFSR_STKERR (1U << SCB_CFSR_STKERR_Pos)       ///< READ only - fault on exception entry
-#define SCB_CFSR_BFARVALID_Pos (15U)                      ///< Bit position within SCB_CFSR (BFSR)
-#define SCB_CFSR_BFARVALID (1U << SCB_CFSR_BFARVALID_Pos) ///< READ only - BFAR is valid
+#define SCB_CFSR_IACCVIOL_Pos (0U) ///< Bit position within SCB_CFSR (MMFSR)
+#define SCB_CFSR_IACCVIOL                                                                          \
+  (1U << SCB_CFSR_IACCVIOL_Pos)    ///< READ/WRITE 1 to clear - instr access violation
+#define SCB_CFSR_DACCVIOL_Pos (1U) ///< Bit position within SCB_CFSR (MMFSR)
+#define SCB_CFSR_DACCVIOL                                                                          \
+  (1U << SCB_CFSR_DACCVIOL_Pos)     ///< READ/WRITE 1 to clear - data access violation
+#define SCB_CFSR_MUNSTKERR_Pos (3U) ///< Bit position within SCB_CFSR (MMFSR)
+#define SCB_CFSR_MUNSTKERR                                                                         \
+  (1U << SCB_CFSR_MUNSTKERR_Pos)  ///< READ/WRITE 1 to clear - fault on exc. return
+#define SCB_CFSR_MSTKERR_Pos (4U) ///< Bit position within SCB_CFSR (MMFSR)
+#define SCB_CFSR_MSTKERR                                                                           \
+  (1U << SCB_CFSR_MSTKERR_Pos)      ///< READ/WRITE 1 to clear - fault on exception entry
+#define SCB_CFSR_MMARVALID_Pos (7U) ///< Bit position within SCB_CFSR (MMFSR)
+#define SCB_CFSR_MMARVALID                                                                         \
+  (1U << SCB_CFSR_MMARVALID_Pos)  ///< READ/WRITE 1 to clear - MMFAR is valid
+#define SCB_CFSR_IBUSERR_Pos (8U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_IBUSERR                                                                           \
+  (1U << SCB_CFSR_IBUSERR_Pos)      ///< READ/WRITE 1 to clear - fault on instr fetch
+#define SCB_CFSR_PRECISERR_Pos (9U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_PRECISERR                                                                         \
+  (1U << SCB_CFSR_PRECISERR_Pos)       ///< READ/WRITE 1 to clear - precise err, BFAR valid
+#define SCB_CFSR_IMPRECISERR_Pos (10U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_IMPRECISERR                                                                       \
+  (1U << SCB_CFSR_IMPRECISERR_Pos)  ///< READ/WRITE 1 to clear - imprecise bus error
+#define SCB_CFSR_UNSTKERR_Pos (11U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_UNSTKERR                                                                          \
+  (1U << SCB_CFSR_UNSTKERR_Pos)   ///< READ/WRITE 1 to clear - fault on exception return
+#define SCB_CFSR_STKERR_Pos (12U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_STKERR                                                                            \
+  (1U << SCB_CFSR_STKERR_Pos)        ///< READ/WRITE 1 to clear - fault on exception entry
+#define SCB_CFSR_BFARVALID_Pos (15U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_BFARVALID (1U << SCB_CFSR_BFARVALID_Pos) ///< READ/WRITE 1 to clear - BFAR is valid
 #define SCB_CFSR_UNDEFINSTR_Pos (16U)                     ///< Bit position within SCB_CFSR (UFSR)
-#define SCB_CFSR_UNDEFINSTR (1U << SCB_CFSR_UNDEFINSTR_Pos) ///< READ only - undefined instruction
-#define SCB_CFSR_INVSTATE_Pos (17U)                         ///< Bit position within SCB_CFSR (UFSR)
-#define SCB_CFSR_INVSTATE (1U << SCB_CFSR_INVSTATE_Pos)     ///< READ only - invalid EPSR state
-#define SCB_CFSR_INVPC_Pos (18U)                            ///< Bit position within SCB_CFSR (UFSR)
-#define SCB_CFSR_INVPC (1U << SCB_CFSR_INVPC_Pos) ///< READ only - invalid PC load/exc return
-#define SCB_CFSR_NOCP_Pos (19U)                   ///< Bit position within SCB_CFSR (UFSR)
-#define SCB_CFSR_NOCP (1U << SCB_CFSR_NOCP_Pos)   ///< READ only - coprocessor access denied
-#define SCB_CFSR_UNALIGNED_Pos (24U)              ///< Bit position within SCB_CFSR (UFSR)
-#define SCB_CFSR_UNALIGNED (1U << SCB_CFSR_UNALIGNED_Pos) ///< READ only - unaligned access trap
-#define SCB_CFSR_DIVBYZERO_Pos (25U)                      ///< Bit position within SCB_CFSR (UFSR)
-#define SCB_CFSR_DIVBYZERO (1U << SCB_CFSR_DIVBYZERO_Pos) ///< READ only - divide-by-zero trap
+#define SCB_CFSR_UNDEFINSTR                                                                        \
+  (1U << SCB_CFSR_UNDEFINSTR_Pos)   ///< READ/WRITE 1 to clear - undefined instruction
+#define SCB_CFSR_INVSTATE_Pos (17U) ///< Bit position within SCB_CFSR (UFSR)
+#define SCB_CFSR_INVSTATE                                                                          \
+  (1U << SCB_CFSR_INVSTATE_Pos)  ///< READ/WRITE 1 to clear - invalid EPSR state
+#define SCB_CFSR_INVPC_Pos (18U) ///< Bit position within SCB_CFSR (UFSR)
+#define SCB_CFSR_INVPC                                                                             \
+  (1U << SCB_CFSR_INVPC_Pos)    ///< READ/WRITE 1 to clear - invalid PC load/exc return
+#define SCB_CFSR_NOCP_Pos (19U) ///< Bit position within SCB_CFSR (UFSR)
+#define SCB_CFSR_NOCP                                                                              \
+  (1U << SCB_CFSR_NOCP_Pos)          ///< READ/WRITE 1 to clear - coprocessor access denied
+#define SCB_CFSR_UNALIGNED_Pos (24U) ///< Bit position within SCB_CFSR (UFSR)
+#define SCB_CFSR_UNALIGNED                                                                         \
+  (1U << SCB_CFSR_UNALIGNED_Pos)     ///< READ/WRITE 1 to clear - unaligned access trap
+#define SCB_CFSR_DIVBYZERO_Pos (25U) ///< Bit position within SCB_CFSR (UFSR)
+#define SCB_CFSR_DIVBYZERO                                                                         \
+  (1U << SCB_CFSR_DIVBYZERO_Pos) ///< READ/WRITE 1 to clear - divide-by-zero trap
 
 /* --- SCB_HFSR bit definitions --- */
-#define SCB_HFSR_VECTTBL_Pos (1U)                     ///< Bit position within SCB_HFSR
-#define SCB_HFSR_VECTTBL (1U << SCB_HFSR_VECTTBL_Pos) ///< READ only - fault reading vector table
-#define SCB_HFSR_FORCED_Pos (30U)                     ///< Bit position within SCB_HFSR
-#define SCB_HFSR_FORCED (1U << SCB_HFSR_FORCED_Pos)   ///< READ only - fault escalated to HardFault
-#define SCB_HFSR_DEBUGEVT_Pos (31U)                   ///< Bit position within SCB_HFSR
-#define SCB_HFSR_DEBUGEVT (1U << SCB_HFSR_DEBUGEVT_Pos) ///< READ only - debug event
+#define SCB_HFSR_VECTTBL_Pos (1U) ///< Bit position within SCB_HFSR
+#define SCB_HFSR_VECTTBL                                                                           \
+  (1U << SCB_HFSR_VECTTBL_Pos)    ///< READ/WRITE 1 to clear - fault reading vector table
+#define SCB_HFSR_FORCED_Pos (30U) ///< Bit position within SCB_HFSR
+#define SCB_HFSR_FORCED                                                                            \
+  (1U << SCB_HFSR_FORCED_Pos)       ///< READ/WRITE 1 to clear - fault escalated to HardFault
+#define SCB_HFSR_DEBUGEVT_Pos (31U) ///< Bit position within SCB_HFSR
+#define SCB_HFSR_DEBUGEVT (1U << SCB_HFSR_DEBUGEVT_Pos) ///< READ/WRITE 1 to clear - debug event
 
 /* --- SCB_SHPR2/SHPR3 bit definitions (system handler priority fields) --- */
 #define SCB_SHPR2_PRI_11_Pos (24U)                           ///< Bit position within SCB_SHPR2
