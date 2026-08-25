@@ -5,20 +5,21 @@
  *        control registers.
  *
  * Register layout derived from PM0214 (Cortex-M4 programming manual).
- * Architectural, not vendor-specific - fixed by Armv7-M's System
+ * Architectural rather than vendor-specific, fixed by Armv7-M's System
  * Control Space memory map. Covers exception/fault configuration and
  * status (AIRCR, SHPR1-3, SHCSR, CFSR, HFSR, MMFAR, BFAR) and FPU
- * enable/lazy-stacking control (CPACR, FPCCR) - the two things a
- * HardFault handler and a PendSV context switch respectively need.
+ * enable/lazy-stacking control (CPACR, FPCCR): the two facilities
+ * required by a HardFault handler and a PendSV context switch,
+ * respectively.
  *
  * The CPU feature/ID registers (PFR0/1, DFR0, AFR0, MMFR0-3, ISAR0-4 at
- * 0xE000ED40-0xE000ED84) are omitted - RESERVED0 covers that range -
- * since nothing in this RTOS does runtime CPU-feature detection.
+ * 0xE000ED40-0xE000ED84) are omitted, with RESERVED0 covering that
+ * range, since this RTOS performs no runtime CPU-feature detection.
  *
- * FPCCR/FPCAR/FPDSCR sit at 0xE000EF34, not contiguous with the main
+ * FPCCR/FPCAR/FPDSCR reside at 0xE000EF34, not contiguous with the main
  * SCB block at 0xE000ED00 (the architecture places the MPU's register
- * bank, see mpu_reg.h, in between) - hence the separate FpuRegisters_t
- * struct and base address below.
+ * bank, see mpu_reg.h, in between); this is why FpuRegisters_t is
+ * defined as a separate struct with its own base address below.
  */
 #ifndef SCB_REG_H
 #define SCB_REG_H
@@ -37,8 +38,8 @@
  * @brief SCB register map (PM0214, Armv7-M SCS SCB region).
  *
  * RESERVED0 preserves the fixed architectural offset to CPACR (see the
- * top-of-file note above) - it's a real gap in the memory map, not a
- * struct-packing artifact.
+ * top-of-file note above); this is an actual gap in the memory map, not
+ * a struct-packing artifact.
  */
 typedef struct ScbRegisters_t
 {

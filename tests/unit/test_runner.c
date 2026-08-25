@@ -3,12 +3,12 @@
  * @brief Unity entry point aggregating every test_*_reg.c suite in this
  *        directory into one run_tests binary.
  *
- * Each test_<peripheral>_reg.c file owns only its test functions - no
- * main(), no setUp/tearDown - since Unity requires exactly one definition
- * of each per binary. This file supplies both, and RUN_TEST()s every test
- * function via extern declaration rather than an #include, so each test
- * file compiles (and can be reasoned about) as an independent translation
- * unit.
+ * Each test_<peripheral>_reg.c file owns only its test functions, with
+ * no main() and no setUp/tearDown, since Unity requires exactly one
+ * definition of each per binary. This file supplies both, and invokes
+ * RUN_TEST() for every test function via an extern declaration rather
+ * than an #include, so each test file compiles, and can be reasoned
+ * about, as an independent translation unit.
  */
 #include "unity.h"
 

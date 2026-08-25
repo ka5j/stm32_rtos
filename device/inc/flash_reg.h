@@ -6,13 +6,13 @@
  * reference manual), section 3.7: Embedded Flash memory interface
  * registers.
  *
- * ACR's LATENCY field matters the moment RCC's PLL raises SYSCLK past
- * the 16 MHz HSI reset default: flash access time doesn't scale with
- * clock frequency, so wait states must be set to match the new SYSCLK
- * (and VOS range from pwr_reg.h) before switching RCC_CFGR.SW to the
- * PLL - RM0390 Table 15 gives the required LATENCY value per frequency
- * range. Skipping this doesn't fault visibly; it corrupts instruction
- * fetch at the new speed.
+ * ACR's LATENCY field becomes relevant once RCC's PLL raises SYSCLK
+ * past the 16 MHz HSI reset default: flash access time does not scale
+ * with clock frequency, so wait states must be set to match the new
+ * SYSCLK (and VOS range from pwr_reg.h) before switching RCC_CFGR.SW to
+ * the PLL. RM0390 Table 15 gives the required LATENCY value per
+ * frequency range. Omitting this step does not fault visibly; it
+ * corrupts instruction fetch at the new speed.
  */
 #ifndef FLASH_REG_H
 #define FLASH_REG_H
