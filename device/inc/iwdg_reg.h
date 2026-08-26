@@ -7,12 +7,12 @@
  * reference manual), section 21: Independent watchdog (IWDG).
  *
  * The IWDG runs off its own LSI clock, independent of the main system
- * clock tree in rcc_reg.h - it keeps counting (and can still reset the
- * chip) even if a clock-configuration bug hangs SYSCLK entirely, which
- * is the whole point of it as a safety mechanism. All writes to PR/RLR/
- * WINR require KR unlocked with KEY_ENABLE first (RM0390 21.4.1), and
- * SR must be polled clear of PVU/RVU/WVU before relying on a value
- * just written to PR/RLR/WINR taking effect.
+ * clock tree in rcc_reg.h; it continues counting, and can still reset
+ * the chip, even if a clock-configuration bug hangs SYSCLK entirely,
+ * which is its purpose as a safety mechanism. All writes to PR/RLR/WINR
+ * require KR unlocked with KEY_ENABLE first (RM0390 21.4.1), and SR
+ * must be polled clear of PVU/RVU/WVU before a value written to
+ * PR/RLR/WINR can be relied upon to have taken effect.
  */
 #ifndef IWDG_REG_H
 #define IWDG_REG_H

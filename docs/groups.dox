@@ -1,15 +1,15 @@
 /**
  * @file groups.dox
- * @brief Doxygen-only file declaring the "Topics" page's group hierarchy. No code
- *        lives here - each source file joins a group via \@addtogroup,
- *        wrapping its struct/macro/function definitions rather than
- *        repeating \@ingroup on every member.
+ * @brief Doxygen-only file declaring the "Topics" page's group hierarchy.
+ *        No code resides here; each source file joins a group via
+ *        \@addtogroup, wrapping its struct/macro/function definitions
+ *        rather than repeating \@ingroup on every member.
  *
  * The full group hierarchy mirrors the layer diagram in
- * docs/ARCHITECTURE.md and is decided in full even though most layers are
- * still unimplemented (see README.md's Status section) - only declare a
- * group here once its layer has real content, but when you do, match this
- * naming exactly so the hierarchy never needs restructuring, only
+ * docs/ARCHITECTURE.md and is defined in full even though most layers are
+ * still unimplemented (see README.md's Status section). A group should be
+ * declared here only once its layer has real content, but must match this
+ * naming exactly so the hierarchy never requires restructuring, only
  * additions:
  *
  *   register_layer          "Register Layer"            (parent)
@@ -24,31 +24,32 @@
  *   application_layer        "Application"                 (app/)
  *
  * To add a new group: declare it here with \@defgroup, using the id and
- * title already reserved for it above (add \@ingroup naming its parent if
- * it nests under register_layer or rtos_layer per the table above), then
- * wrap the new layer's source with \@addtogroup / \@{ ... \@} as done in
- * core/inc/ and device/inc/ today.
+ * title already reserved for it above (adding \@ingroup naming its parent
+ * if it nests under register_layer or rtos_layer per the table above),
+ * then wrap the new layer's source with \@addtogroup / \@{ ... \@}, as
+ * done in core/inc/ and device/inc/.
  */
 
 /**
  * @defgroup register_layer Register Layer
  * @brief Hand-derived struct definitions mapping peripheral and core
- *        registers directly to their memory addresses - no HAL, no CMSIS
- *        device headers.
+ *        registers directly to their memory addresses, without HAL or
+ *        CMSIS device headers.
  */
 
 /**
  * @defgroup core_peripherals Cortex-M4 Core Peripherals
  * @ingroup register_layer
  * @brief Registers defined by the Armv7-M architecture itself (NVIC, SCB,
- *        MPU, SysTick) - fixed by the Cortex-M4 core, not the STM32F446
- *        vendor. Derived from PM0214 (Cortex-M4 programming manual).
+ *        MPU, SysTick), fixed by the Cortex-M4 core rather than the
+ *        STM32F446 vendor. Derived from PM0214 (Cortex-M4 programming
+ *        manual).
  */
 
 /**
  * @defgroup device_peripherals STM32F446 Peripherals
  * @ingroup register_layer
  * @brief STM32F446-specific peripheral registers (GPIO, RCC, SYSCFG, UART,
- *        EXTI, Flash interface, PWR, IWDG, WWDG). Derived from RM0390 (STM32F446xx
- *        reference manual).
+ *        EXTI, Flash interface, PWR, IWDG, WWDG). Derived from RM0390
+ *        (STM32F446xx reference manual).
  */
