@@ -3,6 +3,12 @@
  * @brief Host-side sanity checks for core/inc/nvic_reg.h. Pure data
  *        validation - no hardware, no driver logic. Compiled into
  *        tests/unit/test_runner.c's run_tests binary.
+ *
+ * IRQn_e's values are cross-checked against startup_stm32f446re.s's
+ * vector table by tools/check_vector_table.awk, run as part of `make
+ * test` (see the Makefile's test target) rather than as a Unity test
+ * here - it validates two hand-written files against each other, not a
+ * property of this header in isolation.
  */
 #include "nvic_reg.h"
 #include "unity.h"
@@ -24,13 +30,4 @@ test_nvic_register_block_size_and_offsets(void)
   TEST_ASSERT_EQUAL_HEX32(0x200, offsetof(NvicRegisters_t, IABR));
   TEST_ASSERT_EQUAL_HEX32(0x300, offsetof(NvicRegisters_t, IP));
   TEST_ASSERT_EQUAL_HEX32(0xE00, offsetof(NvicRegisters_t, STIR));
-}
-
-/** IRQn_e values must match startup_stm32f446re.s's vector-table order. */
-void
-test_nvic_irqn_values_match_startup_vector_table(void)
-{
-  TEST_ASSERT_EQUAL_INT(0, WWDG_IRQn);
-  TEST_ASSERT_EQUAL_INT(38, USART2_IRQn);
-  TEST_ASSERT_EQUAL_INT(96, FMPI2C1_Error_IRQn);
 }

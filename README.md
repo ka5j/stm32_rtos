@@ -73,7 +73,7 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
 | `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
-| `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity; fails on any test failure       |
+| `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity, then cross-check `core/inc/nvic_reg.h` against the startup vector table; fails on any test failure or mismatch |
 
 ## Status
 

@@ -36,7 +36,9 @@ stm32_rtos/
 │                     requirement
 ├── startup/         Vector table, reset handler
 ├── linker/          STM32F446RE.ld memory layout
-└── tools/           openocd.cfg
+└── tools/           openocd.cfg, check_vector_table.awk (run by `make test`;
+                     cross-checks core/inc/nvic_reg.h against the startup
+                     vector table)
 ```
 
 `api/` and `rtos/api/` are readily conflated: `api/` is the peripheral-facing layer (drives GPIO/UART directly, independent of the RTOS and board), while `rtos/api/` is the RTOS syscall-facing layer (tasks, semaphores, queues). Application code in `app/` calls into both but never reaches past them into `drivers/` or `rtos/kernel/` directly.
