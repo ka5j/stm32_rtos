@@ -120,7 +120,10 @@ typedef struct FpuRegisters_t
   (1U << SCB_CFSR_MUNSTKERR_Pos)  ///< READ/WRITE 1 to clear - fault on exc. return
 #define SCB_CFSR_MSTKERR_Pos (4U) ///< Bit position within SCB_CFSR (MMFSR)
 #define SCB_CFSR_MSTKERR                                                                           \
-  (1U << SCB_CFSR_MSTKERR_Pos)      ///< READ/WRITE 1 to clear - fault on exception entry
+  (1U << SCB_CFSR_MSTKERR_Pos)    ///< READ/WRITE 1 to clear - fault on exception entry
+#define SCB_CFSR_MLSPERR_Pos (5U) ///< Bit position within SCB_CFSR (MMFSR)
+#define SCB_CFSR_MLSPERR                                                                           \
+  (1U << SCB_CFSR_MLSPERR_Pos)      ///< READ/WRITE 1 to clear - fault on FP lazy state preservation
 #define SCB_CFSR_MMARVALID_Pos (7U) ///< Bit position within SCB_CFSR (MMFSR)
 #define SCB_CFSR_MMARVALID                                                                         \
   (1U << SCB_CFSR_MMARVALID_Pos)  ///< READ/WRITE 1 to clear - MMFAR is valid
@@ -138,8 +141,11 @@ typedef struct FpuRegisters_t
   (1U << SCB_CFSR_UNSTKERR_Pos)   ///< READ/WRITE 1 to clear - fault on exception return
 #define SCB_CFSR_STKERR_Pos (12U) ///< Bit position within SCB_CFSR (BFSR)
 #define SCB_CFSR_STKERR                                                                            \
-  (1U << SCB_CFSR_STKERR_Pos)        ///< READ/WRITE 1 to clear - fault on exception entry
-#define SCB_CFSR_BFARVALID_Pos (15U) ///< Bit position within SCB_CFSR (BFSR)
+  (1U << SCB_CFSR_STKERR_Pos)     ///< READ/WRITE 1 to clear - fault on exception entry
+#define SCB_CFSR_LSPERR_Pos (13U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_LSPERR                                                                            \
+  (1U << SCB_CFSR_LSPERR_Pos) ///< READ/WRITE 1 to clear - fault on FP lazy state preservation
+#define SCB_CFSR_BFARVALID_Pos (15U)                      ///< Bit position within SCB_CFSR (BFSR)
 #define SCB_CFSR_BFARVALID (1U << SCB_CFSR_BFARVALID_Pos) ///< READ/WRITE 1 to clear - BFAR is valid
 #define SCB_CFSR_UNDEFINSTR_Pos (16U)                     ///< Bit position within SCB_CFSR (UFSR)
 #define SCB_CFSR_UNDEFINSTR                                                                        \
