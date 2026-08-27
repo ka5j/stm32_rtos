@@ -206,6 +206,11 @@ lint:
 # is testable this way (register-header data, driver logic once it takes
 # its register block as a parameter instead of reaching for the global
 # macro). Separate build dir (tests/build/) so it never touches build/.
+# Also runs tools/check_vector_table.awk, a host-side, no-hardware
+# consistency check in the same spirit as the Unity suite: it cross-checks
+# core/inc/nvic_reg.h's IRQn_e enum against startup/startup_stm32f446re.s's
+# vector table, since the two are hand-written independently with no
+# shared source of truth and nothing else catches them drifting apart.
 # Use case: fast feedback on register/driver logic correctness, no board
 # or cross-toolchain required. Run this before make docs/make all in the
 # pre-commit hook and CI - it's the cheapest real check available.
@@ -225,6 +230,7 @@ $(TEST_BUILD_DIR)/%.o: %.c
 test: $(TEST_OBJECTS)
 	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
 	$(TEST_BUILD_DIR)/run_tests
+	awk -f tools/check_vector_table.awk core/inc/nvic_reg.h startup/startup_stm32f446re.s
 
 # ------------------------------------------------------------------------
 # make docs
