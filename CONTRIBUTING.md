@@ -46,7 +46,7 @@ Every public function requires `@brief`/`@param`/`@return`. `@return` must enume
 
 ## Error-handling contract
 
-Every driver function that can fail returns `DriverStatus_e` (defined in `drivers/inc/driver_errors.h`), a small, closed set of failure *categories* (`DRIVER_STATUS_ERR_INVALID_PARAM`, `_NOT_INITIALIZED`, `_TIMEOUT`, `_HW_FAULT`, `_BUSY`, `_UNSUPPORTED`) used for control-flow decisions at the call site. **This is the required pattern for all new driver code; it is not yet implemented** — `driver_errors.h` does not exist on `develop` yet. The first driver work must create it with this exact enum before any function returns it. Compare explicitly:
+Every driver function that can fail returns `DriverStatus_e` (defined in `drivers/inc/driver_status.h`), a small, closed set of failure *categories* (`DRIVER_STATUS_ERR_INVALID_PARAM`, `_NOT_INITIALIZED`, `_TIMEOUT`, `_HW_FAULT`, `_BUSY`, `_UNSUPPORTED`) used for control-flow decisions at the call site. This is the required pattern for all new driver code. Compare explicitly:
 
 ```c
 DriverStatus_e status = rccGpioClockEnable(GPIO_PORT_A);

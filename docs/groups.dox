@@ -53,3 +53,9 @@
  *        EXTI, Flash interface, PWR, IWDG, WWDG). Derived from RM0390
  *        (STM32F446xx reference manual).
  */
+
+/**
+ * @defgroup driver_layer Drivers
+ * @brief Register-level driver logic (GPIO, RCC, UART, NVIC, SysTick),
+ *        with no application-facing logic. Consumed by api/.
+ */
