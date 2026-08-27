@@ -5,6 +5,13 @@
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
  * reference manual), section 6: Reset and clock control (RCC).
+ *
+ * Bit-field coverage is scoped to a HSI/HSE-to-PLL SYSCLK bring-up and
+ * GPIO/USART/SYSCFG/PWR clock gating - what this project's driver work
+ * needs. PLLCFGR's PLLQ (bits 27:24, the USB OTG FS/SDIO 48 MHz output)
+ * and CFGR's MCO1/MCO1PRE/MCO2/MCO2PRE/RTCPRE/I2SSCR fields are omitted,
+ * since this project drives neither USB/SDIO nor a debug clock out on
+ * an MCO pin. Add them if/when a driver needs to.
  */
 #ifndef RCC_REG_H
 #define RCC_REG_H
