@@ -41,7 +41,13 @@ INCLUDES := $(addprefix -I,$(INC_DIRS))
 # Compile / assemble / link flags
 ##########################################################################
 CFLAGS  := $(MCU_FLAGS) $(INCLUDES) -std=c11 -Wall -Wextra \
+           -Werror=unused-result \
            -ffunction-sections -fdata-sections -O0 -g3 -MMD -MP
+# -Werror=unused-result: promotes __attribute__((warn_unused_result))
+# (see drivers/inc/driver_status.h's DRIVER_MUST_CHECK) from a warning
+# that scrolls by unnoticed to a build failure. Scoped to this one
+# warning class rather than a blanket -Werror, so an unrelated -Wall/
+# -Wextra finding doesn't block the build on its own.
 
 ASFLAGS := $(MCU_FLAGS) -g3 -MMD -MP
 
@@ -225,7 +231,7 @@ vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity
 
 $(TEST_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -Wall -Wextra $(TEST_INCLUDES) -c $< -o $@
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror=unused-result $(TEST_INCLUDES) -c $< -o $@
 
 test: $(TEST_OBJECTS)
 	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
