@@ -7,12 +7,14 @@ from the reference manual and mapped to its memory address.
 
 ## Current status
 
-Only the **register layer** is implemented at this stage: hand-written
-structure definitions for every Cortex-M4 core peripheral this project
-models (NVIC, SCB, MPU, SysTick) and every STM32F446-specific peripheral it
-models (GPIO, RCC, SYSCFG, UART, EXTI, Flash interface, PWR, IWDG, WWDG).
-The driver, API, BSP, and RTOS layers built on top of these registers
-remain in progress; see the
+The **register layer** is implemented and complete: hand-written structure
+definitions for every Cortex-M4 core peripheral this project models (NVIC,
+SCB, MPU, SysTick) and every STM32F446-specific peripheral it models (GPIO,
+RCC, SYSCFG, UART, EXTI, Flash interface, PWR, IWDG, WWDG).
+`drivers/inc/driver_status.h`, the shared `DriverStatus_e` error contract
+every driver function will use, is also implemented, ahead of any actual
+driver logic. The rest of the driver layer, plus API, BSP, and RTOS, remain
+in progress; see the
 [GitHub repository](https://github.com/ka5j/stm32_rtos) for current status,
 build instructions, and contribution conventions. This site documents code
 only; process documentation (contributing, versioning, security) resides
@@ -20,13 +22,14 @@ there as well.
 
 ## Where to start
 
-The **Topics** page groups every register header into the two categories
-this project currently documents:
+The **Topics** page groups every documented header by architectural layer:
 
-- **Cortex-M4 Core Peripherals** — registers fixed by the Armv7-M
-  architecture itself (NVIC, SCB, MPU, SysTick), derived from PM0214.
-- **STM32F446 Peripherals** — registers specific to this STM32 part (GPIO,
-  RCC, SYSCFG, UART, EXTI, Flash, PWR, IWDG, WWDG), derived from RM0390.
+- **Register Layer** — hand-derived register structs, with one subgroup per
+  peripheral: **Cortex-M4 Core Peripherals** (NVIC, SCB, FPU, MPU, SysTick,
+  derived from PM0214) and **STM32F446 Peripherals** (GPIO, RCC, SYSCFG,
+  UART, EXTI, Flash, PWR, IWDG, WWDG, derived from RM0390).
+- **Drivers** — register-level driver logic consuming the layer above;
+  currently just the shared `DriverStatus_e` error contract.
 
 Each register structure documents its memory-mapped layout with a
 per-field byte offset; each bit-definition macro documents its bit
