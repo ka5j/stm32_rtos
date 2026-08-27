@@ -28,7 +28,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup flash_registers
  * @{
  */
 

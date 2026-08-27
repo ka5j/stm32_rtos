@@ -18,7 +18,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup wwdg_registers
  * @{
  */
 

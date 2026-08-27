@@ -23,7 +23,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup uart_registers
  * @{
  */
 

@@ -27,12 +27,27 @@
 #include <stdint.h>
 
 /**
- * @addtogroup core_peripherals
+ * @addtogroup scb_registers
  * @{
  */
 
 #define SCB_BASE (0xE000ED00UL) ///< SCB peripheral base address (Armv7-M SCS)
+
+/** @} */
+
+/**
+ * @addtogroup fpu_registers
+ * @{
+ */
+
 #define FPU_BASE (0xE000EF34UL) ///< FPU context control register base address (Armv7-M SCS)
+
+/** @} */
+
+/**
+ * @addtogroup scb_registers
+ * @{
+ */
 
 /**
  * @brief SCB register map (PM0214, Armv7-M SCS SCB region).
@@ -65,6 +80,13 @@ typedef struct ScbRegisters_t
 
 #define SCB ((ScbRegisters_t *)SCB_BASE) ///< Pointer to the SCB register block
 
+/** @} */
+
+/**
+ * @addtogroup fpu_registers
+ * @{
+ */
+
 /**
  * @brief FPU context control register map (PM0214, Armv7-M SCS FPU region).
  */
@@ -76,6 +98,13 @@ typedef struct FpuRegisters_t
 } FpuRegisters_t;
 
 #define FPU ((FpuRegisters_t *)FPU_BASE) ///< Pointer to the FPU context control register block
+
+/** @} */
+
+/**
+ * @addtogroup scb_registers
+ * @{
+ */
 
 /* --- SCB_AIRCR bit definitions --- */
 #define SCB_AIRCR_VECTRESET_Pos (0U)                            ///< Bit position within SCB_AIRCR
@@ -189,6 +218,13 @@ typedef struct FpuRegisters_t
 #define SCB_CPACR_CP10_Msk (0x3U << SCB_CPACR_CP10_Pos) ///< bits 21:20, FPU access, 0b11=full
 #define SCB_CPACR_CP11_Pos (22U)                        ///< Bit position within SCB_CPACR
 #define SCB_CPACR_CP11_Msk (0x3U << SCB_CPACR_CP11_Pos) ///< bits 23:22, FPU access, 0b11=full
+
+/** @} */
+
+/**
+ * @addtogroup fpu_registers
+ * @{
+ */
 
 /* --- FPU_FPCCR bit definitions --- */
 #define FPU_FPCCR_LSPACT_Pos (0U)                     ///< Bit position within FPU_FPCCR

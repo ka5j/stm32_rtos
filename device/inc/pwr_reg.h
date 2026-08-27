@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup pwr_registers
  * @{
  */
 

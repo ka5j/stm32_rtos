@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup core_peripherals
+ * @addtogroup mpu_registers
  * @{
  */
 
