@@ -24,7 +24,7 @@ Once `1.0.0` ships, standard SemVer rules apply:
 
 ## Cutting a release
 
-1. On the `develop`→`main` PR that constitutes the release, bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version as part of that PR.
+1. On the `develop`→`main` PR that constitutes the release, bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version as part of that PR, and move [CHANGELOG.md](../CHANGELOG.md)'s `[Unreleased]` section content under a new `## [X.Y.Z] - <date>` heading (leaving `[Unreleased]` empty for whatever comes next).
 2. Once merged, tag the resulting commit on `main`:
    ```sh
    git checkout main && git pull
