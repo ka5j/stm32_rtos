@@ -20,8 +20,8 @@ test_mpu_register_block_size(void)
 void
 test_mpu_rasr_ap_values_are_distinct_and_in_range(void)
 {
-  uint32_t values[] = { MPU_RASR_AP_NONE, MPU_RASR_AP_PRIV_RW, MPU_RASR_AP_FULL_RW,
-                        MPU_RASR_AP_PRIV_RO, MPU_RASR_AP_FULL_RO };
+  uint32_t values[] = { MPU_RASR_AP_NONE,    MPU_RASR_AP_PRIV_RW, MPU_RASR_AP_PRIV_RW_UNPRIV_RO,
+                        MPU_RASR_AP_FULL_RW, MPU_RASR_AP_PRIV_RO, MPU_RASR_AP_FULL_RO };
 
   for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); i++)
   {
