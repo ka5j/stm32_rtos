@@ -47,9 +47,104 @@
  */
 
 /**
+ * @defgroup mpu_registers MPU
+ * @ingroup core_peripherals
+ * @brief Memory Protection Unit registers (core/inc/mpu_reg.h).
+ */
+
+/**
+ * @defgroup nvic_registers NVIC
+ * @ingroup core_peripherals
+ * @brief Nested Vectored Interrupt Controller registers
+ *        (core/inc/nvic_reg.h).
+ */
+
+/**
+ * @defgroup scb_registers SCB
+ * @ingroup core_peripherals
+ * @brief System Control Block registers (core/inc/scb_reg.h).
+ */
+
+/**
+ * @defgroup fpu_registers FPU
+ * @ingroup core_peripherals
+ * @brief FPU context control registers (core/inc/scb_reg.h). Architecturally
+ *        distinct from SCB - see scb_reg.h's file-level comment for why the
+ *        two share one file - so grouped separately here.
+ */
+
+/**
+ * @defgroup systick_registers SysTick
+ * @ingroup core_peripherals
+ * @brief SysTick timer registers (core/inc/systick_reg.h).
+ */
+
+/**
  * @defgroup device_peripherals STM32F446 Peripherals
  * @ingroup register_layer
  * @brief STM32F446-specific peripheral registers (GPIO, RCC, SYSCFG, UART,
  *        EXTI, Flash interface, PWR, IWDG, WWDG). Derived from RM0390
  *        (STM32F446xx reference manual).
+ */
+
+/**
+ * @defgroup gpio_registers GPIO
+ * @ingroup device_peripherals
+ * @brief General-purpose I/O registers (device/inc/gpio_reg.h).
+ */
+
+/**
+ * @defgroup rcc_registers RCC
+ * @ingroup device_peripherals
+ * @brief Reset and Clock Control registers (device/inc/rcc_reg.h).
+ */
+
+/**
+ * @defgroup uart_registers UART
+ * @ingroup device_peripherals
+ * @brief USART/UART registers (device/inc/uart_reg.h).
+ */
+
+/**
+ * @defgroup exti_registers EXTI
+ * @ingroup device_peripherals
+ * @brief External interrupt/event controller registers
+ *        (device/inc/exti_reg.h).
+ */
+
+/**
+ * @defgroup flash_registers Flash Interface
+ * @ingroup device_peripherals
+ * @brief Flash interface registers (device/inc/flash_reg.h).
+ */
+
+/**
+ * @defgroup iwdg_registers IWDG
+ * @ingroup device_peripherals
+ * @brief Independent Watchdog registers (device/inc/iwdg_reg.h).
+ */
+
+/**
+ * @defgroup pwr_registers PWR
+ * @ingroup device_peripherals
+ * @brief Power control registers (device/inc/pwr_reg.h).
+ */
+
+/**
+ * @defgroup syscfg_registers SYSCFG
+ * @ingroup device_peripherals
+ * @brief System configuration controller registers
+ *        (device/inc/syscfg_reg.h).
+ */
+
+/**
+ * @defgroup wwdg_registers WWDG
+ * @ingroup device_peripherals
+ * @brief Window Watchdog registers (device/inc/wwdg_reg.h).
+ */
+
+/**
+ * @defgroup driver_layer Drivers
+ * @brief Register-level driver logic (GPIO, RCC, UART, NVIC, SysTick),
+ *        with no application-facing logic. Consumed by api/.
  */

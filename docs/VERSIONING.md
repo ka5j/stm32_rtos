@@ -8,7 +8,7 @@ Every official release is a commit on `main` (see [CONTRIBUTING.md](../CONTRIBUT
 
 ## Pre-1.0 (current phase)
 
-`1.0.0` is reserved for the point at which this is a functioning RTOS: it boots, drivers work, the scheduler preempts and context-switches real tasks, and `api/`/`bsp/`/`rtos/api/` exist and are usable by application code. None of that exists yet; as of this writing, `drivers/`, `api/`, `bsp/`, and `rtos/` remain empty scaffolding (see [README.md](../README.md)'s Status section). Until `1.0.0`:
+`1.0.0` is reserved for the point at which this is a functioning RTOS: it boots, drivers work, the scheduler preempts and context-switches real tasks, and `api/`/`bsp/`/`rtos/api/` exist and are usable by application code. None of that exists yet; as of this writing, no driver logic is implemented, `api/`, `bsp/`, and `rtos/` remain empty scaffolding, and `drivers/` has only its error-status contract (`drivers/inc/driver_status.h`) - see [README.md](../README.md)'s Status section. Until `1.0.0`:
 
 - **MINOR** (`0.X.0`) bumps when a full architectural layer or major milestone lands on `main`. For example, `0.1.0` marks the completion of the register layer (`core/inc/`, `device/inc/`) plus the development pipeline (build, lint, tests, docs, CI). The next expected MINOR bump corresponds to whichever layer is next per [docs/ARCHITECTURE.md](ARCHITECTURE.md)'s layer diagram, most likely `drivers/`.
 - **PATCH** (`0.1.X`) bumps for a fix or small addition within an already-released layer that does not complete a new one, such as a bug found in an already-tagged register header or a missing peripheral added to an already-completed layer.
@@ -24,7 +24,7 @@ Once `1.0.0` ships, standard SemVer rules apply:
 
 ## Cutting a release
 
-1. On the `develop`→`main` PR that constitutes the release, bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version as part of that PR.
+1. On the `develop`→`main` PR that constitutes the release, bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version as part of that PR, and move [CHANGELOG.md](../CHANGELOG.md)'s `[Unreleased]` section content under a new `## [X.Y.Z] - <date>` heading (leaving `[Unreleased]` empty for whatever comes next).
 2. Once merged, tag the resulting commit on `main`:
    ```sh
    git checkout main && git pull

@@ -21,7 +21,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup exti_registers
  * @{
  */
 

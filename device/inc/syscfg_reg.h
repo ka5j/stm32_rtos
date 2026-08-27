@@ -22,7 +22,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup syscfg_registers
  * @{
  */
 

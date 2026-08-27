@@ -22,10 +22,30 @@ jobs:
         with:
           fetch-depth: 0   # full history - required to diff PR head against its base branch below
 
-      - name: Install toolchain
+      - name: Install Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
+        # Ubuntu's gcc-arm-none-eabi apt package trails upstream by years,
+        # and even an apt install of the "right" package name can silently
+        # change compiler build out from under this workflow whenever the
+        # archive updates it - the compiler is the most consequential tool
+        # in this whole pipeline (codegen, not just tooling output), so it
+        # gets the same "pin an exact upstream release" treatment as
+        # Doxygen below, not a floating apt package.
+        run: |
+          curl -sSL https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz \
+            | tar -xJ -C /opt
+          echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
+
+      - name: Install cppcheck / clang-format (pinned to Ubuntu 24.04 archive versions)
+        # apt's usual `install -y cppcheck clang-format` floats to whatever
+        # noble's archive currently has - pinning the exact package version
+        # means an archive update can only make this step fail loudly
+        # (package no longer available at that version) instead of quietly
+        # changing which MISRA ruleset or formatting rules CI enforces.
+        # Bump these pins deliberately, the same way the Doxygen and Arm
+        # toolchain versions above are bumped by hand.
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi cppcheck clang-format
+          sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
 
       - name: Install Doxygen 1.18.0
         # Ubuntu's apt package (1.9.8 as of this writing) is far behind the

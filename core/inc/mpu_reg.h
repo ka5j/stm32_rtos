@@ -20,7 +20,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup core_peripherals
+ * @addtogroup mpu_registers
  * @{
  */
 
@@ -95,9 +95,10 @@ typedef struct MpuRegisters_t
 /* --- MPU_RASR.AP field values (PM0214 Table "AP encoding") --- */
 #define MPU_RASR_AP_NONE (0x0U)    ///< AP field value: no access, any privilege
 #define MPU_RASR_AP_PRIV_RW (0x1U) ///< AP field value: privileged RW, no unprivileged access
-#define MPU_RASR_AP_FULL_RW (0x3U) ///< AP field value: full read/write, any privilege
-#define MPU_RASR_AP_PRIV_RO (0x5U) ///< AP field value: privileged read-only
-#define MPU_RASR_AP_FULL_RO (0x6U) ///< AP field value: read-only, any privilege
+#define MPU_RASR_AP_PRIV_RW_UNPRIV_RO (0x2U) ///< AP field value: privileged RW, unprivileged RO
+#define MPU_RASR_AP_FULL_RW (0x3U)           ///< AP field value: full read/write, any privilege
+#define MPU_RASR_AP_PRIV_RO (0x5U)           ///< AP field value: privileged read-only
+#define MPU_RASR_AP_FULL_RO (0x6U)           ///< AP field value: read-only, any privilege
 
 /** @} */
 

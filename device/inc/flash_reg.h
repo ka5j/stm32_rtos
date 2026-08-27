@@ -13,6 +13,14 @@
  * the PLL. RM0390 Table 15 gives the required LATENCY value per
  * frequency range. Omitting this step does not fault visibly; it
  * corrupts instruction fetch at the new speed.
+ *
+ * Field coverage is scoped to the clock bring-up path above, not flash
+ * self-programming: FLASH_SR only defines EOP, WRPERR, and BSY (RM0390
+ * also has OPERR/PGAERR/PGPERR/PGSERR), and FLASH_CR carries no bit
+ * macros at all (PG/SER/MER/STRT/LOCK/...), since this project does not
+ * erase, program, or write option bytes to flash at runtime. Fill in
+ * the remaining SR error bits and CR's programming bits if/when this
+ * project needs to write to flash (a bootloader, config storage, etc.).
  */
 #ifndef FLASH_REG_H
 #define FLASH_REG_H
@@ -20,7 +28,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup flash_registers
  * @{
  */
 

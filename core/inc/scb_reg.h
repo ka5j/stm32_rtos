@@ -27,12 +27,27 @@
 #include <stdint.h>
 
 /**
- * @addtogroup core_peripherals
+ * @addtogroup scb_registers
  * @{
  */
 
 #define SCB_BASE (0xE000ED00UL) ///< SCB peripheral base address (Armv7-M SCS)
+
+/** @} */
+
+/**
+ * @addtogroup fpu_registers
+ * @{
+ */
+
 #define FPU_BASE (0xE000EF34UL) ///< FPU context control register base address (Armv7-M SCS)
+
+/** @} */
+
+/**
+ * @addtogroup scb_registers
+ * @{
+ */
 
 /**
  * @brief SCB register map (PM0214, Armv7-M SCS SCB region).
@@ -65,6 +80,13 @@ typedef struct ScbRegisters_t
 
 #define SCB ((ScbRegisters_t *)SCB_BASE) ///< Pointer to the SCB register block
 
+/** @} */
+
+/**
+ * @addtogroup fpu_registers
+ * @{
+ */
+
 /**
  * @brief FPU context control register map (PM0214, Armv7-M SCS FPU region).
  */
@@ -76,6 +98,13 @@ typedef struct FpuRegisters_t
 } FpuRegisters_t;
 
 #define FPU ((FpuRegisters_t *)FPU_BASE) ///< Pointer to the FPU context control register block
+
+/** @} */
+
+/**
+ * @addtogroup scb_registers
+ * @{
+ */
 
 /* --- SCB_AIRCR bit definitions --- */
 #define SCB_AIRCR_VECTRESET_Pos (0U)                            ///< Bit position within SCB_AIRCR
@@ -120,7 +149,10 @@ typedef struct FpuRegisters_t
   (1U << SCB_CFSR_MUNSTKERR_Pos)  ///< READ/WRITE 1 to clear - fault on exc. return
 #define SCB_CFSR_MSTKERR_Pos (4U) ///< Bit position within SCB_CFSR (MMFSR)
 #define SCB_CFSR_MSTKERR                                                                           \
-  (1U << SCB_CFSR_MSTKERR_Pos)      ///< READ/WRITE 1 to clear - fault on exception entry
+  (1U << SCB_CFSR_MSTKERR_Pos)    ///< READ/WRITE 1 to clear - fault on exception entry
+#define SCB_CFSR_MLSPERR_Pos (5U) ///< Bit position within SCB_CFSR (MMFSR)
+#define SCB_CFSR_MLSPERR                                                                           \
+  (1U << SCB_CFSR_MLSPERR_Pos)      ///< READ/WRITE 1 to clear - fault on FP lazy state preservation
 #define SCB_CFSR_MMARVALID_Pos (7U) ///< Bit position within SCB_CFSR (MMFSR)
 #define SCB_CFSR_MMARVALID                                                                         \
   (1U << SCB_CFSR_MMARVALID_Pos)  ///< READ/WRITE 1 to clear - MMFAR is valid
@@ -138,8 +170,11 @@ typedef struct FpuRegisters_t
   (1U << SCB_CFSR_UNSTKERR_Pos)   ///< READ/WRITE 1 to clear - fault on exception return
 #define SCB_CFSR_STKERR_Pos (12U) ///< Bit position within SCB_CFSR (BFSR)
 #define SCB_CFSR_STKERR                                                                            \
-  (1U << SCB_CFSR_STKERR_Pos)        ///< READ/WRITE 1 to clear - fault on exception entry
-#define SCB_CFSR_BFARVALID_Pos (15U) ///< Bit position within SCB_CFSR (BFSR)
+  (1U << SCB_CFSR_STKERR_Pos)     ///< READ/WRITE 1 to clear - fault on exception entry
+#define SCB_CFSR_LSPERR_Pos (13U) ///< Bit position within SCB_CFSR (BFSR)
+#define SCB_CFSR_LSPERR                                                                            \
+  (1U << SCB_CFSR_LSPERR_Pos) ///< READ/WRITE 1 to clear - fault on FP lazy state preservation
+#define SCB_CFSR_BFARVALID_Pos (15U)                      ///< Bit position within SCB_CFSR (BFSR)
 #define SCB_CFSR_BFARVALID (1U << SCB_CFSR_BFARVALID_Pos) ///< READ/WRITE 1 to clear - BFAR is valid
 #define SCB_CFSR_UNDEFINSTR_Pos (16U)                     ///< Bit position within SCB_CFSR (UFSR)
 #define SCB_CFSR_UNDEFINSTR                                                                        \
@@ -183,6 +218,13 @@ typedef struct FpuRegisters_t
 #define SCB_CPACR_CP10_Msk (0x3U << SCB_CPACR_CP10_Pos) ///< bits 21:20, FPU access, 0b11=full
 #define SCB_CPACR_CP11_Pos (22U)                        ///< Bit position within SCB_CPACR
 #define SCB_CPACR_CP11_Msk (0x3U << SCB_CPACR_CP11_Pos) ///< bits 23:22, FPU access, 0b11=full
+
+/** @} */
+
+/**
+ * @addtogroup fpu_registers
+ * @{
+ */
 
 /* --- FPU_FPCCR bit definitions --- */
 #define FPU_FPCCR_LSPACT_Pos (0U)                     ///< Bit position within FPU_FPCCR
