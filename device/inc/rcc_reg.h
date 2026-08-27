@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup rcc_registers
  * @{
  */
 

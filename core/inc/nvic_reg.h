@@ -30,7 +30,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup core_peripherals
+ * @addtogroup nvic_registers
  * @{
  */
 

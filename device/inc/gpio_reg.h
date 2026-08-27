@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 /**
- * @addtogroup device_peripherals
+ * @addtogroup gpio_registers
  * @{
  */
 
