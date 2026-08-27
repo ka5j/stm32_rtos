@@ -26,8 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Install toolchain
-        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+      - name: Install Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
+        # Pinned to the exact upstream release rather than the apt package -
+        # see the matching step in ci.yml for why the compiler specifically
+        # doesn't get a floating install.
+        run: |
+          curl -sSL https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz \
+            | tar -xJ -C /opt
+          echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@4c0873ef8656cb3c50b3f42fb63bc1ade0cfa827 # v4
