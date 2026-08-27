@@ -8,9 +8,9 @@
  *
  * Unlike IWDG (iwdg_reg.h), WWDG runs off PCLK1 (via RCC, see
  * rcc_reg.h) rather than an independent clock, and faults if refreshed
- * too early as well as too late - CR.T must only be rewritten once it
- * has counted down into CFR.W's window, catching a task that's running
- * fast/looping too tightly, not just one that's hung.
+ * either too early or too late: CR.T may only be rewritten once it has
+ * counted down into CFR.W's window. This detects a task executing too
+ * quickly or looping too tightly, not only one that has hung.
  */
 #ifndef WWDG_REG_H
 #define WWDG_REG_H

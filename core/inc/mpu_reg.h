@@ -4,14 +4,15 @@
  *        Cortex-M4 (Armv7-M architecture).
  *
  * Register layout derived from PM0214 (Cortex-M4 programming manual).
- * Architectural, not vendor-specific - fixed by Armv7-M's System
+ * Architectural rather than vendor-specific, fixed by Armv7-M's System
  * Control Space memory map. The STM32F446's Cortex-M4 implements 8
  * regions (readable at runtime via TYPE.DREGION).
  *
- * The RBAR_A1/RASR_A1..A3 alias pairs let a driver reprogram up to 4
- * regions back-to-back without rewriting RNR between each one - not
- * required for correctness (RNR + RBAR + RASR alone can configure any
- * region), just a throughput option this RTOS may or may not use.
+ * The RBAR_A1/RASR_A1..A3 alias pairs allow a driver to reprogram up to
+ * 4 regions consecutively without rewriting RNR between each one. This
+ * is not required for correctness (RNR, RBAR, and RASR alone can
+ * configure any region); it is an optional throughput optimization not
+ * currently used by this RTOS.
  */
 #ifndef MPU_REG_H
 #define MPU_REG_H
