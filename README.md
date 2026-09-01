@@ -11,6 +11,7 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
 - `clang-format`, `cppcheck`, `doxygen` on the `PATH` — required for `make format-check`, `make lint`, and `make docs`, and consequently for the pre-commit hook to execute
   - macOS: `brew install clang-format cppcheck doxygen`
   - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen`
+- `gcovr` — required for `make coverage` only (not the pre-commit hook): `pip install gcovr`
 - Reference documentation (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
 
 **Setup:**
@@ -74,6 +75,7 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
 | `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity, then cross-check `core/inc/nvic_reg.h` against the startup vector table; fails on any test failure or mismatch |
+| `make coverage`     | Recompile `TEST_DRIVER_SOURCES` and their tests with coverage instrumentation, run them, then fail (via `gcovr`) if line or branch coverage drops below 100% |
 
 ## Status
 

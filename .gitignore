@@ -1,8 +1,11 @@
 # Build output
 build/
 tests/build/
+tests/coverage/
 *.o
 *.d
+*.gcno
+*.gcda
 *.elf
 *.bin
 *.hex

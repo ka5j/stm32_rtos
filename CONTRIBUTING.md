@@ -70,7 +70,7 @@ Two checks run in `ci.yml` that are not evident from running `make docs`/`make t
 
 ## CI triggers and branch conventions
 
-`ci.yml` runs on every `push` (any branch) and every `pull_request` (any target branch): `make all`, `make format-check`, `make test`, `make lint`, `make docs`, in that order — the same five checks the pre-commit hook runs locally. On `pull_request` events specifically, the two diff-based checks above also run, since only a pull request has a base branch to diff against.
+`ci.yml` runs on every `push` (any branch) and every `pull_request` (any target branch): `make all`, `make format-check`, `make test`, `make coverage`, `make lint`, `make docs`, in that order. `make coverage` is CI-only, not part of the pre-commit hook's five checks - it recompiles `TEST_DRIVER_SOURCES` with instrumentation, a real (if fast) extra compile pass, so it stays out of the hook's every-commit path and lives only in CI. On `pull_request` events specifically, the two diff-based checks above also run, since only a pull request has a base branch to diff against.
 
 `hil.yml` is separate and considerably narrower: it runs only on `workflow_dispatch` (manual trigger), on a self-hosted runner physically connected to a Nucleo-F446RE (`make all` → `make flash` → a hardware smoke test). It never runs on `pull_request` or `push`, including to `main`. A self-hosted runner executing automatically triggered workflows on a public repository would allow arbitrary fork or push code to execute on that physical machine; triggering is therefore always a manual, deliberate action from the Actions tab.
 
