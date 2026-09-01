@@ -15,8 +15,7 @@
  * @{
  */
 
-#define GPIO_NUM_PINS (16U) ///< Number of pins per GPIO port (0-15)
-#define GPIO_AF_MAX (15U)   ///< Highest valid AFRL/AFRH alternate-function selector
+#define GPIO_AF_MAX (15U) ///< Highest valid AFRL/AFRH alternate-function selector
 
 /**
  * @brief GPIO pin numbers (0-15) within a GPIO port.

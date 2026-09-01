@@ -20,8 +20,7 @@
  * each register bank must land at its fixed Armv7-M architectural offset
  * regardless of how many words this chip actually implements.
  */
-void
-test_nvic_register_block_size_and_offsets(void)
+void test_nvic_register_block_size_and_offsets(void)
 {
   TEST_ASSERT_EQUAL_UINT(0xE04, sizeof(NvicRegisters_t));
   TEST_ASSERT_EQUAL_HEX32(0x080, offsetof(NvicRegisters_t, ICER));

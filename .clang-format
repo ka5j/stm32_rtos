@@ -1,4 +1,4 @@
-BasedOnStyle: GNU
+BasedOnStyle: LLVM
 IndentWidth: 2
 UseTab: Never
 ColumnLimit: 100

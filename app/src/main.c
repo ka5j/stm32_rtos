@@ -9,8 +9,7 @@
  * @return Never returns (infinite loop); the int return type matches
  *         the standard C main() signature.
  */
-int
-main(void)
+int main(void)
 {
   while (1)
   {
