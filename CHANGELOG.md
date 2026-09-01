@@ -8,6 +8,12 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-26
+
+Register-layer completeness fixes, a real NVIC/vector-table cross-check,
+the `drivers/` error-status contract, per-peripheral Doxygen grouping, and
+this changelog.
+
 ### Added
 
 - `drivers/inc/driver_status.h`: the `DriverStatus_e` error-status contract
@@ -55,6 +61,11 @@ specifically.
 - `CONTRIBUTING.md`: documents the two-level Doxygen grouping convention
   (parent layer group, per-peripheral subgroup, multi-block-per-file
   splitting) for future register headers.
+- `README.md`, `docs/VERSIONING.md`, `docs/mainpage.md`, `docs/ARCHITECTURE.md`:
+  corrected status text that still described `drivers/` as entirely empty
+  scaffolding after `driver_status.h` landed, and updated `docs/mainpage.md`'s
+  description of the Doxygen Topics page to match the per-peripheral
+  subgroup structure above.
 
 ### Removed
 
