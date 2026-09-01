@@ -32,12 +32,12 @@
  */
 typedef struct ExtiRegisters_t
 {
-  volatile uint32_t IMR;   ///< 0x00: interrupt mask register
-  volatile uint32_t EMR;   ///< 0x04: event mask register
-  volatile uint32_t RTSR;  ///< 0x08: rising trigger selection register
-  volatile uint32_t FTSR;  ///< 0x0C: falling trigger selection register
-  volatile uint32_t SWIER; ///< 0x10: software interrupt event register
-  volatile uint32_t PR;    ///< 0x14: pending register
+    volatile uint32_t IMR;   ///< 0x00: interrupt mask register
+    volatile uint32_t EMR;   ///< 0x04: event mask register
+    volatile uint32_t RTSR;  ///< 0x08: rising trigger selection register
+    volatile uint32_t FTSR;  ///< 0x0C: falling trigger selection register
+    volatile uint32_t SWIER; ///< 0x10: software interrupt event register
+    volatile uint32_t PR;    ///< 0x14: pending register
 } ExtiRegisters_t;
 
 #define EXTI ((ExtiRegisters_t *)EXTI_BASE) ///< Pointer to the EXTI register block

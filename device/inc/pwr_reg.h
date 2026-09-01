@@ -31,8 +31,8 @@
  */
 typedef struct PwrRegisters_t
 {
-  volatile uint32_t CR;  ///< 0x00: power control register
-  volatile uint32_t CSR; ///< 0x04: power control/status register
+    volatile uint32_t CR;  ///< 0x00: power control register
+    volatile uint32_t CSR; ///< 0x04: power control/status register
 } PwrRegisters_t;
 
 #define PWR ((PwrRegisters_t *)PWR_BASE) ///< Pointer to the PWR register block

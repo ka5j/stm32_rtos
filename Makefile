@@ -196,12 +196,23 @@ format-check:
 # so this stays quiet today since drivers/api/bsp/rtos/app are still empty,
 # and starts finding real things the moment a .c file includes a register
 # header.
+#
+# Two rules are suppressed, scoped to specific files, not disabled project-
+# wide: misra-c2012-2.5 (unused macro) on device/inc/gpio_reg.h and
+# misra-c2012-8.7 (external linkage used in only one translation unit) on
+# drivers/src/gpio.c. Both are real findings today - nothing in api/bsp/app
+# calls gpio.c/gpio_reg.h yet - but neither is a code defect, and a project-
+# wide suppression would blind this check to a genuinely dead macro or a
+# function that should be static in any future file, not just these two.
+# Remove both suppressions the moment api/ gives this driver a real caller.
 # ------------------------------------------------------------------------
 lint:
 	cppcheck --addon=misra \
 	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
 	  --suppress=missingIncludeSystem \
+	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
+	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # ------------------------------------------------------------------------

@@ -39,13 +39,13 @@
  */
 typedef struct FlashRegisters_t
 {
-  volatile uint32_t ACR;     ///< 0x00: access control register
-  volatile uint32_t KEYR;    ///< 0x04: key register
-  volatile uint32_t OPTKEYR; ///< 0x08: option key register
-  volatile uint32_t SR;      ///< 0x0C: status register
-  volatile uint32_t CR;      ///< 0x10: control register
-  volatile uint32_t OPTCR;   ///< 0x14: option control register
-  volatile uint32_t OPTCR1;  ///< 0x18: option control register 1
+    volatile uint32_t ACR;     ///< 0x00: access control register
+    volatile uint32_t KEYR;    ///< 0x04: key register
+    volatile uint32_t OPTKEYR; ///< 0x08: option key register
+    volatile uint32_t SR;      ///< 0x0C: status register
+    volatile uint32_t CR;      ///< 0x10: control register
+    volatile uint32_t OPTCR;   ///< 0x14: option control register
+    volatile uint32_t OPTCR1;  ///< 0x18: option control register 1
 } FlashRegisters_t;
 
 #define FLASH ((FlashRegisters_t *)FLASH_BASE) ///< Pointer to the Flash interface register block

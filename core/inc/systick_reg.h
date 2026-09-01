@@ -24,10 +24,10 @@
  */
 typedef struct SysTickRegisters_t
 {
-  volatile uint32_t CTRL;        ///< 0x00: control and status register
-  volatile uint32_t LOAD;        ///< 0x04: reload value register
-  volatile uint32_t VAL;         ///< 0x08: current value register
-  volatile const uint32_t CALIB; ///< 0x0C: calibration value register (READ only)
+    volatile uint32_t CTRL;        ///< 0x00: control and status register
+    volatile uint32_t LOAD;        ///< 0x04: reload value register
+    volatile uint32_t VAL;         ///< 0x08: current value register
+    volatile const uint32_t CALIB; ///< 0x0C: calibration value register (READ only)
 } SysTickRegisters_t;
 
 #define SYSTICK ((SysTickRegisters_t *)SYSTICK_BASE) ///< Pointer to the SysTick register block

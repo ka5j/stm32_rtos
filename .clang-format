@@ -1,9 +1,41 @@
 BasedOnStyle: LLVM
-IndentWidth: 2
+
+# --- Structure ---
+IndentWidth: 4
 UseTab: Never
 ColumnLimit: 100
-BreakBeforeBraces: Allman       
-SpaceBeforeParens: ControlStatements
-PointerAlignment: Right         
-AlignConsecutiveAssignments: false
+BreakBeforeBraces: Allman
 IndentCaseLabels: true
+
+# --- Pointers / spacing ---
+PointerAlignment: Right
+SpaceBeforeParens: ControlStatements
+
+# --- Alignment: trailing ///< comments line up into a readable column,
+# which matters a lot in register-heavy headers. AlignConsecutiveMacros is
+# deliberately off despite being a similar visual win for #define blocks -
+# its column computation differs between clang-format 18 (CI's pin) and
+# newer versions, producing non-reproducible output across dev machines.
+AlignTrailingComments: true
+AlignConsecutiveMacros: None
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# --- MISRA-friendly: never let a conditional collapse to one line ---
+InsertBraces: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortBlocksOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+
+# --- Long expressions wrap with the operator leading the new line ---
+BreakBeforeBinaryOperators: NonAssignment
+
+# --- Includes ---
+SortIncludes: true
+
+# --- Reflow on: re-indents comment continuation lines when the code
+# around them moves (e.g. indent-width changes) instead of leaving them
+# stranded at their old column. Verified this doesn't touch the existing
+# rationale prose anywhere, since those already fit ColumnLimit.
+ReflowComments: true

@@ -10,5 +10,5 @@
 /** FlashRegisters_t must be exactly 0x1C bytes (ACR..OPTCR1, RM0390 3.7). */
 void test_flash_register_block_size(void)
 {
-  TEST_ASSERT_EQUAL_UINT(0x1C, sizeof(FlashRegisters_t));
+    TEST_ASSERT_EQUAL_UINT(0x1C, sizeof(FlashRegisters_t));
 }

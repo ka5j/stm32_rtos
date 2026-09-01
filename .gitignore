@@ -21,7 +21,11 @@ docs/html/
 gdb.txt
 
 # Editor / IDE
-.vscode/
+# .vscode/settings.json is tracked (format-on-save wired to .clang-format) -
+# everything else under .vscode/ (launch.json, machine-specific paths, etc.)
+# stays ignored.
+.vscode/*
+!.vscode/settings.json
 .idea/
 *.swp
 
