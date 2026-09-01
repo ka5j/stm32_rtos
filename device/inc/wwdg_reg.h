@@ -29,9 +29,9 @@
  */
 typedef struct WwdgRegisters_t
 {
-  volatile uint32_t CR;  ///< 0x00: control register
-  volatile uint32_t CFR; ///< 0x04: configuration register
-  volatile uint32_t SR;  ///< 0x08: status register
+    volatile uint32_t CR;  ///< 0x00: control register
+    volatile uint32_t CFR; ///< 0x04: configuration register
+    volatile uint32_t SR;  ///< 0x08: status register
 } WwdgRegisters_t;
 
 #define WWDG ((WwdgRegisters_t *)WWDG_BASE) ///< Pointer to the WWDG register block

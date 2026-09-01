@@ -42,13 +42,13 @@
  */
 typedef struct UartRegisters_t
 {
-  volatile uint32_t SR;   ///< 0x00: status register
-  volatile uint32_t DR;   ///< 0x04: data register
-  volatile uint32_t BRR;  ///< 0x08: baud rate register
-  volatile uint32_t CR1;  ///< 0x0C: control register 1
-  volatile uint32_t CR2;  ///< 0x10: control register 2
-  volatile uint32_t CR3;  ///< 0x14: control register 3
-  volatile uint32_t GTPR; ///< 0x18: guard time and prescaler register
+    volatile uint32_t SR;   ///< 0x00: status register
+    volatile uint32_t DR;   ///< 0x04: data register
+    volatile uint32_t BRR;  ///< 0x08: baud rate register
+    volatile uint32_t CR1;  ///< 0x0C: control register 1
+    volatile uint32_t CR2;  ///< 0x10: control register 2
+    volatile uint32_t CR3;  ///< 0x14: control register 3
+    volatile uint32_t GTPR; ///< 0x18: guard time and prescaler register
 } UartRegisters_t;
 
 #define USART1 ((UartRegisters_t *)USART1_BASE) ///< Pointer to the USART1 register block
