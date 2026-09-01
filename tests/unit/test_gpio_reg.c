@@ -8,8 +8,7 @@
 #include "unity.h"
 
 /** GPIOA..GPIOH base addresses must be 0x400 apart, matching RM0390. */
-void
-test_gpio_base_addresses_are_evenly_spaced(void)
+void test_gpio_base_addresses_are_evenly_spaced(void)
 {
   TEST_ASSERT_EQUAL_HEX32(0x400, GPIOB_BASE - GPIOA_BASE);
   TEST_ASSERT_EQUAL_HEX32(0x400, GPIOC_BASE - GPIOB_BASE);
@@ -21,8 +20,4 @@ test_gpio_base_addresses_are_evenly_spaced(void)
 }
 
 /** GpioRegisters_t must be exactly 0x28 bytes (MODER..AFRH, RM0390 8.4). */
-void
-test_gpio_register_block_size(void)
-{
-  TEST_ASSERT_EQUAL_UINT(0x28, sizeof(GpioRegisters_t));
-}
+void test_gpio_register_block_size(void) { TEST_ASSERT_EQUAL_UINT(0x28, sizeof(GpioRegisters_t)); }

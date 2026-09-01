@@ -224,10 +224,19 @@ lint:
 HOST_CC        := cc
 TEST_DIR       := tests
 TEST_BUILD_DIR := $(TEST_DIR)/build
-TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c
+
+# Driver .c files that are host-testable off-target: pure register-block
+# logic with no direct hardware access, because the block is a function
+# parameter (e.g. gpio.c's GpioRegisters_t *port) rather than a hardware
+# GPIOx-style macro. Add a driver file here only once it meets that bar -
+# one that blocks on real timing/interrupts, or reaches for a hardware
+# macro directly, won't and shouldn't be compiled with HOST_CC.
+TEST_DRIVER_SOURCES := drivers/src/gpio.c
+
+TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
 TEST_OBJECTS   := $(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(notdir $(TEST_SOURCES)))
-vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity
+vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity drivers/src
 
 $(TEST_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
