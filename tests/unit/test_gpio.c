@@ -93,8 +93,10 @@ void test_gpio_driver_init_does_not_touch_afr(void)
 {
     GpioRegisters_t port = {.AFRL = 0xDEADBEEFU, .AFRH = 0xCAFEF00DU};
 
-    (void)gpioInit(&port, GPIO_PIN_5, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE);
+    DriverStatus_e status =
+        gpioInit(&port, GPIO_PIN_5, GPIO_MODE_AF, GPIO_OTYPE_PP, GPIO_OSPEED_LOW, GPIO_PUPD_NONE);
 
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(0xDEADBEEFU, port.AFRL);
     TEST_ASSERT_EQUAL_HEX32(0xCAFEF00DU, port.AFRH);
 }
