@@ -12,7 +12,8 @@ stm32_rtos/
 │   └── inc/
 ├── drivers/         Register-level driver logic (GPIO, RCC, UART, NVIC, SysTick).
 │                     drivers/inc/driver_status.h (the DriverStatus_e error
-│                     contract) is implemented; no driver logic yet.
+│                     contract) and the GPIO driver are implemented; RCC,
+│                     UART, NVIC, and SysTick are not yet.
 │   ├── inc/
 │   └── src/
 ├── api/             App-facing peripheral API (e.g. led_on(), debug_print())
