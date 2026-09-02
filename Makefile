@@ -72,7 +72,7 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re docs format format-check lint test
+.PHONY: all clean flash erase debug size re docs format format-check lint test coverage
 
 # ------------------------------------------------------------------------
 # make / make all
@@ -257,6 +257,42 @@ test: $(TEST_OBJECTS)
 	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
 	$(TEST_BUILD_DIR)/run_tests
 	awk -f tools/check_vector_table.awk core/inc/nvic_reg.h startup/startup_stm32f446re.s
+
+# ------------------------------------------------------------------------
+# make coverage
+# Rebuilds the same test/driver sources as `make test` with GCC's
+# --coverage instrumentation (-fprofile-arcs -ftest-coverage, implied by
+# --coverage), runs the suite to produce .gcda data, then gates on line
+# and branch coverage via gcovr (pip install gcovr) - failing (exit 1)
+# below COVERAGE_MIN_LINE/COVERAGE_MIN_BRANCH.
+#
+# Scoped to TEST_DRIVER_SOURCES only (the --filter below), not
+# tests/unit/*_reg.c or the register headers themselves: those are pure
+# data - structs and macros, no branches - so "coverage" isn't a
+# meaningful concept there and would only pad the reported number toward
+# 100% for free. The filter grows automatically as TEST_DRIVER_SOURCES
+# does, so a second host-testable driver file is covered by this gate
+# the moment it's added there, no Makefile change needed.
+#
+# Separate build dir (tests/coverage/) so this never touches build/ or
+# tests/build/ - instrumented objects are not the same as make test's
+# plain ones and must not be mixed with them.
+# ------------------------------------------------------------------------
+COVERAGE_MIN_LINE   := 100
+COVERAGE_MIN_BRANCH := 100
+COVERAGE_DIR        := $(TEST_DIR)/coverage
+COVERAGE_OBJECTS    := $(patsubst %.c,$(COVERAGE_DIR)/%.o,$(notdir $(TEST_SOURCES)))
+
+$(COVERAGE_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror=unused-result $(TEST_INCLUDES) --coverage -O0 -c $< -o $@
+
+coverage: $(COVERAGE_OBJECTS)
+	$(HOST_CC) --coverage $(COVERAGE_OBJECTS) -o $(COVERAGE_DIR)/run_tests_cov
+	$(COVERAGE_DIR)/run_tests_cov
+	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' \
+	  --fail-under-line $(COVERAGE_MIN_LINE) --fail-under-branch $(COVERAGE_MIN_BRANCH) \
+	  --print-summary
 
 # ------------------------------------------------------------------------
 # make docs
