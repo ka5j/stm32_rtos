@@ -36,3 +36,12 @@ Each register structure documents its memory-mapped layout with a
 per-field byte offset; each bit-definition macro documents its bit
 position and access semantics — read-only, write-only, or
 read/write-1-to-clear.
+
+Every file page includes an include/included-by dependency graph, and
+every group page in Topics includes a group graph — both generated
+directly from the real `#include` graph and `@ingroup` structure, so they
+can't silently drift from what the code actually does the way a hand-
+maintained diagram could. Source code is browsable and cross-linked: click
+any macro or struct member to jump to its definition, or scroll to the
+bottom of its documentation to see every other documented place that
+references it.

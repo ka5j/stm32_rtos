@@ -8,18 +8,25 @@
  *      on reset: word 0 = initial SP, word 1 = Reset_Handler address,
  *      remaining words = exception/interrupt handler addresses indexed
  *      by IRQ number.
- *   2. Implement Reset_Handler - copies .data from flash to RAM, zeroes
- *      .bss, then calls main(). Uses symbols exported by the linker
- *      script (linker/STM32F446RE.ld): _sidata, _sdata, _edata, _sbss,
- *      _ebss, _estack.
+ *   2. Implement Reset_Handler - enables the FPU and sets the interrupt
+ *      priority grouping (see the SCB_CPACR/SCB_AIRCR comment below),
+ *      copies .data from flash to RAM, zeroes .bss, then calls main().
+ *      Uses symbols exported by the linker script
+ *      (linker/STM32F446RE.ld): _sidata, _sdata, _edata, _sbss, _ebss,
+ *      _estack.
  *   3. Provide a Default_Handler and weak aliases for every interrupt,
  *      so an unimplemented interrupt has somewhere safe to land instead
  *      of jumping to garbage.
+ *
+ * No .fpu directive is set below: this file contains no VFP instructions
+ * of its own, so the assembler needs no FPU mode for it, and the actual
+ * hard-float codegen for main.c and everything above it is already
+ * governed by the Makefile's -mfpu=fpv4-sp-d16 -mfloat-abi=hard on each
+ * C translation unit, not by anything in this .s file.
  */
 
 .syntax unified
 .cpu cortex-m4
-.fpu softvfp
 .thumb
 
 .global vector_table
@@ -37,6 +44,40 @@
 
 Reset_Handler:
     ldr   sp, =_estack          /* set stack pointer to top of RAM */
+
+    /* Enable the FPU: SCB->CPACR CP10/CP11 = full access (core/inc/scb_reg.h
+     * SCB_CPACR_CP10_Msk|SCB_CPACR_CP11_Msk, PM0214 4.6.7). Every C file is
+     * built with -mfpu=fpv4-sp-d16 -mfloat-abi=hard, so any VFP instruction
+     * the compiler emits before this runs would trap as a UsageFault
+     * (NOCP) - do this before any C code, not lazily whenever float use
+     * first appears. FPCCR.ASPEN/LSPEN (lazy FP stacking) are left at
+     * their reset default of enabled; nothing here needs changing that. */
+    ldr   r0, =0xE000ED88       /* SCB->CPACR */
+    ldr   r1, [r0]
+    ldr   r2, =0x00F00000       /* CP10 (bits 21:20) | CP11 (bits 23:22), both 0b11 */
+    orr   r1, r1, r2
+    str   r1, [r0]
+    dsb
+    isb
+
+    /* Set interrupt priority grouping: SCB->AIRCR PRIGROUP = 3, all 4
+     * implemented priority bits (core/inc/nvic_reg.h NVIC_PRIO_BITS) used
+     * as preemption priority, 0 as subpriority (PM0214 4.4.5's PRIGROUP
+     * table). This is the standard STM32F4/FreeRTOS-style grouping and
+     * must be settled before rtos/kernel/ starts assigning PendSV/SVCall/
+     * SysTick priorities relative to peripheral IRQs - done once, here,
+     * rather than left to whichever driver happens to touch AIRCR first.
+     * Read-modify-write, not a bare store: AIRCR requires the VECTKEY
+     * field rewritten on every write (any other value is ignored), so the
+     * current value is read, VECTKEY+PRIGROUP cleared, then both written
+     * back together. */
+    ldr   r0, =0xE000ED0C       /* SCB->AIRCR */
+    ldr   r1, [r0]
+    ldr   r2, =0xFFFF0700       /* VECTKEY_Msk (bits 31:16) | PRIGROUP_Msk (bits 10:8) */
+    bic   r1, r1, r2
+    ldr   r2, =0x05FA0300       /* VECTKEY_WRITE key | PRIGROUP=3 */
+    orr   r1, r1, r2
+    str   r1, [r0]
 
     /* Copy .data initializers from flash (_sidata) to RAM ([_sdata, _edata)) */
     movs  r1, #0

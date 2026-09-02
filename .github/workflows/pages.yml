@@ -37,6 +37,9 @@ jobs:
             | tar -xz -C /opt
           echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
 
+      - name: Install graphviz (for Doxyfile's HAVE_DOT diagrams)
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+
       - name: make docs
         run: make docs
 
