@@ -8,6 +8,73 @@ specifically.
 
 ## [Unreleased]
 
+### Added
+
+- `drivers/inc/gpio.h`, `drivers/src/gpio.c`: the GPIO driver -
+  `GpioPin_e`/`GpioPinState_e` types and `gpioInit`/`gpioDeinit`/
+  `gpioSetAlternateFunction`/`gpioWritePin`/`gpioReadPin`/`gpioTogglePin`,
+  the first driver-layer logic this project has shipped. `gpioInit`
+  validates `mode`/`otype`/`ospeed`/`pupd` before writing any register
+  (including rejecting `pupd == 0x3`, reserved per RM0390) and writes
+  `AFRL`/`AFRH` before `MODER` to avoid a mode-switch glitch;
+  `gpioWritePin`/`gpioTogglePin` use `BSRR`, never a non-atomic `ODR`
+  read-modify-write.
+- `tests/unit/test_gpio.c`: 18 tests covering every validation branch and
+  field-isolation case (a write to one pin's bits must not touch its
+  neighbors' bits in the same register).
+- `make coverage` (Makefile) + `gcovr` (pinned `8.6`) in CI: gates line and
+  branch coverage at 100% on `TEST_DRIVER_SOURCES`, currently just
+  `gpio.c`. Scoped to driver logic, not the register headers, which are
+  pure data with no branches to cover.
+- `.vscode/settings.json`: editor format-on-save wired to `.clang-format`,
+  tracked via a `.gitignore` exception scoped to just that one file.
+
+### Fixed
+
+- `tests/unit/test_gpio.c`: GCC does not honor a `(void)` cast as
+  acknowledging a `warn_unused_result`-attributed return value the way
+  Clang does, so `-Werror=unused-result` turned it into a hard build
+  failure on CI's `arm-none-eabi-gcc`/host `cc` (both GCC) despite passing
+  every time locally on macOS/Clang. Fixed by capturing the result into a
+  named variable and asserting on it, matching every other `gpioInit` call
+  in the file.
+- `startup/startup_stm32f446re.s`: missing trailing newline.
+
+### Changed
+
+- `.clang-format`: `BasedOnStyle` `GNU` → `LLVM` (GNU silently ignores
+  `BreakAfterReturnType`-family overrides - confirmed by testing the same
+  override under each base style; every other property was already
+  explicitly pinned so `LLVM` costs nothing), 4-space indent,
+  `InsertBraces`/`AllowShort*OnASingleLine: Never` so no conditional, loop,
+  or non-empty function can collapse to a one-liner that hides logic,
+  supporting MISRA's brace-everywhere spirit at the tooling level. Verified
+  byte-identical output between clang-format 18 (CI's pin) and 22 (local)
+  before adopting; `AlignConsecutiveMacros` deliberately left off since its
+  column math differs between those two versions.
+- `Makefile`'s `lint` target: `misra-c2012-2.5` (unused macro) on
+  `device/inc/gpio_reg.h` and `misra-c2012-8.7` (external linkage used in
+  only one translation unit) on `drivers/src/gpio.c` suppressed, scoped to
+  those two files specifically, not the rules project-wide - both are real
+  findings today (nothing in `api`/`bsp`/`app` calls this code yet) but
+  neither is a defect. Remove both suppressions once `api/` gives `gpio.c`
+  a real caller.
+- `Makefile`'s `test` target now also compiles host-testable
+  `drivers/src/*.c` files (`TEST_DRIVER_SOURCES`, currently just
+  `gpio.c`) into the test binary - previously only `tests/unit/*.c` was
+  ever compiled, so `gpio.c` had no way to be tested until this landed.
+- `README.md`, `docs/VERSIONING.md`, `docs/mainpage.md`,
+  `docs/ARCHITECTURE.md`: corrected status text that still described
+  `drivers/` as having no driver logic after the GPIO driver landed, same
+  class of staleness `driver_status.h` caused in `0.1.2`.
+- `docs/VERSIONING.md`: clarified that PATCH covers incremental progress on
+  a not-yet-complete new layer (a single driver file, not the whole layer)
+  as well as fixes to an already-released one - `0.2.0` is reserved for
+  `drivers/`'s actual completion (GPIO, RCC, UART, NVIC, SysTick all
+  implemented and tested), not any single driver file landing.
+- `CONTRIBUTING.md`: documents `make coverage` in the CI step order and
+  notes it's CI-only, not part of the pre-commit hook's five checks.
+
 ## [0.1.2] - 2026-08-26
 
 Register-layer completeness fixes, a real NVIC/vector-table cross-check,
