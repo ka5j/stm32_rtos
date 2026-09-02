@@ -8,6 +8,8 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-01
+
 ### Added
 
 - `drivers/inc/gpio.h`, `drivers/src/gpio.c`: the GPIO driver -
