@@ -58,38 +58,38 @@
  */
 typedef enum DriverStatus_e
 {
-  /** A DriverStatus_e variable was read before being assigned by a
-   *  driver function. Never returned deliberately - its presence
-   *  means a code path failed to set the status it claims to report. */
-  DRIVER_STATUS_UNINITIALIZED = 0,
+    /** A DriverStatus_e variable was read before being assigned by a
+     *  driver function. Never returned deliberately - its presence
+     *  means a code path failed to set the status it claims to report. */
+    DRIVER_STATUS_UNINITIALIZED = 0,
 
-  /** Operation completed successfully. */
-  DRIVER_STATUS_OK = 1,
+    /** Operation completed successfully. */
+    DRIVER_STATUS_OK = 1,
 
-  /** A runtime-supplied parameter is outside its valid domain. */
-  DRIVER_STATUS_ERR_INVALID_PARAM = 2,
+    /** A runtime-supplied parameter is outside its valid domain. */
+    DRIVER_STATUS_ERR_INVALID_PARAM = 2,
 
-  /** Peripheral was used before its init/config function ran. */
-  DRIVER_STATUS_ERR_NOT_INITIALIZED = 3,
+    /** Peripheral was used before its init/config function ran. */
+    DRIVER_STATUS_ERR_NOT_INITIALIZED = 3,
 
-  /** A bounded wait on a hardware status flag expired before the
-   *  expected condition became true. */
-  DRIVER_STATUS_ERR_TIMEOUT = 4,
+    /** A bounded wait on a hardware status flag expired before the
+     *  expected condition became true. */
+    DRIVER_STATUS_ERR_TIMEOUT = 4,
 
-  /** The hardware reported a real fault via a status/error flag
-   *  (e.g. USART_SR.ORE/FE/PE, FLASH_SR.WRPERR). Distinct from
-   *  DRIVER_STATUS_ERR_TIMEOUT: the hardware responded, and what it
-   *  reported was a fault. */
-  DRIVER_STATUS_ERR_HW_FAULT = 5,
+    /** The hardware reported a real fault via a status/error flag
+     *  (e.g. USART_SR.ORE/FE/PE, FLASH_SR.WRPERR). Distinct from
+     *  DRIVER_STATUS_ERR_TIMEOUT: the hardware responded, and what it
+     *  reported was a fault. */
+    DRIVER_STATUS_ERR_HW_FAULT = 5,
 
-  /** The peripheral is mid-operation and cannot accept a new request
-   *  right now. Reserved for non-blocking/interrupt-driven drivers;
-   *  unused by a purely blocking/polled driver. */
-  DRIVER_STATUS_ERR_BUSY = 6,
+    /** The peripheral is mid-operation and cannot accept a new request
+     *  right now. Reserved for non-blocking/interrupt-driven drivers;
+     *  unused by a purely blocking/polled driver. */
+    DRIVER_STATUS_ERR_BUSY = 6,
 
-  /** The requested configuration is not implemented by this driver,
-   *  even if it is architecturally valid on the peripheral. */
-  DRIVER_STATUS_ERR_UNSUPPORTED = 7,
+    /** The requested configuration is not implemented by this driver,
+     *  even if it is architecturally valid on the peripheral. */
+    DRIVER_STATUS_ERR_UNSUPPORTED = 7,
 } DriverStatus_e;
 
 /** @} */

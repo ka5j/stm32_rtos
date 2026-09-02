@@ -30,40 +30,40 @@
  */
 typedef struct RccRegisters_t
 {
-  volatile uint32_t CR;           ///< 0x00: clock control register
-  volatile uint32_t PLLCFGR;      ///< 0x04: PLL configuration register
-  volatile uint32_t CFGR;         ///< 0x08: clock configuration register
-  volatile uint32_t CIR;          ///< 0x0C: clock interrupt register
-  volatile uint32_t AHB1RSTR;     ///< 0x10: AHB1 peripheral reset register
-  volatile uint32_t AHB2RSTR;     ///< 0x14: AHB2 peripheral reset register
-  volatile uint32_t AHB3RSTR;     ///< 0x18: AHB3 peripheral reset register
-  volatile uint32_t RESERVED0;    ///< 0x1C: reserved
-  volatile uint32_t APB1RSTR;     ///< 0x20: APB1 peripheral reset register
-  volatile uint32_t APB2RSTR;     ///< 0x24: APB2 peripheral reset register
-  volatile uint32_t RESERVED1[2]; ///< 0x28-0x2C: reserved
-  volatile uint32_t AHB1ENR;      ///< 0x30: AHB1 peripheral clock enable register
-  volatile uint32_t AHB2ENR;      ///< 0x34: AHB2 peripheral clock enable register
-  volatile uint32_t AHB3ENR;      ///< 0x38: AHB3 peripheral clock enable register
-  volatile uint32_t RESERVED2;    ///< 0x3C: reserved
-  volatile uint32_t APB1ENR;      ///< 0x40: APB1 peripheral clock enable register
-  volatile uint32_t APB2ENR;      ///< 0x44: APB2 peripheral clock enable register
-  volatile uint32_t RESERVED3[2]; ///< 0x48-0x4C: reserved
-  volatile uint32_t AHB1LPENR;    ///< 0x50: AHB1 peripheral clock enable in LP mode reg
-  volatile uint32_t AHB2LPENR;    ///< 0x54: AHB2 peripheral clock enable in LP mode reg
-  volatile uint32_t AHB3LPENR;    ///< 0x58: AHB3 peripheral clock enable in LP mode reg
-  volatile uint32_t RESERVED4;    ///< 0x5C: reserved
-  volatile uint32_t APB1LPENR;    ///< 0x60: APB1 peripheral clock enable in LP mode reg
-  volatile uint32_t APB2LPENR;    ///< 0x64: APB2 peripheral clock enabled in LP mode reg
-  volatile uint32_t RESERVED5[2]; ///< 0x68-0x6C: reserved
-  volatile uint32_t BDCR;         ///< 0x70: Backup domain control register
-  volatile uint32_t CSR;          ///< 0x74: clock control & status register
-  volatile uint32_t RESERVED6[2]; ///< 0x78-0x7C: reserved
-  volatile uint32_t SSCGR;        ///< 0x80: spread spectrum clock generation register
-  volatile uint32_t PLLI2SCFGR;   ///< 0x84: PLLI2S configuration register
-  volatile uint32_t PLLSAICFGR;   ///< 0x88: PLLSAI configuration register
-  volatile uint32_t DCKCFGR;      ///< 0x8C: dedicated clock configuration register
-  volatile uint32_t CKGATENR;     ///< 0x90: clocks gated enable register
-  volatile uint32_t DCKCFGR2;     ///< 0x94: dedicated clocks configuration register 2
+    volatile uint32_t CR;           ///< 0x00: clock control register
+    volatile uint32_t PLLCFGR;      ///< 0x04: PLL configuration register
+    volatile uint32_t CFGR;         ///< 0x08: clock configuration register
+    volatile uint32_t CIR;          ///< 0x0C: clock interrupt register
+    volatile uint32_t AHB1RSTR;     ///< 0x10: AHB1 peripheral reset register
+    volatile uint32_t AHB2RSTR;     ///< 0x14: AHB2 peripheral reset register
+    volatile uint32_t AHB3RSTR;     ///< 0x18: AHB3 peripheral reset register
+    volatile uint32_t RESERVED0;    ///< 0x1C: reserved
+    volatile uint32_t APB1RSTR;     ///< 0x20: APB1 peripheral reset register
+    volatile uint32_t APB2RSTR;     ///< 0x24: APB2 peripheral reset register
+    volatile uint32_t RESERVED1[2]; ///< 0x28-0x2C: reserved
+    volatile uint32_t AHB1ENR;      ///< 0x30: AHB1 peripheral clock enable register
+    volatile uint32_t AHB2ENR;      ///< 0x34: AHB2 peripheral clock enable register
+    volatile uint32_t AHB3ENR;      ///< 0x38: AHB3 peripheral clock enable register
+    volatile uint32_t RESERVED2;    ///< 0x3C: reserved
+    volatile uint32_t APB1ENR;      ///< 0x40: APB1 peripheral clock enable register
+    volatile uint32_t APB2ENR;      ///< 0x44: APB2 peripheral clock enable register
+    volatile uint32_t RESERVED3[2]; ///< 0x48-0x4C: reserved
+    volatile uint32_t AHB1LPENR;    ///< 0x50: AHB1 peripheral clock enable in LP mode reg
+    volatile uint32_t AHB2LPENR;    ///< 0x54: AHB2 peripheral clock enable in LP mode reg
+    volatile uint32_t AHB3LPENR;    ///< 0x58: AHB3 peripheral clock enable in LP mode reg
+    volatile uint32_t RESERVED4;    ///< 0x5C: reserved
+    volatile uint32_t APB1LPENR;    ///< 0x60: APB1 peripheral clock enable in LP mode reg
+    volatile uint32_t APB2LPENR;    ///< 0x64: APB2 peripheral clock enabled in LP mode reg
+    volatile uint32_t RESERVED5[2]; ///< 0x68-0x6C: reserved
+    volatile uint32_t BDCR;         ///< 0x70: Backup domain control register
+    volatile uint32_t CSR;          ///< 0x74: clock control & status register
+    volatile uint32_t RESERVED6[2]; ///< 0x78-0x7C: reserved
+    volatile uint32_t SSCGR;        ///< 0x80: spread spectrum clock generation register
+    volatile uint32_t PLLI2SCFGR;   ///< 0x84: PLLI2S configuration register
+    volatile uint32_t PLLSAICFGR;   ///< 0x88: PLLSAI configuration register
+    volatile uint32_t DCKCFGR;      ///< 0x8C: dedicated clock configuration register
+    volatile uint32_t CKGATENR;     ///< 0x90: clocks gated enable register
+    volatile uint32_t DCKCFGR2;     ///< 0x94: dedicated clocks configuration register 2
 } RccRegisters_t;
 
 #define RCC ((RccRegisters_t *)RCC_BASE) ///< Pointer to the RCC register block
@@ -201,8 +201,8 @@ typedef struct RccRegisters_t
 #define RCC_APB1ENR_USART2EN (1U << RCC_APB1ENR_USART2EN_Pos) ///< Bit within RCC_APB1ENR
 #define RCC_APB1ENR_PWREN_Pos (28U)                           ///< Bit position within RCC_APB1ENR
 #define RCC_APB1ENR_PWREN                                                                          \
-  (1U << RCC_APB1ENR_PWREN_Pos) ///< Bit within RCC_APB1ENR - required
-                                ///< before touching any PWR register
+    (1U << RCC_APB1ENR_PWREN_Pos) ///< Bit within RCC_APB1ENR - required
+                                  ///< before touching any PWR register
 
 /* --- RCC_APB2RSTR bit definitions --- */
 #define RCC_APB2RSTR_SYSCFGRST_Pos (14U) ///< Bit position within RCC_APB2RSTR
@@ -211,9 +211,9 @@ typedef struct RccRegisters_t
 /* --- RCC_APB2ENR bit definitions --- */
 #define RCC_APB2ENR_SYSCFGEN_Pos (14U) ///< Bit position within RCC_APB2ENR
 #define RCC_APB2ENR_SYSCFGEN                                                                       \
-  (1U << RCC_APB2ENR_SYSCFGEN_Pos) ///< Bit within RCC_APB2ENR -
-                                   ///< required before touching any
-                                   ///< SYSCFG register (e.g. EXTICR)
+    (1U << RCC_APB2ENR_SYSCFGEN_Pos) ///< Bit within RCC_APB2ENR -
+                                     ///< required before touching any
+                                     ///< SYSCFG register (e.g. EXTICR)
 
 /* --- RCC_CSR bit definitions --- */
 #define RCC_CSR_LSION_Pos (0U)                    ///< Bit position within RCC_CSR

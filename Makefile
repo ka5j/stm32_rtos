@@ -72,7 +72,7 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re docs format format-check lint test
+.PHONY: all clean flash erase debug size re docs format format-check lint test coverage
 
 # ------------------------------------------------------------------------
 # make / make all
@@ -196,12 +196,23 @@ format-check:
 # so this stays quiet today since drivers/api/bsp/rtos/app are still empty,
 # and starts finding real things the moment a .c file includes a register
 # header.
+#
+# Two rules are suppressed, scoped to specific files, not disabled project-
+# wide: misra-c2012-2.5 (unused macro) on device/inc/gpio_reg.h and
+# misra-c2012-8.7 (external linkage used in only one translation unit) on
+# drivers/src/gpio.c. Both are real findings today - nothing in api/bsp/app
+# calls gpio.c/gpio_reg.h yet - but neither is a code defect, and a project-
+# wide suppression would blind this check to a genuinely dead macro or a
+# function that should be static in any future file, not just these two.
+# Remove both suppressions the moment api/ gives this driver a real caller.
 # ------------------------------------------------------------------------
 lint:
 	cppcheck --addon=misra \
 	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
 	  --suppress=missingIncludeSystem \
+	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
+	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # ------------------------------------------------------------------------
@@ -224,10 +235,19 @@ lint:
 HOST_CC        := cc
 TEST_DIR       := tests
 TEST_BUILD_DIR := $(TEST_DIR)/build
-TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c
+
+# Driver .c files that are host-testable off-target: pure register-block
+# logic with no direct hardware access, because the block is a function
+# parameter (e.g. gpio.c's GpioRegisters_t *port) rather than a hardware
+# GPIOx-style macro. Add a driver file here only once it meets that bar -
+# one that blocks on real timing/interrupts, or reaches for a hardware
+# macro directly, won't and shouldn't be compiled with HOST_CC.
+TEST_DRIVER_SOURCES := drivers/src/gpio.c
+
+TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
 TEST_OBJECTS   := $(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(notdir $(TEST_SOURCES)))
-vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity
+vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity drivers/src
 
 $(TEST_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -237,6 +257,42 @@ test: $(TEST_OBJECTS)
 	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
 	$(TEST_BUILD_DIR)/run_tests
 	awk -f tools/check_vector_table.awk core/inc/nvic_reg.h startup/startup_stm32f446re.s
+
+# ------------------------------------------------------------------------
+# make coverage
+# Rebuilds the same test/driver sources as `make test` with GCC's
+# --coverage instrumentation (-fprofile-arcs -ftest-coverage, implied by
+# --coverage), runs the suite to produce .gcda data, then gates on line
+# and branch coverage via gcovr (pip install gcovr) - failing (exit 1)
+# below COVERAGE_MIN_LINE/COVERAGE_MIN_BRANCH.
+#
+# Scoped to TEST_DRIVER_SOURCES only (the --filter below), not
+# tests/unit/*_reg.c or the register headers themselves: those are pure
+# data - structs and macros, no branches - so "coverage" isn't a
+# meaningful concept there and would only pad the reported number toward
+# 100% for free. The filter grows automatically as TEST_DRIVER_SOURCES
+# does, so a second host-testable driver file is covered by this gate
+# the moment it's added there, no Makefile change needed.
+#
+# Separate build dir (tests/coverage/) so this never touches build/ or
+# tests/build/ - instrumented objects are not the same as make test's
+# plain ones and must not be mixed with them.
+# ------------------------------------------------------------------------
+COVERAGE_MIN_LINE   := 100
+COVERAGE_MIN_BRANCH := 100
+COVERAGE_DIR        := $(TEST_DIR)/coverage
+COVERAGE_OBJECTS    := $(patsubst %.c,$(COVERAGE_DIR)/%.o,$(notdir $(TEST_SOURCES)))
+
+$(COVERAGE_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(HOST_CC) -std=c11 -Wall -Wextra -Werror=unused-result $(TEST_INCLUDES) --coverage -O0 -c $< -o $@
+
+coverage: $(COVERAGE_OBJECTS)
+	$(HOST_CC) --coverage $(COVERAGE_OBJECTS) -o $(COVERAGE_DIR)/run_tests_cov
+	$(COVERAGE_DIR)/run_tests_cov
+	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' \
+	  --fail-under-line $(COVERAGE_MIN_LINE) --fail-under-branch $(COVERAGE_MIN_BRANCH) \
+	  --print-summary
 
 # ------------------------------------------------------------------------
 # make docs

@@ -37,11 +37,11 @@
  */
 typedef struct SyscfgRegisters_t
 {
-  volatile uint32_t MEMRMP;       ///< 0x00: memory remap register
-  volatile uint32_t PMC;          ///< 0x04: peripheral mode configuration register
-  volatile uint32_t EXTICR[4];    ///< 0x08-0x14: external interrupt configuration registers 1-4
-  volatile uint32_t RESERVED0[2]; ///< 0x18-0x1C: reserved
-  volatile uint32_t CMPCR;        ///< 0x20: compensation cell control register
+    volatile uint32_t MEMRMP;       ///< 0x00: memory remap register
+    volatile uint32_t PMC;          ///< 0x04: peripheral mode configuration register
+    volatile uint32_t EXTICR[4];    ///< 0x08-0x14: external interrupt configuration registers 1-4
+    volatile uint32_t RESERVED0[2]; ///< 0x18-0x1C: reserved
+    volatile uint32_t CMPCR;        ///< 0x20: compensation cell control register
 } SyscfgRegisters_t;
 
 #define SYSCFG ((SyscfgRegisters_t *)SYSCFG_BASE) ///< Pointer to the SYSCFG register block

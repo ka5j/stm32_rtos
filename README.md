@@ -11,6 +11,7 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
 - `clang-format`, `cppcheck`, `doxygen` on the `PATH` — required for `make format-check`, `make lint`, and `make docs`, and consequently for the pre-commit hook to execute
   - macOS: `brew install clang-format cppcheck doxygen`
   - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen`
+- `gcovr` — required for `make coverage` only (not the pre-commit hook): `pip install gcovr`
 - Reference documentation (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
 
 **Setup:**
@@ -74,12 +75,15 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
 | `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity, then cross-check `core/inc/nvic_reg.h` against the startup vector table; fails on any test failure or mismatch |
+| `make coverage`     | Recompile `TEST_DRIVER_SOURCES` and their tests with coverage instrumentation, run them, then fail (via `gcovr`) if line or branch coverage drops below 100% |
 
 ## Status
 
 **Completed:** The boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. The register layer is complete, documented, and covered by host-side unit tests, comprising every Cortex-M4 core peripheral this project models (`core/inc/`: MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (`device/inc/`: EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG), with one `test_<peripheral>_reg.c` per header aggregated by `tests/unit/test_runner.c`. The development pipeline — build, formatting, lint (including a MISRA C:2012 subset), Doxygen coverage, unit tests, pre-commit hook, and CI — is fully implemented and verified, including CI checks that enforce documentation and test coverage on every new or modified source file. See [CONTRIBUTING.md](CONTRIBUTING.md)'s CI triggers section for the exact checks run locally, on push, on pull request, and on hardware.
 
-**Not started:** No driver logic has been implemented yet. `api/`, `bsp/`, and the RTOS kernel/API remain empty scaffolding; `drivers/` contains only `drivers/inc/driver_status.h` (the `DriverStatus_e` error contract every driver function will use, per CONTRIBUTING.md's error-handling contract), not yet any GPIO/RCC/UART/NVIC/SysTick implementation. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout and [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions these layers must follow.
+**In progress:** `drivers/` has its error-status contract (`drivers/inc/driver_status.h`, the `DriverStatus_e` every driver function uses per CONTRIBUTING.md's error-handling contract) and a complete GPIO driver (`drivers/inc/gpio.h`, `drivers/src/gpio.c`: `gpioInit`/`gpioDeinit`/`gpioSetAlternateFunction`/`gpioWritePin`/`gpioReadPin`/`gpioTogglePin`, 100% line and branch coverage via `make coverage`). RCC, UART, NVIC, and SysTick drivers are not yet implemented; `0.2.0` is reserved for `drivers/`'s completion (see [docs/VERSIONING.md](docs/VERSIONING.md)).
+
+**Not started:** `api/`, `bsp/`, and the RTOS kernel/API remain empty scaffolding. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout and [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions these layers must follow.
 
 ## License
 

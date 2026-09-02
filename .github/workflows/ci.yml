@@ -69,6 +69,19 @@ jobs:
       - name: make test
         run: make test
 
+      - name: Install gcovr 8.6 (pinned, for make coverage)
+        # pip, not apt, since gcovr isn't in Ubuntu's archive at a useful
+        # version - pinned the same way cppcheck/clang-format/Doxygen above
+        # are, so a gcovr release changing its coverage math or CLI flags
+        # can't silently change what this gate enforces. --break-system-
+        # packages: Ubuntu 24.04's system pip enforces PEP 668's
+        # externally-managed-environment restriction; safe here since this
+        # runner VM is discarded after the job, not a persistent system.
+        run: pip install --break-system-packages gcovr==8.6
+
+      - name: make coverage
+        run: make coverage
+
       - name: make lint
         run: make lint
 
