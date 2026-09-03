@@ -12,10 +12,11 @@ definitions for every Cortex-M4 core peripheral this project models (NVIC,
 SCB, MPU, SysTick) and every STM32F446-specific peripheral it models (GPIO,
 RCC, SYSCFG, UART, EXTI, Flash interface, PWR, IWDG, WWDG).
 `drivers/inc/driver_status.h`, the shared `DriverStatus_e` error contract
-every driver function uses, and a complete GPIO driver
-(`drivers/inc/gpio.h`, `drivers/src/gpio.c`) are also implemented. The rest
-of the driver layer (RCC, UART, NVIC, SysTick), plus API, BSP, and RTOS,
-remain in progress; see the
+every driver function uses, a complete GPIO driver (`drivers/inc/gpio.h`,
+`drivers/src/gpio.c`), and RCC peripheral clock gating
+(`drivers/inc/rcc.h`, `drivers/src/rcc.c`) are also implemented. RCC's
+SYSCLK/PLL bring-up, the rest of the driver layer (UART, NVIC, SysTick),
+and API, BSP, and RTOS, remain in progress; see the
 [GitHub repository](https://github.com/ka5j/stm32_rtos) for current status,
 build instructions, and contribution conventions. This site documents code
 only; process documentation (contributing, versioning, security) resides
@@ -30,7 +31,8 @@ The **Topics** page groups every documented header by architectural layer:
   derived from PM0214) and **STM32F446 Peripherals** (GPIO, RCC, SYSCFG,
   UART, EXTI, Flash, PWR, IWDG, WWDG, derived from RM0390).
 - **Drivers** — register-level driver logic consuming the layer above:
-  the shared `DriverStatus_e` error contract and the GPIO driver so far.
+  the shared `DriverStatus_e` error contract, the GPIO driver, and RCC
+  peripheral clock gating so far.
 
 Each register structure documents its memory-mapped layout with a
 per-field byte offset; each bit-definition macro documents its bit
