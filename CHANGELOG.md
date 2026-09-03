@@ -10,6 +10,42 @@ specifically.
 
 ### Added
 
+- `drivers/inc/rcc.h`, `drivers/src/rcc.c`: RCC peripheral clock gating -
+  `rccGpioClockEnable`/`rccGpioClockDisable` (any of GPIOA..GPIOH, taking
+  the port's existing `GpioRegisters_t *` rather than a new enum),
+  `rccUsart2ClockEnable`/`rccUsart2ClockDisable`,
+  `rccSyscfgClockEnable`/`rccSyscfgClockDisable`,
+  `rccPwrClockEnable`/`rccPwrClockDisable`. Scoped to clock gating only -
+  RCC's HSI/HSE-to-PLL SYSCLK bring-up is deliberately deferred to a
+  separate change, since it requires a blocking hardware-ready poll (not
+  host-testable the way this file is) and careful flash-latency/PWR-
+  voltage-scale sequencing against `flash_reg.h`/`pwr_reg.h`. This is the
+  first driver in the project where the register block is a hardware
+  singleton (there is only one RCC), yet still takes `RccRegisters_t *`
+  as a parameter rather than reaching for the `RCC` macro internally -
+  see `CONTRIBUTING.md`'s error-handling contract section for why.
+- `tests/unit/test_rcc.c`: 12 tests covering every port-identity branch
+  (all 8 GPIO ports plus the unrecognized-pointer rejection case, for
+  both enable and disable), bit-isolation, and the USART2/SYSCFG/PWR
+  gate functions - 100% line and branch coverage via `make coverage`.
+- `Makefile`'s `lint` target: added a permanent deviation for
+  `misra-c2012-11.4` (pointer/integer conversion), scoped by glob
+  (`*_reg.h`) rather than to one file or globally - every peripheral
+  base-address macro in every register header
+  (`#define GPIOA ((GpioRegisters_t *)GPIOA_BASE)`, and the same pattern
+  for `RCC`, `USART2`, `EXTI`, ...) does this cast, it's the only way to
+  define a pointer to a fixed memory-mapped hardware address in standard
+  C, and it will never represent a real defect here - scoping it per-file
+  the way `misra-c2012-2.5`/`8.7` are scoped would mean adding a new
+  suppression line every time any peripheral's pointer macro gets its
+  first real caller, forever, which doesn't scale. The glob covers every
+  register header without that growing list, while leaving the rule
+  active for driver/api/bsp/rtos `.c` files, where a genuinely risky
+  pointer/integer conversion should still be caught - verified with a
+  deliberately-bad cast in a throwaway `.c` file. Also added
+  `misra-c2012-2.5` for `device/inc/rcc_reg.h` and `misra-c2012-8.7` for
+  `drivers/src/rcc.c`, matching the existing `gpio.c`/`gpio_reg.h`
+  suppressions and for the same reasons (see the Makefile's comment).
 - `Doxyfile`: turned on the diagram generator (`HAVE_DOT=YES`, previously
   off) with a curated subset rather than every default graph - directory
   and include/included-by graphs (`DIRECTORY_GRAPH`, `INCLUDE_GRAPH`,
@@ -44,22 +80,26 @@ specifically.
 - `docs/mainpage.md`: mentions the new dependency graphs and browsable,
   cross-linked source on every file/group page.
 
-### Fixed
-
-- `Doxyfile`: `SORT_MEMBER_DOCS` YES -> NO. Every struct here is a
-  memory-mapped register block where declaration order is the real
-  hardware byte-offset order (RM0390/PM0214) - the default alphabetical
-  sort was scrambling each struct's *detailed* field documentation
-  (e.g. `GpioRegisters_t` showing `AFRH, AFRL, BSRR, IDR, ...`) out of
-  sync with the correctly byte-offset-ordered summary table directly
-  above it on the same generated page.
-
 ### Changed
 
+- `CONTRIBUTING.md`: the error-handling-contract example now shows
+  `rccGpioClockEnable(RCC, GPIOA)` (two arguments) instead of the stale
+  `rccGpioClockEnable(GPIO_PORT_A)` (one argument, predating `rcc.c`).
+  Added a paragraph stating explicitly, as project policy, that every
+  driver function takes its peripheral's register block as a parameter -
+  including for a hardware singleton like RCC - and why: it's what makes
+  driver logic host-testable off-target, which this project prioritizes
+  over the vendor HAL/LL convention (operate on the fixed global instance
+  directly) since that convention exists only because HAL/LL has no
+  host-side test infrastructure to begin with.
+- `README.md`, `docs/ARCHITECTURE.md`, `docs/VERSIONING.md`,
+  `docs/mainpage.md`: corrected status text that still described `RCC`
+  as entirely unimplemented after clock gating landed - same class of
+  staleness the project has corrected after every previous driver
+  addition.
 - `Doxyfile`: condensed every tag's explanatory comment from Doxygen's
   full stock template prose (often 5-20 lines) down to at most two lines
   each, keeping only what's project-relevant; 3053 lines -> 1078.
-
 - `Makefile`: `BUILD` profile knob (`debug`, the existing default, or
   `release`) - `debug` keeps `-O0 -g3` (weakest optimizer, so GCC's
   uninitialized-variable analysis stays maximally sensitive per
@@ -69,6 +109,13 @@ specifically.
 
 ### Fixed
 
+- `Doxyfile`: `SORT_MEMBER_DOCS` YES -> NO. Every struct here is a
+  memory-mapped register block where declaration order is the real
+  hardware byte-offset order (RM0390/PM0214) - the default alphabetical
+  sort was scrambling each struct's *detailed* field documentation
+  (e.g. `GpioRegisters_t` showing `AFRH, AFRL, BSRR, IDR, ...`) out of
+  sync with the correctly byte-offset-ordered summary table directly
+  above it on the same generated page.
 - `startup/startup_stm32f446re.s`: `Reset_Handler` now enables the FPU
   (`SCB->CPACR` CP10/CP11 full access) and sets interrupt priority
   grouping (`SCB->AIRCR` PRIGROUP=3, all 4 implemented priority bits as

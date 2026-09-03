@@ -51,11 +51,13 @@ Within `core/inc/`/`device/inc/`, grouping goes one level deeper: `core_peripher
 Every driver function that can fail returns `DriverStatus_e` (defined in `drivers/inc/driver_status.h`), a small, closed set of failure *categories* (`DRIVER_STATUS_ERR_INVALID_PARAM`, `_NOT_INITIALIZED`, `_TIMEOUT`, `_HW_FAULT`, `_BUSY`, `_UNSUPPORTED`) used for control-flow decisions at the call site. This is the required pattern for all new driver code. Compare explicitly:
 
 ```c
-DriverStatus_e status = rccGpioClockEnable(GPIO_PORT_A);
+DriverStatus_e status = rccGpioClockEnable(RCC, GPIOA);
 if (status != DRIVER_STATUS_OK) { /* handle */ }
 ```
 
 Do not use `if (status)` / `if (!status)`; this relies implicitly on `OK == 0` rather than an explicit comparison, and breaks silently if the enum is reordered.
+
+**Every driver function takes its peripheral's register block as a parameter** (e.g. `gpioInit(GpioRegisters_t *port, ...)`, `rccGpioClockEnable(RccRegisters_t *rcc, const GpioRegisters_t *port)`), never reaching for a hardware macro (`GPIOA`, `RCC`, ...) internally - including for a peripheral that is a hardware singleton, like RCC, where only one instance will ever exist. This is what makes a driver's logic host-testable off-target (see the Makefile's `TEST_DRIVER_SOURCES` comment and `tests/unit/test_rcc.c`/`test_gpio.c`): a test passes a plain in-memory struct standing in for real hardware. This project prioritizes that testability - the 100%-coverage gate in `make coverage` depends on it - over the convention vendor HAL/LL code uses for singleton peripherals (operating on the fixed global instance directly with no parameter), since that convention exists specifically because HAL/LL has no host-side test infrastructure to inject a fake register block into. When a driver needs to identify one instance among several real hardware instances of the same peripheral (e.g. which GPIO port), pass the existing register-block pointer that already identifies it (`GPIOA`, `GPIOB`, ...) rather than inventing a parallel enum - see `rcc.c`'s `rccGpioClockBit()` helper.
 
 Module-specific failure detail (which check failed, on which peripheral) belongs in a per-module detail enum, not the shared status enum. Do not add peripheral-specific values to `DriverStatus_e` itself. Introduce the tier-2 design (per-module detail codes returned alongside status) once a driver requires that granularity; do not build it speculatively before then.
 

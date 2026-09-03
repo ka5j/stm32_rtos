@@ -220,22 +220,52 @@ format-check:
 # and starts finding real things the moment a .c file includes a register
 # header.
 #
-# Two rules are suppressed, scoped to specific files, not disabled project-
-# wide: misra-c2012-2.5 (unused macro) on device/inc/gpio_reg.h and
-# misra-c2012-8.7 (external linkage used in only one translation unit) on
-# drivers/src/gpio.c. Both are real findings today - nothing in api/bsp/app
-# calls gpio.c/gpio_reg.h yet - but neither is a code defect, and a project-
-# wide suppression would blind this check to a genuinely dead macro or a
-# function that should be static in any future file, not just these two.
-# Remove both suppressions the moment api/ gives this driver a real caller.
+# Two categories of suppression here, deliberately handled differently:
+#
+# 1. Scoped to specific files, not disabled project-wide: misra-c2012-2.5
+#    (unused macro) on device/inc/gpio_reg.h and device/inc/rcc_reg.h, and
+#    misra-c2012-8.7 (external linkage used in only one translation unit)
+#    on drivers/src/gpio.c and drivers/src/rcc.c. All are real findings
+#    today - nothing in api/bsp/app calls either driver yet, and
+#    rcc_reg.h's PLL/SYSCLK/reset fields have no consumer until the not-
+#    yet-implemented SYSCLK bring-up lands (see rcc.h's file-level
+#    comment) - but none is a code defect, and a project-wide suppression
+#    would blind this check to a genuinely dead macro or a function that
+#    should be static in any future file, not just these. Remove a
+#    suppression the moment its file gets a real caller (gpio.c/
+#    gpio_reg.h: once api/ exists; rcc_reg.h's remaining fields: once
+#    SYSCLK bring-up is implemented).
+#
+# 2. A permanent deviation scoped by glob, not to any one file: misra-
+#    c2012-11.4 (pointer/integer conversion), suppressed for *_reg.h only.
+#    Every peripheral base-address macro in every core/inc/device/inc
+#    register header (`#define GPIOA ((GpioRegisters_t *)GPIOA_BASE)`,
+#    and the same pattern for RCC, USART2, EXTI, ...) does exactly this
+#    cast - it is the only way to define a pointer to a fixed, memory-
+#    mapped hardware address in standard C, and it will never represent a
+#    real defect here. Scoping this per-file instead would mean adding
+#    one more suppression line every single time any peripheral's pointer
+#    macro gets its first real caller, forever, which doesn't scale the
+#    way the file-scoped suppressions below do (a small, bounded set of
+#    driver files) - so this is scoped by the *_reg.h glob instead: every
+#    register header, present and future, without an ever-growing list,
+#    while still leaving the rule active for driver/api/bsp/rtos .c files,
+#    where a genuinely risky pointer/integer conversion (e.g. casting a
+#    runtime-computed address) should still be caught. Verified this
+#    glob doesn't just suppress everything: a deliberately-bad
+#    `(volatile uint32_t *)some_runtime_value` cast in a plain .c file
+#    still gets flagged.
 # ------------------------------------------------------------------------
 lint:
 	cppcheck --addon=misra \
 	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
 	  --suppress=missingIncludeSystem \
+	  --suppress=misra-c2012-11.4:'*_reg.h' \
 	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/rcc_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
+	  --suppress=misra-c2012-8.7:drivers/src/rcc.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # ------------------------------------------------------------------------
@@ -261,11 +291,13 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 
 # Driver .c files that are host-testable off-target: pure register-block
 # logic with no direct hardware access, because the block is a function
-# parameter (e.g. gpio.c's GpioRegisters_t *port) rather than a hardware
-# GPIOx-style macro. Add a driver file here only once it meets that bar -
-# one that blocks on real timing/interrupts, or reaches for a hardware
-# macro directly, won't and shouldn't be compiled with HOST_CC.
-TEST_DRIVER_SOURCES := drivers/src/gpio.c
+# parameter (e.g. gpio.c's GpioRegisters_t *port, rcc.c's RccRegisters_t
+# *rcc) rather than a hardware GPIOx/RCC-style macro. Add a driver file
+# here only once it meets that bar - one that blocks on real timing/
+# interrupts (e.g. rcc.c's not-yet-implemented PLL/SYSCLK bring-up, which
+# must poll a hardware-ready bit), or reaches for a hardware macro
+# directly, won't and shouldn't be compiled with HOST_CC.
+TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
