@@ -38,11 +38,34 @@ INC_DIRS := core/inc device/inc drivers/inc api/inc bsp/inc \
 INCLUDES := $(addprefix -I,$(INC_DIRS))
 
 ##########################################################################
+# Build profile - debug (default) or release
+##########################################################################
+# debug: -O0, weakest optimizer, so GCC's uninitialized-variable analysis
+# is at its least aggressive and won't optimize away a bug this project
+# wants surfaced (see driver_status.h's DRIVER_STATUS_UNINITIALIZED
+# comment) - this is what every target has always built with so far.
+# release: -O2, representative of what actually ships; needed before any
+# real timing characterization of the scheduler/context switch, since
+# -O0 code does not represent shipped instruction counts or cycle timing.
+# Switching BUILD without `make clean` first mixes object files built
+# under the other profile's flags into the same build/ dir - `make re`
+# (clean + all) is the safe way to switch.
+BUILD ?= debug
+
+ifeq ($(BUILD),debug)
+  OPT_FLAGS := -O0 -g3
+else ifeq ($(BUILD),release)
+  OPT_FLAGS := -O2 -g
+else
+  $(error Unknown BUILD '$(BUILD)' - use 'debug' or 'release')
+endif
+
+##########################################################################
 # Compile / assemble / link flags
 ##########################################################################
 CFLAGS  := $(MCU_FLAGS) $(INCLUDES) -std=c11 -Wall -Wextra \
            -Werror=unused-result \
-           -ffunction-sections -fdata-sections -O0 -g3 -MMD -MP
+           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP
 # -Werror=unused-result: promotes __attribute__((warn_unused_result))
 # (see drivers/inc/driver_status.h's DRIVER_MUST_CHECK) from a warning
 # that scrolls by unnoticed to a build failure. Scoped to this one

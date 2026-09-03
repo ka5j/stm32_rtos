@@ -47,6 +47,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
 
+      - name: Install graphviz (for Doxyfile's HAVE_DOT diagrams)
+        # Unpinned, unlike cppcheck/clang-format/Doxygen above: graphviz only
+        # draws the include/directory/group graphs `make docs` embeds, it
+        # doesn't gate pass/fail on anything, so an archive version bump
+        # can't silently change what CI enforces the way a linter or
+        # formatter version bump could.
+        run: sudo apt-get install -y graphviz
+
       - name: Install Doxygen 1.18.0
         # Ubuntu's apt package (1.9.8 as of this writing) is far behind the
         # version this Doxyfile targets (see its header comment and

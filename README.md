@@ -9,8 +9,9 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
 - [OpenOCD](https://openocd.org/) on the `PATH` — required for `flash`, `erase`, `debug`
 - GNU Make
 - `clang-format`, `cppcheck`, `doxygen` on the `PATH` — required for `make format-check`, `make lint`, and `make docs`, and consequently for the pre-commit hook to execute
-  - macOS: `brew install clang-format cppcheck doxygen`
-  - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen`
+  - macOS: `brew install clang-format cppcheck doxygen graphviz`
+  - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen graphviz`
+  - `graphviz` (the `dot` tool) is required for `make docs`'s include/directory/group diagrams (`Doxyfile`'s `HAVE_DOT`); without it on the `PATH`, Doxygen silently omits every diagram instead of failing.
 - `gcovr` — required for `make coverage` only (not the pre-commit hook): `pip install gcovr`
 - Reference documentation (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
 

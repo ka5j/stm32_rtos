@@ -8,6 +8,83 @@ specifically.
 
 ## [Unreleased]
 
+### Added
+
+- `Doxyfile`: turned on the diagram generator (`HAVE_DOT=YES`, previously
+  off) with a curated subset rather than every default graph - directory
+  and include/included-by graphs (`DIRECTORY_GRAPH`, `INCLUDE_GRAPH`,
+  `INCLUDED_BY_GRAPH`) and the Topics group graph (`GROUP_GRAPHS`) stay on,
+  since they're generated straight from the real `#include`/`@ingroup`
+  structure and can't drift from what the code does the way a hand-drawn
+  diagram can; `CLASS_GRAPH`/`COLLABORATION_GRAPH`/`GRAPHICAL_HIERARCHY`
+  (no C++ inheritance to show - every register struct is flat) and
+  `CALL_GRAPH`/`CALLER_GRAPH` (almost nothing calls anything yet above
+  `drivers/src/gpio.c`) are explicitly turned back off since they'd render
+  as content-free noise at this project's current stage. Graphs render as
+  interactive, zoomable SVG (`DOT_IMAGE_FORMAT=svg`, `INTERACTIVE_SVG=YES`)
+  instead of fixed-resolution PNG. `DIR_GRAPH_MAX_DEPTH` raised to 2 so
+  `rtos/kernel/` and `rtos/api/` show as distinct nodes instead of
+  collapsing into one `rtos` node.
+- `Doxyfile`: `HTML_COLORSTYLE=TOGGLE` (manual light/dark switch, not just
+  OS-preference-following `AUTO_LIGHT`), `FULL_SIDEBAR=YES`
+  (ReadTheDocs-style full-height nav - no `PROJECT_LOGO` is set to lose
+  room for), `SOURCE_BROWSER=YES` with `REFERENCES_RELATION`/
+  `REFERENCED_BY_RELATION=YES` (browsable, cross-linked source; click a
+  macro and jump to its definition, or see every documented place that
+  references it), `SHOW_ENUM_VALUES=YES` (shows e.g. an `IRQn_e` entry's
+  actual interrupt number inline instead of requiring a click-through),
+  and `HTML_DYNAMIC_SECTIONS=YES` (collapsible sections for the register
+  headers that document 20-40+ macros in one file).
+- `.github/workflows/ci.yml`, `.github/workflows/pages.yml`: install
+  `graphviz` before `make docs`, now required for the diagrams above -
+  unpinned, unlike the Doxygen/cppcheck/clang-format versions, since it
+  only draws pictures and gates no pass/fail check CI enforces.
+- `README.md`: `graphviz` added to the prerequisites list for both
+  package managers.
+- `docs/mainpage.md`: mentions the new dependency graphs and browsable,
+  cross-linked source on every file/group page.
+
+### Fixed
+
+- `Doxyfile`: `SORT_MEMBER_DOCS` YES -> NO. Every struct here is a
+  memory-mapped register block where declaration order is the real
+  hardware byte-offset order (RM0390/PM0214) - the default alphabetical
+  sort was scrambling each struct's *detailed* field documentation
+  (e.g. `GpioRegisters_t` showing `AFRH, AFRL, BSRR, IDR, ...`) out of
+  sync with the correctly byte-offset-ordered summary table directly
+  above it on the same generated page.
+
+### Changed
+
+- `Doxyfile`: condensed every tag's explanatory comment from Doxygen's
+  full stock template prose (often 5-20 lines) down to at most two lines
+  each, keeping only what's project-relevant; 3053 lines -> 1078.
+
+- `Makefile`: `BUILD` profile knob (`debug`, the existing default, or
+  `release`) - `debug` keeps `-O0 -g3` (weakest optimizer, so GCC's
+  uninitialized-variable analysis stays maximally sensitive per
+  `driver_status.h`'s rationale); `release` builds `-O2 -g`, needed before
+  any real timing characterization of the scheduler/context switch, since
+  `-O0` code doesn't represent shipped instruction counts or cycle timing.
+
+### Fixed
+
+- `startup/startup_stm32f446re.s`: `Reset_Handler` now enables the FPU
+  (`SCB->CPACR` CP10/CP11 full access) and sets interrupt priority
+  grouping (`SCB->AIRCR` PRIGROUP=3, all 4 implemented priority bits as
+  preemption priority) before copying `.data`/calling `main()`. Every C
+  file already builds `-mfpu=fpv4-sp-d16 -mfloat-abi=hard`; without this,
+  the first VFP instruction any code emits would trap as a UsageFault
+  (NOCP) instead of executing, and `rtos/kernel/` would inherit whatever
+  priority-grouping default happened to be in place instead of the
+  grouping a preemptive scheduler assumes. Both were previously
+  unconfigured - `core/inc/scb_reg.h` defined the fields but nothing wrote
+  them.
+- `startup/startup_stm32f446re.s`: removed the `.fpu softvfp` assembler
+  directive - vestigial, contradicted the hard-float build (this file has
+  no VFP instructions of its own either way, so it was a no-op, but
+  confusing to read next to `-mfloat-abi=hard`).
+
 ## [0.1.3] - 2026-09-01
 
 ### Added
