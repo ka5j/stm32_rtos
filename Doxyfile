@@ -440,7 +440,7 @@ WARN_LOGFILE           =
 
 # Directories/files Doxygen parses. Excludes tests/ deliberately - the
 # test suite isn't part of the public reference this site documents.
-INPUT                  = app bsp core device drivers rtos docs/groups.dox docs/mainpage.md
+INPUT                  = api app bsp core device drivers rtos docs/groups.dox docs/mainpage.md
 
 # Character encoding of the input files.
 INPUT_ENCODING         = UTF-8
