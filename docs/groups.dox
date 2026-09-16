@@ -145,6 +145,6 @@
 
 /**
  * @defgroup driver_layer Drivers
- * @brief Register-level driver logic (GPIO, RCC, UART, NVIC, SysTick),
- *        with no application-facing logic. Consumed by api/.
+ * @brief Register-level driver logic (GPIO, RCC, Flash, PWR, UART, NVIC,
+ *        SysTick), with no application-facing logic. Consumed by api/.
  */

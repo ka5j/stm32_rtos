@@ -223,18 +223,25 @@ format-check:
 # Two categories of suppression here, deliberately handled differently:
 #
 # 1. Scoped to specific files, not disabled project-wide: misra-c2012-2.5
-#    (unused macro) on device/inc/gpio_reg.h and device/inc/rcc_reg.h, and
-#    misra-c2012-8.7 (external linkage used in only one translation unit)
-#    on drivers/src/gpio.c and drivers/src/rcc.c. All are real findings
-#    today - nothing in api/bsp/app calls either driver yet, and
-#    rcc_reg.h's PLL/SYSCLK/reset fields have no consumer until the not-
-#    yet-implemented SYSCLK bring-up lands (see rcc.h's file-level
-#    comment) - but none is a code defect, and a project-wide suppression
-#    would blind this check to a genuinely dead macro or a function that
-#    should be static in any future file, not just these. Remove a
-#    suppression the moment its file gets a real caller (gpio.c/
-#    gpio_reg.h: once api/ exists; rcc_reg.h's remaining fields: once
-#    SYSCLK bring-up is implemented).
+#    (unused macro) on device/inc/gpio_reg.h, device/inc/rcc_reg.h,
+#    device/inc/flash_reg.h, and device/inc/pwr_reg.h, and misra-c2012-8.7
+#    (external linkage used in only one translation unit) on
+#    drivers/src/gpio.c and drivers/src/rcc.c. All are real findings
+#    today: nothing in api/bsp/app calls gpio.c's or rcc.c's own public
+#    functions yet (flash.c/pwr.c don't need this suppression, even
+#    though api/ doesn't exist either - rcc.c calls flashSetLatency()/
+#    pwrSetVoltageScale() directly, so cppcheck's whole-project analysis
+#    already sees a second translation unit using them); rcc_reg.h's CIR
+#    (clock-security-system) and CSR (LSI enable, reset-cause flags)
+#    sections and flash_reg.h's SR/CR bits beyond ACR.LATENCY and
+#    pwr_reg.h's bits beyond CR.VOS/CSR.VOSRDY are modeled for
+#    completeness per RM0390 but have no consumer - this project's clock
+#    bring-up doesn't touch the clock security system, reset-cause
+#    reporting, or flash/PWR's other facilities (self-programming,
+#    low-power modes, PVD, ...). None of this is a code defect, and a
+#    project-wide suppression would blind this check to a genuinely dead
+#    macro in any future file, not just these. Remove a suppression the
+#    moment its file's last unused macro or function gets a real caller.
 #
 # 2. A permanent deviation scoped by glob, not to any one file: misra-
 #    c2012-11.4 (pointer/integer conversion), suppressed for *_reg.h only.
@@ -264,6 +271,8 @@ lint:
 	  --suppress=misra-c2012-11.4:'*_reg.h' \
 	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/rcc_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/flash_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/pwr_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  --suppress=misra-c2012-8.7:drivers/src/rcc.c \
 	  $(INCLUDES) $(SRC_DIRS)
@@ -293,11 +302,22 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # logic with no direct hardware access, because the block is a function
 # parameter (e.g. gpio.c's GpioRegisters_t *port, rcc.c's RccRegisters_t
 # *rcc) rather than a hardware GPIOx/RCC-style macro. Add a driver file
-# here only once it meets that bar - one that blocks on real timing/
-# interrupts (e.g. rcc.c's not-yet-implemented PLL/SYSCLK bring-up, which
-# must poll a hardware-ready bit), or reaches for a hardware macro
-# directly, won't and shouldn't be compiled with HOST_CC.
-TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c
+# here only once it meets that bar - one that reaches for a hardware macro
+# directly won't and shouldn't be compiled with HOST_CC.
+#
+# This bar turned out to include hardware-ready polling too, not just
+# simple register writes: rcc.c/flash.c/pwr.c's HSI/HSE/PLL/SYSCLK/VOS
+# ready-waits are bounded iteration-count retries, not wall-clock
+# timeouts (SysTick isn't configured this early in clock bring-up - see
+# rcc.h's file-level comment), and the ready bit each one polls
+# (HSIRDY, VOSRDY, ...) is a field distinct from what the driver itself
+# writes. A host test holds the ready bit clear indefinitely in a plain
+# in-memory register struct to exercise the timeout branch - no real
+# hardware or timer required. An earlier version of this comment (and of
+# rcc.h/CHANGELOG.md) stated the opposite for rcc.c's then-unimplemented
+# SYSCLK bring-up; that was reconsidered once it was actually written and
+# tested, rather than left standing as-is.
+TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity

@@ -10,6 +10,56 @@ specifically.
 
 ### Added
 
+- `drivers/inc/rcc.h`, `drivers/src/rcc.c`: RCC's HSI/HSE-to-PLL SYSCLK
+  bring-up - `rccHsiEnable`/`rccHsiDisable`, `rccHseEnable` (crystal or
+  bypass mode)/`rccHseDisable`, `rccPllConfig`/`rccPllEnable`/
+  `rccPllDisable`, `rccBusPrescalerConfig`, and the orchestrating
+  `rccSysclkSwitch`, which sequences the PWR voltage-scale and flash-
+  latency changes a SYSCLK switch requires (via the two new drivers
+  below) before touching `RCC_CFGR.SW`, always applying the target
+  voltage scale/latency unconditionally regardless of switch direction
+  (see `pwrSetVoltageScale()`/`flashSetLatency()` for why that ordering
+  is safe both ways). Every hardware-ready wait (HSIRDY/HSERDY/PLLRDY/
+  SWS) is a bounded iteration-count retry, not a wall-clock timeout -
+  SysTick isn't configured this early in bring-up - which turned out to
+  make this host-testable the same way clock gating already was: the
+  ready bit is a field distinct from what the driver writes, so a test
+  can hold it clear indefinitely to exercise the timeout branch. This
+  corrects the previous assumption (`rcc.h`'s file comment, the
+  Makefile's `TEST_DRIVER_SOURCES` comment, and the `0.1.3` CHANGELOG
+  entry) that SYSCLK bring-up couldn't be host-tested; that assumption
+  predated actually writing and testing it.
+  `rccGpioClockEnable`/`rccGpioClockDisable`/etc. (clock gating, `0.1.3`)
+  are unchanged.
+- `drivers/inc/flash.h`, `drivers/src/flash.c`: the flash interface
+  driver - `flashSetLatency()`, a single validated write to `ACR.LATENCY`
+  with no polling (RM0390 documents no busy/ready flag for this field).
+- `drivers/inc/pwr.h`, `drivers/src/pwr.c`: the PWR driver -
+  `pwrSetVoltageScale()`, which writes `CR.VOS` and polls `CSR.VOSRDY`
+  with the same bounded-retry pattern as RCC's ready-waits.
+- `device/inc/rcc_reg.h`: `RCC_PLLCFGR_PLLSRC_HSI`/`_HSE` field-value
+  macros, matching the existing `RCC_CFGR_SYSCLK_*` naming pattern -
+  `RCC_PLLCFGR_PLLSRC` previously named only the HSE-selected bit value,
+  with no name for HSI (0).
+- `tests/unit/test_rcc.c`, `tests/unit/test_flash.c`, `tests/unit/test_pwr.c`:
+  full coverage of the above, including every timeout branch (via a fake
+  register block that never sets the polled ready bit) and, for
+  `rccBusPrescalerConfig`'s chained validation, every one of HPRE's 9 and
+  PPRE1/PPRE2's 5 documented field values individually - gcov branch
+  coverage requires each `&&`-chained comparison's false outcome
+  exercised at least once, which a single valid-value test doesn't reach
+  for every clause. `make coverage` holds 100% line/branch across
+  `drivers/src/{gpio,rcc,flash,pwr}.c`.
+- `Makefile`: `TEST_DRIVER_SOURCES` gains `drivers/src/flash.c` and
+  `drivers/src/pwr.c`. `lint`'s suppression list gains `misra-c2012-2.5`
+  for `device/inc/flash_reg.h`/`device/inc/pwr_reg.h` (both still have
+  RM0390 fields with no consumer - self-programming, low-power modes,
+  PVD, ... - beyond what this change uses), matching the existing
+  `gpio_reg.h`/`rcc_reg.h` pattern. `flash.c`/`pwr.c` do **not** need a
+  `misra-c2012-8.7` suppression the way `gpio.c`/`rcc.c` do: `rcc.c`
+  calls into both directly, so cppcheck's whole-project analysis already
+  sees a real caller.
+
 - `drivers/inc/rcc.h`, `drivers/src/rcc.c`: RCC peripheral clock gating -
   `rccGpioClockEnable`/`rccGpioClockDisable` (any of GPIOA..GPIOH, taking
   the port's existing `GpioRegisters_t *` rather than a new enum),

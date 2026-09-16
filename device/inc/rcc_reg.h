@@ -105,6 +105,11 @@ typedef struct RccRegisters_t
 #define RCC_PLLCFGR_PLLSRC_Pos (22U)                      ///< Bit position within RCC_PLLCFGR
 #define RCC_PLLCFGR_PLLSRC (1U << RCC_PLLCFGR_PLLSRC_Pos) ///< 0=HSI, 1=HSE
 
+/* --- RCC_PLLCFGR_PLLSRC field values --- */
+#define RCC_PLLCFGR_PLLSRC_HSI (0x0U) ///< PLLSRC field value: HSI selected as PLL input
+#define RCC_PLLCFGR_PLLSRC_HSE                                                                     \
+    (RCC_PLLCFGR_PLLSRC) ///< PLLSRC field value: HSE selected as PLL input
+
 /* --- RCC_PLLCFGR_PLLP field values --- */
 #define RCC_PLLCFGR_PLLP_DIV2 (0x0U) ///< PLLP field value: PLL output / 2
 #define RCC_PLLCFGR_PLLP_DIV4 (0x1U) ///< PLLP field value: PLL output / 4
