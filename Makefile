@@ -224,24 +224,28 @@ format-check:
 #
 # 1. Scoped to specific files, not disabled project-wide: misra-c2012-2.5
 #    (unused macro) on device/inc/gpio_reg.h, device/inc/rcc_reg.h,
-#    device/inc/flash_reg.h, and device/inc/pwr_reg.h, and misra-c2012-8.7
-#    (external linkage used in only one translation unit) on
-#    drivers/src/gpio.c and drivers/src/rcc.c. All are real findings
-#    today: nothing in api/bsp/app calls gpio.c's or rcc.c's own public
-#    functions yet (flash.c/pwr.c don't need this suppression, even
-#    though api/ doesn't exist either - rcc.c calls flashSetLatency()/
-#    pwrSetVoltageScale() directly, so cppcheck's whole-project analysis
-#    already sees a second translation unit using them); rcc_reg.h's CIR
-#    (clock-security-system) and CSR (LSI enable, reset-cause flags)
-#    sections and flash_reg.h's SR/CR bits beyond ACR.LATENCY and
-#    pwr_reg.h's bits beyond CR.VOS/CSR.VOSRDY are modeled for
-#    completeness per RM0390 but have no consumer - this project's clock
-#    bring-up doesn't touch the clock security system, reset-cause
-#    reporting, or flash/PWR's other facilities (self-programming,
-#    low-power modes, PVD, ...). None of this is a code defect, and a
-#    project-wide suppression would blind this check to a genuinely dead
-#    macro in any future file, not just these. Remove a suppression the
-#    moment its file's last unused macro or function gets a real caller.
+#    device/inc/flash_reg.h, device/inc/pwr_reg.h, and device/inc/
+#    uart_reg.h, and misra-c2012-8.7 (external linkage used in only one
+#    translation unit) on drivers/src/gpio.c, drivers/src/rcc.c, and
+#    drivers/src/uart.c. All are real findings today: nothing in api/bsp/
+#    app calls gpio.c's, rcc.c's, or uart.c's own public functions yet
+#    (flash.c/pwr.c don't need this suppression, even though api/ doesn't
+#    exist either - rcc.c calls flashSetLatency()/pwrSetVoltageScale()
+#    directly, so cppcheck's whole-project analysis already sees a second
+#    translation unit using them); rcc_reg.h's CIR (clock-security-
+#    system) and CSR (LSI enable, reset-cause flags) sections,
+#    flash_reg.h's SR/CR bits beyond ACR.LATENCY, pwr_reg.h's bits beyond
+#    CR.VOS/CSR.VOSRDY, and uart_reg.h's SR.IDLE/TC and every CR1
+#    interrupt-enable/SBK/RWU/WAKE/OVER8 bit are modeled for completeness
+#    per RM0390 but have no consumer - this project's UART driver is
+#    blocking-only (no interrupts, no IDLE-line detection, no explicit
+#    wait for TC) and its clock bring-up doesn't touch the clock security
+#    system, reset-cause reporting, or flash/PWR's other facilities
+#    (self-programming, low-power modes, PVD, ...). None of this is a
+#    code defect, and a project-wide suppression would blind this check
+#    to a genuinely dead macro in any future file, not just these. Remove
+#    a suppression the moment its file's last unused macro or function
+#    gets a real caller.
 #
 # 2. A permanent deviation scoped by glob, not to any one file: misra-
 #    c2012-11.4 (pointer/integer conversion), suppressed for *_reg.h only.
@@ -273,8 +277,10 @@ lint:
 	  --suppress=misra-c2012-2.5:device/inc/rcc_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/flash_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/pwr_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/uart_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  --suppress=misra-c2012-8.7:drivers/src/rcc.c \
+	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # ------------------------------------------------------------------------
@@ -317,7 +323,8 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # rcc.h/CHANGELOG.md) stated the opposite for rcc.c's then-unimplemented
 # SYSCLK bring-up; that was reconsidered once it was actually written and
 # tested, rather than left standing as-is.
-TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c
+TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
+                       drivers/src/uart.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity

@@ -13,10 +13,12 @@ stm32_rtos/
 ├── drivers/         Register-level driver logic (GPIO, RCC, Flash, PWR,
 │                     UART, NVIC, SysTick). drivers/inc/driver_status.h
 │                     (the DriverStatus_e error contract), the GPIO
-│                     driver, and the complete RCC driver (clock gating
-│                     plus HSI/HSE-to-PLL SYSCLK bring-up, orchestrating
-│                     the flash-latency and PWR voltage-scale drivers) are
-│                     implemented; UART, NVIC, and SysTick are not yet.
+│                     driver, the complete RCC driver (clock gating plus
+│                     HSI/HSE-to-PLL SYSCLK bring-up, orchestrating the
+│                     flash-latency and PWR voltage-scale drivers), and
+│                     the complete UART driver (blocking 8N1-class
+│                     transfer) are implemented; NVIC and SysTick are
+│                     not yet.
 │   ├── inc/
 │   └── src/
 ├── api/             App-facing peripheral API (e.g. led_on(), debug_print())

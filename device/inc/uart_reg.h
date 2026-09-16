@@ -114,9 +114,19 @@ typedef struct UartRegisters_t
 #define USART_CR1_OVER8_Pos (15U)                     ///< Bit position within USART_CR1
 #define USART_CR1_OVER8 (1U << USART_CR1_OVER8_Pos)   ///< WRITE, 0=16x oversampling 1=8x
 
+/* --- USART_CR1_M field values --- */
+#define USART_CR1_M_8BIT (0x0U)        ///< M field value: 8 data bits
+#define USART_CR1_M_9BIT (USART_CR1_M) ///< M field value: 9 data bits
+
 /* --- USART_CR2 bit definitions --- */
 #define USART_CR2_STOP_Pos (12U)                        ///< Bit position within USART_CR2
 #define USART_CR2_STOP_Msk (0x3U << USART_CR2_STOP_Pos) ///< bits 13:12: 00=1 01=0.5 10=2 11=1.5
+
+/* --- USART_CR2_STOP field values --- */
+#define USART_CR2_STOP_1 (0x0U)   ///< STOP field value: 1 stop bit
+#define USART_CR2_STOP_0_5 (0x1U) ///< STOP field value: 0.5 stop bit
+#define USART_CR2_STOP_2 (0x2U)   ///< STOP field value: 2 stop bits
+#define USART_CR2_STOP_1_5 (0x3U) ///< STOP field value: 1.5 stop bits
 
 /** @} */
 
