@@ -10,11 +10,13 @@ stm32_rtos/
 │   └── inc/
 ├── device/          STM32F446-specific peripheral registers (GPIO, RCC, UART)
 │   └── inc/
-├── drivers/         Register-level driver logic (GPIO, RCC, UART, NVIC, SysTick).
-│                     drivers/inc/driver_status.h (the DriverStatus_e error
-│                     contract), the GPIO driver, and RCC peripheral clock
-│                     gating are implemented; RCC's SYSCLK/PLL bring-up,
-│                     UART, NVIC, and SysTick are not yet.
+├── drivers/         Register-level driver logic (GPIO, RCC, Flash, PWR,
+│                     UART, NVIC, SysTick). drivers/inc/driver_status.h
+│                     (the DriverStatus_e error contract), the GPIO
+│                     driver, and the complete RCC driver (clock gating
+│                     plus HSI/HSE-to-PLL SYSCLK bring-up, orchestrating
+│                     the flash-latency and PWR voltage-scale drivers) are
+│                     implemented; UART, NVIC, and SysTick are not yet.
 │   ├── inc/
 │   └── src/
 ├── api/             App-facing peripheral API (e.g. led_on(), debug_print())
