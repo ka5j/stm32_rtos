@@ -19,14 +19,6 @@ permissions:
   contents: read
   security-events: write
 
-# Same rationale as ci.yml's concurrency block: a push to a branch with an
-# open develop->main PR would otherwise fire both `push` and `pull_request`
-# for the same commit, running this workflow (and its ARM toolchain
-# download) twice concurrently.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
-
 jobs:
   analyze:
     name: Analyze (c-cpp)
