@@ -45,5 +45,6 @@ void test_flash_driver_set_latency_touches_only_latency_field(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
-    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~FLASH_ACR_LATENCY_Msk, flash.ACR & ~FLASH_ACR_LATENCY_Msk);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~FLASH_ACR_LATENCY_Msk,
+                            flash.ACR & ~FLASH_ACR_LATENCY_Msk);
 }
