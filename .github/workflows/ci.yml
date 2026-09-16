@@ -14,6 +14,17 @@ on:
 permissions:
   contents: read
 
+# Dedupes the double run that happens when a branch has an open PR: pushing
+# new commits fires both `push` (this branch) and `pull_request` (the PR's
+# `synchronize` event, same underlying commit). Grouping by the PR's head
+# branch - falling back to the pushed ref when there's no PR - makes
+# whichever run starts second cancel the first, instead of paying for two
+# full concurrent runs (including two ARM toolchain downloads) of the same
+# commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build-and-check:
     runs-on: ubuntu-latest
@@ -21,6 +32,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # full history - required to diff PR head against its base branch below
+
+      - name: Cache Arm GNU Toolchain 15.2.rel1
+        # Keyed on the exact pinned version, not a content hash - the
+        # download is immutable for a given version, and bumping the pin
+        # below changes this key too, so a stale cache can never serve the
+        # wrong toolchain version.
+        id: cache-arm-toolchain
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
+          key: arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
 
       - name: Install Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
         # Ubuntu's gcc-arm-none-eabi apt package trails upstream by years,
@@ -30,10 +52,13 @@ jobs:
         # in this whole pipeline (codegen, not just tooling output), so it
         # gets the same "pin an exact upstream release" treatment as
         # Doxygen below, not a floating apt package.
+        if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz \
             | tar -xJ -C /opt
-          echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
+
+      - name: Add Arm GNU Toolchain to PATH
+        run: echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
 
       - name: Install cppcheck / clang-format (pinned to Ubuntu 24.04 archive versions)
         # apt's usual `install -y cppcheck clang-format` floats to whatever
@@ -55,6 +80,13 @@ jobs:
         # formatter version bump could.
         run: sudo apt-get install -y graphviz
 
+      - name: Cache Doxygen 1.18.0
+        id: cache-doxygen
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/doxygen-1.18.0
+          key: doxygen-1.18.0-linux-bin
+
       - name: Install Doxygen 1.18.0
         # Ubuntu's apt package (1.9.8 as of this writing) is far behind the
         # version this Doxyfile targets (see its header comment and
@@ -63,10 +95,13 @@ jobs:
         # WARN_AS_ERROR=YES that the intended version doesn't hit. Install
         # the exact upstream release instead of trusting the distro package
         # to track it.
+        if: steps.cache-doxygen.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz \
             | tar -xz -C /opt
-          echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
+
+      - name: Add Doxygen to PATH
+        run: echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
 
       - name: make all
         run: make all

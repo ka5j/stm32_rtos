@@ -19,6 +19,14 @@ permissions:
   contents: read
   security-events: write
 
+# Same rationale as ci.yml's concurrency block: a push to a branch with an
+# open develop->main PR would otherwise fire both `push` and `pull_request`
+# for the same commit, running this workflow (and its ARM toolchain
+# download) twice concurrently.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze (c-cpp)
@@ -26,14 +34,24 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Cache Arm GNU Toolchain 15.2.rel1
+        id: cache-arm-toolchain
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
+          key: arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
+
       - name: Install Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
         # Pinned to the exact upstream release rather than the apt package -
         # see the matching step in ci.yml for why the compiler specifically
         # doesn't get a floating install.
+        if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz \
             | tar -xJ -C /opt
-          echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
+
+      - name: Add Arm GNU Toolchain to PATH
+        run: echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
