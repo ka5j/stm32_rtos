@@ -1,11 +1,33 @@
 name: CI
 
 # Public-facing gate: build + docs + format + lint, on a GitHub-hosted
-# runner. Runs on every push and PR - this is the badge/status a reviewer
-# sees. Hardware-in-the-loop testing lives in hil.yml on a self-hosted
-# runner instead, deliberately not triggered here (see that file for why).
+# runner. Runs on every push to main/develop and every PR - this is the
+# badge/status a reviewer sees, and (via branch protection on main/
+# develop) what actually gates a merge. Hardware-in-the-loop testing
+# lives in hil.yml on a self-hosted runner instead, deliberately not
+# triggered here (see that file for why).
+#
+# push is scoped to [main, develop], not every branch: a feature branch
+# gets its CI coverage entirely from pull_request once a PR is open
+# (CONTRIBUTING.md's branch convention - all feature work goes through a
+# PR into develop), so this avoids ever firing both push and pull_request
+# for the same commit in the common case. That matters beyond wasted
+# runner time: main/develop have required-status-check branch protection
+# (this workflow's own "build-and-check" context is one of the required
+# checks), and a cancelled run's conclusion can stick to a commit
+# alongside a later successful one - GitHub's required-check gate then
+# stays BLOCKED even though the same-named check also passed. A
+# cancel-in-progress concurrency group was tried here previously
+# specifically to dedupe the double-run; it was removed because it's
+# what produces that stuck-cancelled-run state, which is worse than the
+# wasted runner time it was solving. Restricting push here removes the
+# double-trigger for the case that matters (feature branches); the
+# residual case (pushing directly to develop while an open develop->main
+# PR exists) is rare and, without cancel-in-progress, both runs simply
+# complete normally instead of one landing as cancelled.
 on:
   push:
+    branches: [main, develop]
   pull_request:
 
 # Least-privilege default: this workflow only ever reads the repo and
@@ -13,17 +35,6 @@ on:
 # anything back to GitHub.
 permissions:
   contents: read
-
-# Dedupes the double run that happens when a branch has an open PR: pushing
-# new commits fires both `push` (this branch) and `pull_request` (the PR's
-# `synchronize` event, same underlying commit). Grouping by the PR's head
-# branch - falling back to the pushed ref when there's no PR - makes
-# whichever run starts second cancel the first, instead of paying for two
-# full concurrent runs (including two ARM toolchain downloads) of the same
-# commit.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 
 jobs:
   build-and-check:
