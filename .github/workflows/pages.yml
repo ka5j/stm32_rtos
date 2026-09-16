@@ -28,14 +28,24 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Cache Doxygen 1.18.0
+        id: cache-doxygen
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/doxygen-1.18.0
+          key: doxygen-1.18.0-linux-bin
+
       - name: Install Doxygen 1.18.0
         # Ubuntu's apt package (1.9.8 as of this writing) is far behind the
         # version this Doxyfile targets - see the matching step in ci.yml
         # for why the distro package isn't trustworthy here.
+        if: steps.cache-doxygen.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz \
             | tar -xz -C /opt
-          echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
+
+      - name: Add Doxygen to PATH
+        run: echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
 
       - name: Install graphviz (for Doxyfile's HAVE_DOT diagrams)
         run: sudo apt-get update && sudo apt-get install -y graphviz
