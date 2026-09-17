@@ -197,6 +197,15 @@ specifically.
 
 ### Changed
 
+- Removed `.github/workflows/hil.yml`. Its smoke-test step was never
+  written - it ended in `exit 1`, so the only workflow that touched real
+  hardware failed by construction on every run - and the board is
+  attached to the development machine anyway, which made the self-hosted
+  runner a trust boundary the project was carrying without collecting any
+  benefit from. On-target work is now manual (`make flash`, `make debug`),
+  no GitHub-triggered workflow reaches physical hardware, and every
+  remaining workflow runs on an ephemeral GitHub-hosted runner.
+  `SECURITY.md` and `CONTRIBUTING.md` updated accordingly.
 - `Makefile`: `misra-c2012-8.7` is now suppressed for `drivers/src/pwr.c`
   too. It did not need the suppression while `rcc.c` called
   `pwrSetVoltageScale()` directly, which gave cppcheck a second
