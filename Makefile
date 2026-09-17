@@ -163,9 +163,18 @@ erase:
 # Use case: something is misbehaving on real hardware and you need to
 # single-step, inspect registers, or set breakpoints - for investigating
 # a bug, not for routine "run my code" (that's what flash is for).
+#
+# The trap matters: OpenOCD is backgrounded here, and without it the
+# server outlived the GDB session that started it, kept holding the
+# ST-LINK, and made the next `make flash` or `make debug` fail with a
+# device-busy error until it was killed by hand. Killing it on EXIT/INT/
+# TERM means quitting GDB - or Ctrl-C'ing the whole thing - leaves no
+# stray process behind.
 # ------------------------------------------------------------------------
 debug: $(BUILD_DIR)/$(TARGET).elf
-	openocd -f tools/openocd.cfg & \
+	@openocd -f tools/openocd.cfg & \
+	OPENOCD_PID=$$!; \
+	trap 'kill $$OPENOCD_PID 2>/dev/null' EXIT INT TERM; \
 	$(GDB) $< -ex "target extended-remote :3333"
 
 # ------------------------------------------------------------------------
