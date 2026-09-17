@@ -336,8 +336,16 @@ TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
 
-TEST_OBJECTS   := $(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(notdir $(TEST_SOURCES)))
-vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity drivers/src
+# Object paths mirror each source's full path under the build dir (e.g.
+# drivers/src/gpio.c -> tests/build/drivers/src/gpio.o), the same way the
+# firmware build's OBJECTS does. An earlier version flattened these with
+# $(notdir) and resolved them back through a vpath, which worked only as
+# long as no two sources anywhere in TEST_SOURCES shared a basename:
+# tests/unit/gpio.c and drivers/src/gpio.c would have collapsed onto one
+# object file, and whichever vpath entry came first would silently win.
+# Mirroring the path removes the collision by construction rather than
+# relying on a naming convention nothing enforces.
+TEST_OBJECTS   := $(TEST_SOURCES:%.c=$(TEST_BUILD_DIR)/%.o)
 
 $(TEST_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -382,7 +390,7 @@ test: $(TEST_OBJECTS)
 COVERAGE_MIN_LINE   := 100
 COVERAGE_MIN_BRANCH := 100
 COVERAGE_DIR        := $(TEST_DIR)/coverage
-COVERAGE_OBJECTS    := $(patsubst %.c,$(COVERAGE_DIR)/%.o,$(notdir $(TEST_SOURCES)))
+COVERAGE_OBJECTS    := $(TEST_SOURCES:%.c=$(COVERAGE_DIR)/%.o)
 
 $(COVERAGE_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
