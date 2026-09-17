@@ -7,20 +7,14 @@ from the reference manual and mapped to its memory address.
 
 ## Current status
 
-The **register layer** is implemented and complete: hand-written structure
-definitions for every Cortex-M4 core peripheral this project models (NVIC,
-SCB, MPU, SysTick) and every STM32F446-specific peripheral it models (GPIO,
-RCC, SYSCFG, UART, EXTI, Flash interface, PWR, IWDG, WWDG).
-`drivers/inc/driver_status.h`, the shared `DriverStatus_e` error contract
-every driver function uses, a complete GPIO driver, a complete RCC driver
-(clock gating plus HSI/HSE-to-PLL SYSCLK bring-up, orchestrating the
-flash-latency and PWR voltage-scale drivers it depends on), and a
-complete UART driver are also implemented. The rest of the driver layer
-(NVIC, SysTick), and API, BSP, and RTOS, remain in progress; see the
-[GitHub repository](https://github.com/ka5j/stm32_rtos) for current status,
-build instructions, and contribution conventions. This site documents code
-only; process documentation (contributing, versioning, security) resides
-there as well.
+The **register layer** is implemented and complete, and part of the
+**driver layer** is - what is documented here is what exists. For the
+authoritative, per-layer status, see the Status section of the
+[GitHub repository](https://github.com/ka5j/stm32_rtos)'s README, which
+is the single source of truth for it rather than one of several copies
+that drift apart. That repository also carries build instructions and the
+process documentation (contributing, versioning, security); this site
+documents code only.
 
 ## Where to start
 
@@ -31,8 +25,8 @@ The **Topics** page groups every documented header by architectural layer:
   derived from PM0214) and **STM32F446 Peripherals** (GPIO, RCC, SYSCFG,
   UART, EXTI, Flash, PWR, IWDG, WWDG, derived from RM0390).
 - **Drivers** — register-level driver logic consuming the layer above:
-  the shared `DriverStatus_e` error contract, and the GPIO, RCC, Flash,
-  PWR, and UART drivers so far.
+  the shared `DriverStatus_e` error contract and every driver
+  implemented so far.
 
 Each register structure documents its memory-mapped layout with a
 per-field byte offset; each bit-definition macro documents its bit

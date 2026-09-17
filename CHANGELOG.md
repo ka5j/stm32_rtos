@@ -10,6 +10,24 @@ specifically.
 
 ### Added
 
+- `CONTRIBUTING.md`: two new convention sections. "`const` on a
+  register-block parameter" states that `const` is a claim about the
+  hardware (the peripheral is unchanged), not merely about the pointer,
+  which is why a side-effecting read like `uartReceiveByte()` does not
+  get it. "Testing and its limits" records what host tests can and cannot
+  establish, and names the PWR ordering bug as the worked example of the
+  gap.
+- `README.md`: a macOS 27 prerequisite note. The Command Line Tools ship
+  an SDK whose `.tbd` stubs declare an `arm64e.x1` target that the
+  linker in the same install rejects, which breaks every host link and so
+  breaks `make test`, `make coverage`, and the entire pre-commit hook.
+  Setting `SDKROOT` to an earlier installed SDK works around it; this is
+  deliberately not put in the Makefile, where a hardcoded macOS
+  `-isysroot` would break Linux CI.
+- `drivers/inc/uart.h`, `drivers/src/uart.c`: `uartFlush()`, a blocking
+  wait on `SR.TC`. `uartTransmit()` now calls it once its buffer is
+  written, so a successful return means the data is actually on the wire
+  rather than merely handed to DR - see the Fixed section.
 - `drivers/inc/pwr.h`, `drivers/src/pwr.c`: `pwrWaitVoltageScaleReady()`,
   the second half of what was previously a single `pwrSetVoltageScale()`.
   See the Fixed section below for why voltage scaling had to be split in
@@ -193,6 +211,23 @@ specifically.
 
 ### Changed
 
+- `README.md`'s Status section is now the single source of truth for
+  project status, restructured as a per-layer table. `docs/ARCHITECTURE.md`,
+  `docs/VERSIONING.md`, and `docs/mainpage.md` previously each carried
+  their own prose copy of the same status, so every driver merge needed
+  five synchronized edits that nothing checked for drift; they now link to
+  it instead. It also records the on-target gap explicitly: no driver has
+  ever executed on silicon, because `app/src/main.c` is an empty loop and
+  the linker garbage-collects all of `drivers/` out of the image.
+- Removed `.github/workflows/hil.yml`. Its smoke-test step was never
+  written - it ended in `exit 1`, so the only workflow that touched real
+  hardware failed by construction on every run - and the board is
+  attached to the development machine anyway, which made the self-hosted
+  runner a trust boundary the project was carrying without collecting any
+  benefit from. On-target work is now manual (`make flash`, `make debug`),
+  no GitHub-triggered workflow reaches physical hardware, and every
+  remaining workflow runs on an ephemeral GitHub-hosted runner.
+  `SECURITY.md` and `CONTRIBUTING.md` updated accordingly.
 - `Makefile`: `misra-c2012-8.7` is now suppressed for `drivers/src/pwr.c`
   too. It did not need the suppression while `rcc.c` called
   `pwrSetVoltageScale()` directly, which gave cppcheck a second
@@ -226,6 +261,45 @@ specifically.
 
 ### Fixed
 
+- `startup/startup_stm32f446re.s`: `.size vector_table, .-vector_table`
+  was emitted *before* the `vector_table:` label, so the symbol's size was
+  computed at the wrong point and reported wrong by `nm` and debuggers. It
+  now follows the table. Separately, the post-`main()` fallback was
+  `bl main` / `bx lr`, which happens to spin (bl leaves `lr` pointing at
+  the `bx` itself) but reads as a return to a caller that does not exist;
+  it is now an explicit labelled infinite loop, matching
+  `Default_Handler`.
+- `Makefile`: test and coverage object paths now mirror each source's full
+  path instead of being flattened with `$(notdir)` and resolved through a
+  `vpath`. The old scheme silently collapsed any two sources sharing a
+  basename onto one object file - `tests/unit/gpio.c` and
+  `drivers/src/gpio.c` would have collided, with whichever `vpath` entry
+  came first winning. No collision existed yet; the shape that permits one
+  is gone.
+- `drivers/src/uart.c`: `uartTransmit()` returned as soon as the last
+  byte reached DR, while that byte was still being shifted out. Following
+  it with `uartDeinit()`, a clock gate, a baud change, or a low-power
+  transition truncated the final character. It now ends with a `SR.TC`
+  wait via the new `uartFlush()`, and `uartDeinit()` documents the
+  precondition for callers driving `uartTransmitByte()` directly.
+- `drivers/src/uart.c`: `uartInit()` programmed BRR and the framing
+  fields without first clearing `CR1.UE`. RM0390 requires those be
+  written with the USART disabled, so reconfiguring a running instance
+  (changing baud rate, say) wrote into a live peripheral and could
+  corrupt an in-flight frame. UE is now cleared first and restored last.
+- `drivers/src/uart.c`: the `SR.TXE`/`SR.RXNE` waits had the same
+  off-by-one as the RCC/PWR waits - concluding `ERR_TIMEOUT` from
+  `timeout == 0` misreports success when the flag sets on the final
+  iteration. Both now re-read the flag, through a shared
+  `uartWaitSrFlag()` helper that also serves the new TC wait.
+- `drivers/inc/uart.h`: `uartReceiveByte()`/`uartReceive()` no longer take
+  `const UartRegisters_t *`. Nothing is written through the pointer, which
+  is what the const originally recorded, but reading DR clears `SR.RXNE`
+  and the ORE/NE/FE/PE flags - the peripheral does change. The const
+  advertised a repeatable, side-effect-free observation that the hardware
+  does not provide. cppcheck flags the parameter as const-able for exactly
+  the same reason a reader would assume it; that finding is suppressed
+  inline with the rationale.
 - **`drivers/src/rcc.c`, `drivers/src/pwr.c`: the PWR voltage-scale
   sequencing was wrong in both directions and is now corrected.**
   `rccSysclkSwitch()` took `pwr` and `vos` parameters and applied the

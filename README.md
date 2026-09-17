@@ -13,6 +13,12 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
   - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen graphviz`
   - `graphviz` (the `dot` tool) is required for `make docs`'s include/directory/group diagrams (`Doxyfile`'s `HAVE_DOT`); without it on the `PATH`, Doxygen silently omits every diagram instead of failing.
 - `gcovr` — required for `make coverage` only (not the pre-commit hook): `pip install gcovr`
+- A host C compiler (`cc`) for `make test`/`make coverage`, which build and run natively rather than cross-compiling
+  - **macOS 27 note**: the Command Line Tools ship an SDK whose `.tbd` stubs declare an `arm64e.x1` target that the linker in the *same* install rejects, so any host link fails with `tapi error: malformed file ... unknown architecture`. This breaks `make test`, `make coverage`, and therefore the whole pre-commit hook. Point the toolchain at an earlier SDK that is still present:
+    ```sh
+    export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
+    ```
+    Put that in your shell profile so the pre-commit hook inherits it. This is deliberately not baked into the Makefile — an `-isysroot` hardcoded to a macOS path would break Linux CI and every other machine.
 - Reference documentation (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
 
 **Setup:**
@@ -80,11 +86,32 @@ The system is structured in layers, starting from boot (linker script and startu
 
 ## Status
 
-**Completed:** The boot pipeline (startup file, linker script, Makefile) builds and flashes successfully. The register layer is complete, documented, and covered by host-side unit tests, comprising every Cortex-M4 core peripheral this project models (`core/inc/`: MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (`device/inc/`: EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG), with one `test_<peripheral>_reg.c` per header aggregated by `tests/unit/test_runner.c`. The development pipeline — build, formatting, lint (including a MISRA C:2012 subset), Doxygen coverage, unit tests, pre-commit hook, and CI — is fully implemented and verified, including CI checks that enforce documentation and test coverage on every new or modified source file. See [CONTRIBUTING.md](CONTRIBUTING.md)'s CI triggers section for the exact checks run locally, on push, on pull request, and on hardware.
+This section is the single source of truth for project status. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/VERSIONING.md](docs/VERSIONING.md), and [docs/mainpage.md](docs/mainpage.md) describe structure, policy, and the generated reference respectively, and link here rather than restating what is done — an earlier revision repeated the same status paragraph in five files, and keeping five copies in step after every merge was a losing proposition.
 
-**In progress:** `drivers/` has its error-status contract (`drivers/inc/driver_status.h`, the `DriverStatus_e` every driver function uses per CONTRIBUTING.md's error-handling contract), a complete GPIO driver (`drivers/inc/gpio.h`, `drivers/src/gpio.c`: `gpioInit`/`gpioDeinit`/`gpioSetAlternateFunction`/`gpioWritePin`/`gpioReadPin`/`gpioTogglePin`), a complete RCC driver covering both peripheral clock gating (`rccGpioClockEnable`/`rccGpioClockDisable`/`rccUsart2ClockEnable`/`rccUsart2ClockDisable`/`rccSyscfgClockEnable`/`rccSyscfgClockDisable`/`rccPwrClockEnable`/`rccPwrClockDisable`) and HSI/HSE-to-PLL SYSCLK bring-up (`rccHsiEnable`/`rccHsiDisable`/`rccHseEnable`/`rccHseDisable`/`rccPllConfig`/`rccPllEnable`/`rccPllDisable`/`rccBusPrescalerConfig`/`rccSysclkSwitch`), the latter backed by two drivers it orchestrates - flash access-latency configuration (`drivers/inc/flash.h`, `drivers/src/flash.c`: `flashSetLatency`) and PWR voltage-scale configuration (`drivers/inc/pwr.h`, `drivers/src/pwr.c`: `pwrSetVoltageScale`) - and a complete UART driver (`drivers/inc/uart.h`, `drivers/src/uart.c`: `uartInit`/`uartDeinit`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`) for blocking 8N1-class asynchronous transfer, all five drivers with 100% line and branch coverage via `make coverage`. NVIC and SysTick drivers are not yet implemented; `0.2.0` is reserved for `drivers/`'s completion (see [docs/VERSIONING.md](docs/VERSIONING.md)).
+| Layer | Status |
+| ----- | ------ |
+| Boot (`startup/`, `linker/`, `Makefile`) | **Complete** — builds and flashes |
+| Register layer (`core/inc/`, `device/inc/`) | **Complete** — 4 core + 9 device peripherals, one `test_<peripheral>_reg.c` each |
+| Development pipeline (build, format, lint, docs, tests, coverage, hook, CI) | **Complete** |
+| `drivers/` | **5 of 7** — GPIO, RCC, Flash, PWR, UART done; NVIC and SysTick not started |
+| `api/`, `bsp/` | **Not started** — empty scaffolding |
+| `rtos/kernel/`, `rtos/api/` | **Not started** — empty scaffolding |
+| `app/` | **Not started** — `main.c` is an empty loop |
 
-**Not started:** `api/`, `bsp/`, and the RTOS kernel/API remain empty scaffolding. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the target layout and [CONTRIBUTING.md](CONTRIBUTING.md) for the conventions these layers must follow.
+**Register layer** covers every Cortex-M4 core peripheral this project models (MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG), aggregated by `tests/unit/test_runner.c`.
+
+**Drivers** implemented so far, all holding 100% line and branch coverage under `make coverage`:
+
+- **`driver_status.h`** — the `DriverStatus_e` contract every driver returns, per [CONTRIBUTING.md](CONTRIBUTING.md)'s error-handling contract.
+- **GPIO** — `gpioInit`/`gpioDeinit`/`gpioSetAlternateFunction`/`gpioWritePin`/`gpioReadPin`/`gpioTogglePin`.
+- **RCC** — clock gating (`rccGpioClockEnable`/`Disable`, `rccUsart2ClockEnable`/`Disable`, `rccSyscfgClockEnable`/`Disable`, `rccPwrClockEnable`/`Disable`) and HSI/HSE-to-PLL SYSCLK bring-up (`rccHsiEnable`/`Disable`, `rccHseEnable`/`Disable`, `rccPllConfig`/`rccPllEnable`/`rccPllDisable`, `rccBusPrescalerConfig`, `rccSysclkSwitch`). The ordered bring-up sequence a caller must follow is documented in `drivers/inc/rcc.h`'s file-level comment.
+- **Flash** — `flashSetLatency`, with the read-back verification RM0390 requires.
+- **PWR** — `pwrSetVoltageScale` and `pwrWaitVoltageScaleReady`, split because RM0390 permits `CR.VOS` to be written only while the PLL is off while `CSR.VOSRDY` only settles once it is on.
+- **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking 8N1-class asynchronous transfer.
+
+`0.2.0` is reserved for `drivers/`' completion — see [docs/VERSIONING.md](docs/VERSIONING.md).
+
+**Known gap:** no driver has executed on hardware. Every one is fully covered by host tests, but `app/src/main.c` is an empty loop, so the linker garbage-collects all of `drivers/` out of the image. On-target verification is manual (`make flash`, `make debug`) and nothing currently asserts runtime behaviour — see [CONTRIBUTING.md](CONTRIBUTING.md)'s testing section for what that does and does not buy you.
 
 ## License
 
