@@ -260,6 +260,25 @@ void test_uart_driver_init_defaults_clear_parity_and_re(void)
     TEST_ASSERT_EQUAL_HEX32(USART_CR1_TE | USART_CR1_UE, uart.CR1);
 }
 
+/** Reconfiguring an instance that is already enabled still ends with UE
+ *  set and every field at its new value. The driver clears UE before
+ *  touching BRR and the framing fields, as RM0390 requires them to be
+ *  programmed with the USART disabled, then sets it again last - so a
+ *  baud-rate change on a running port is a legal sequence rather than a
+ *  write into a live peripheral. */
+void test_uart_driver_init_reconfigures_an_already_enabled_instance(void)
+{
+    UartRegisters_t uart = {.CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE, .BRR = 0xFFFFU};
+
+    DriverStatus_e status =
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    /* 16 MHz / 9600 -> USARTDIV 104.1667 -> mantissa 104, fraction 3. */
+    TEST_ASSERT_EQUAL_HEX32((104U << USART_BRR_DIV_MANTISSA_Pos) | 3U, uart.BRR);
+    TEST_ASSERT_EQUAL_HEX32(USART_CR1_TE | USART_CR1_UE, uart.CR1);
+}
+
 /* --- uartDeinit --- */
 
 /** Resets CR1/CR2/CR3/BRR/GTPR to 0. */
@@ -306,11 +325,11 @@ void test_uart_driver_transmit_byte_times_out_when_txe_never_sets(void)
     TEST_ASSERT_EQUAL_HEX32(0U, uart.DR);
 }
 
-/** Every byte in the buffer is written to DR in order, when TXE is
- *  always ready. */
+/** Every byte in the buffer is written to DR in order, when TXE and TC
+ *  are always ready. */
 void test_uart_driver_transmit_sends_every_byte_in_order(void)
 {
-    UartRegisters_t uart = {.SR = USART_SR_TXE};
+    UartRegisters_t uart = {.SR = USART_SR_TXE | USART_SR_TC};
     static const uint8_t data[] = {0x11U, 0x22U, 0x33U};
 
     DriverStatus_e status = uartTransmit(&uart, data, sizeof(data));
@@ -322,7 +341,11 @@ void test_uart_driver_transmit_sends_every_byte_in_order(void)
     TEST_ASSERT_EQUAL_HEX32(0x33U, uart.DR);
 }
 
-/** A zero-length buffer is a trivial success - no bytes, no TXE poll. */
+/** A zero-length buffer is a trivial success - no bytes, no TXE poll,
+ *  and crucially no TC wait either: nothing was started, so TC still
+ *  reflects whatever a previous transfer left behind and waiting on it
+ *  would block on unrelated state. SR is cleared here, so a TC wait
+ *  would time out and this would fail. */
 void test_uart_driver_transmit_zero_length_reports_ok(void)
 {
     UartRegisters_t uart = {0};
@@ -330,6 +353,22 @@ void test_uart_driver_transmit_zero_length_reports_ok(void)
     DriverStatus_e status = uartTransmit(&uart, NULL, 0U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+}
+
+/** A non-empty transmit waits for TC before reporting success: every
+ *  byte reaches DR (TXE always ready), but TC never sets, so the closing
+ *  flush times out rather than claiming the buffer is on the wire. This
+ *  is the truncation case - returning OK here would let a caller gate
+ *  the clock off mid-character. */
+void test_uart_driver_transmit_times_out_when_tc_never_sets(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_TXE};
+    static const uint8_t data[] = {0x11U, 0x22U};
+
+    DriverStatus_e status = uartTransmit(&uart, data, sizeof(data));
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(0x22U, uart.DR);
 }
 
 /** A mid-buffer timeout stops the loop and propagates the failure -
@@ -342,6 +381,40 @@ void test_uart_driver_transmit_propagates_timeout(void)
     DriverStatus_e status = uartTransmit(&uart, data, sizeof(data));
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+}
+
+/* --- uartFlush --- */
+
+/** TC (pre-set here) is observed immediately -> OK. */
+void test_uart_driver_flush_reports_ok_when_tc_set(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_TC};
+
+    DriverStatus_e status = uartFlush(&uart);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+}
+
+/** TC never sets -> the bounded retry exhausts and reports a timeout. */
+void test_uart_driver_flush_times_out_when_tc_never_sets(void)
+{
+    UartRegisters_t uart = {0};
+
+    DriverStatus_e status = uartFlush(&uart);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+}
+
+/** The flush only reads SR - it must not write DR, which would both
+ *  start a spurious transmission and clear TC as a side effect. */
+void test_uart_driver_flush_does_not_write_dr(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_TC, .DR = 0x5AU};
+
+    DriverStatus_e status = uartFlush(&uart);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0x5AU, uart.DR);
 }
 
 /* --- uartReceiveByte / uartReceive --- */
