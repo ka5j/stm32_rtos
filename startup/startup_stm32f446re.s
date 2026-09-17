@@ -109,10 +109,18 @@ LoopFillZerobss:
     cmp   r2, r3
     bcc   FillZerobss
 
-    /* Hand off to C. main() should never return, but bx lr is the
-     * defined fallback if it somehow does. */
+    /* Hand off to C. main() should never return; if it somehow does,
+     * spin here rather than executing whatever follows. An earlier
+     * revision used `bx lr`, which happens to behave the same way (bl
+     * leaves lr pointing at the instruction after it - that bx itself)
+     * but reads as an intentional return to a caller that does not
+     * exist. This states the trap outright, and matches
+     * Default_Handler's own infinite loop: a debugger stopping here
+     * means main() returned. */
     bl    main
-    bx    lr
+
+MainReturned:
+    b     MainReturned
 
 .size Reset_Handler, .-Reset_Handler
 
@@ -137,7 +145,6 @@ Infinite_Loop:
  * ==================================================================== */
 .section .isr_vector,"a",%progbits
 .type vector_table, %object
-.size vector_table, .-vector_table
 
 vector_table:
     .word _estack                       /* initial stack pointer */
@@ -255,6 +262,8 @@ vector_table:
     .word SPDIF_RX_IRQHandler
     .word FMPI2C1_Event_IRQHandler
     .word FMPI2C1_Error_IRQHandler
+
+.size vector_table, .-vector_table
 
 /* ========================================================================
  * Weak aliases - every handler defaults to Default_Handler unless you
