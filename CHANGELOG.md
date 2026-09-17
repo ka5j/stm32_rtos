@@ -230,6 +230,21 @@ specifically.
 
 ### Fixed
 
+- `startup/startup_stm32f446re.s`: `.size vector_table, .-vector_table`
+  was emitted *before* the `vector_table:` label, so the symbol's size was
+  computed at the wrong point and reported wrong by `nm` and debuggers. It
+  now follows the table. Separately, the post-`main()` fallback was
+  `bl main` / `bx lr`, which happens to spin (bl leaves `lr` pointing at
+  the `bx` itself) but reads as a return to a caller that does not exist;
+  it is now an explicit labelled infinite loop, matching
+  `Default_Handler`.
+- `Makefile`: test and coverage object paths now mirror each source's full
+  path instead of being flattened with `$(notdir)` and resolved through a
+  `vpath`. The old scheme silently collapsed any two sources sharing a
+  basename onto one object file - `tests/unit/gpio.c` and
+  `drivers/src/gpio.c` would have collided, with whichever `vpath` entry
+  came first winning. No collision existed yet; the shape that permits one
+  is gone.
 - `drivers/src/uart.c`: `uartTransmit()` returned as soon as the last
   byte reached DR, while that byte was still being shifted out. Following
   it with `uartDeinit()`, a clock gate, a baud change, or a low-power
