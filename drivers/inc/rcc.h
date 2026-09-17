@@ -10,9 +10,30 @@
  *     own registers become accessible.
  *   - SYSCLK bring-up: enabling HSI/HSE, configuring and enabling the
  *     PLL, setting the AHB/APB1/APB2 bus prescalers, and switching SYSCLK
- *     to the configured source via rccSysclkSwitch() - which also
- *     sequences the flash-latency (flash.h) and PWR voltage-scale (pwr.h)
- *     changes a SYSCLK change requires, per RM0390 Table 15.
+ *     to the configured source via rccSysclkSwitch() - which also applies
+ *     the flash access latency (flash.h) the new frequency requires, per
+ *     RM0390 Table 15.
+ *
+ * The PWR voltage scale that same table pairs with each frequency range
+ * is *not* sequenced from inside this driver, because the hardware
+ * forbids it: RM0390 section 5.1.4 allows PWR_CR.VOS to be written only
+ * while the PLL is off, and CSR.VOSRDY only reports the regulator
+ * settled after the PLL has been switched on. Both of those fall outside
+ * the window rccSysclkSwitch() runs in - by the time it is called the
+ * PLL must already be locked. The caller therefore owns the full order:
+ *
+ *   1. rccPwrClockEnable(RCC)                  - PWR registers accessible
+ *   2. pwrSetVoltageScale(PWR, scale)          - PLL still off
+ *   3. rccHsiEnable(RCC) / rccHseEnable(RCC, bypass)
+ *   4. rccPllConfig(RCC, source, m, n, p)
+ *   5. rccPllEnable(RCC)                       - scale now takes effect
+ *   6. pwrWaitVoltageScaleReady(PWR)           - regulator settled
+ *   7. rccBusPrescalerConfig(RCC, hpre, ppre1, ppre2)
+ *   8. rccSysclkSwitch(RCC, FLASH, source, latency)
+ *
+ * Steps 1, 2 and 6 are skippable only when running SYSCLK straight off
+ * HSI or HSE with no PLL, where the regulator's reset default (scale 3)
+ * already covers the frequency range.
  *
  * Every hardware-ready wait here (HSIRDY/HSERDY/PLLRDY/SWS/VOSRDY) is a
  * bounded iteration-count retry, not a wall-clock timeout: SysTick is not
@@ -39,7 +60,6 @@
 #include "driver_status.h"
 #include "flash_reg.h"
 #include "gpio_reg.h"
-#include "pwr_reg.h"
 #include "rcc_reg.h"
 
 /**
@@ -284,31 +304,40 @@ DRIVER_MUST_CHECK DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint
                                                        uint32_t ppre1, uint32_t ppre2);
 
 /**
- * @brief Switch SYSCLK to the given source, sequencing the PWR voltage
- *        scale and flash latency changes the switch requires first.
+ * @brief Switch SYSCLK to the given source, applying the flash access
+ *        latency the new frequency requires first.
  *
- * Always applies @p vos and @p latency before touching CFGR.SW,
- * regardless of whether the switch raises or lowers SYSCLK - see
- * pwr.h's pwrSetVoltageScale() and flash.h's flashSetLatency() for why
- * this unconditional ordering is safe in both directions. Confirms the
- * requested source is actually ready before switching (a caller that
- * forgot to call rccHsiEnable()/rccHseEnable()/rccPllEnable() first gets
- * a clear DRIVER_STATUS_ERR_NOT_INITIALIZED here rather than a much
- * harder to diagnose failure from the CFGR.SWS poll below).
+ * Always applies @p latency before touching CFGR.SW, regardless of
+ * whether the switch raises or lowers SYSCLK - see flash.h's
+ * flashSetLatency() for why this unconditional ordering is safe in both
+ * directions. Confirms the requested source is actually ready before
+ * switching (a caller that forgot to call rccHsiEnable()/rccHseEnable()/
+ * rccPllEnable() first gets a clear DRIVER_STATUS_ERR_NOT_INITIALIZED
+ * here rather than a much harder to diagnose failure from the CFGR.SWS
+ * poll below).
+ *
+ * The PWR voltage scale is deliberately not this function's concern -
+ * see this file's top comment for the hardware ordering constraint that
+ * puts pwrSetVoltageScale() and pwrWaitVoltageScaleReady() on either
+ * side of rccPllEnable(), both before this call.
  *
  * @param rcc     RCC register block (e.g. RCC).
  * @param flash   Flash interface register block (e.g. FLASH).
- * @param pwr     PWR register block (e.g. PWR).
  * @param source  CFGR.SW field value: ::RCC_CFGR_SYSCLK_HSI,
  *                ::RCC_CFGR_SYSCLK_HSE, or ::RCC_CFGR_SYSCLK_PLL.
- * @param vos     Target PWR voltage scale - see pwrSetVoltageScale().
  * @param latency Target flash access latency - see flashSetLatency().
+ * @pre For a PLL source, the full bring-up order in this file's top
+ *      comment has already run - in particular the voltage scale is
+ *      selected and settled, since this function requires the PLL to be
+ *      locked by the time it is called and the scale can no longer be
+ *      changed at that point.
  * @return DRIVER_STATUS_OK once CFGR.SWS confirms the switch completed.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if source is not one of the
- *         three documented values, or propagated from pwrSetVoltageScale()/
- *         flashSetLatency() if vos/latency is invalid.
- * @return DRIVER_STATUS_ERR_TIMEOUT propagated from pwrSetVoltageScale()
- *         if CSR.VOSRDY never set, or if CFGR.SWS never reports @p source
+ *         three documented values, or propagated from flashSetLatency()
+ *         if latency is invalid.
+ * @return DRIVER_STATUS_ERR_HW_FAULT propagated from flashSetLatency() if
+ *         ACR.LATENCY does not read back the value written.
+ * @return DRIVER_STATUS_ERR_TIMEOUT if CFGR.SWS never reports @p source
  *         within RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after the
  *         switch.
  * @return DRIVER_STATUS_ERR_NOT_INITIALIZED if @p source's ready bit
@@ -316,8 +345,7 @@ DRIVER_MUST_CHECK DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint
  *         never finished becoming ready.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash,
-                                                 PwrRegisters_t *pwr, uint32_t source, uint32_t vos,
-                                                 uint32_t latency);
+                                                 uint32_t source, uint32_t latency);
 
 /** @} */
 

@@ -6,7 +6,6 @@
 #include "rcc.h"
 
 #include "flash.h"
-#include "pwr.h"
 
 /**
  * @addtogroup driver_layer
@@ -157,24 +156,48 @@ static uint32_t rccActiveSysclkSource(const RccRegisters_t *rcc)
     return (rcc->CFGR & RCC_CFGR_SWS_Msk) >> RCC_CFGR_SWS_Pos;
 }
 
-DriverStatus_e rccHsiEnable(RccRegisters_t *rcc)
+/**
+ * @brief Spin until one of CR's oscillator-ready flags reads set, or the
+ *        bounded retry count is exhausted. Shared by rccHsiEnable(),
+ *        rccHseEnable(), and rccPllEnable(), whose waits differ only in
+ *        which CR bit they watch.
+ *
+ * The outcome is decided by re-reading the flag after the loop, not by
+ * testing whether the counter reached 0: the flag setting on the very
+ * last iteration exits the loop with the counter already at 0, and a
+ * counter test would then report a timeout for a wait that in fact
+ * succeeded.
+ *
+ * @param rcc       RCC register block (e.g. RCC).
+ * @param ready_bit CR ready flag to wait on - ::RCC_CR_HSIRDY,
+ *                  ::RCC_CR_HSERDY, or ::RCC_CR_PLLRDY.
+ * @return DRIVER_STATUS_OK if ready_bit is set on exit.
+ * @return DRIVER_STATUS_ERR_TIMEOUT if it is still clear after
+ *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations.
+ */
+static DriverStatus_e rccWaitCrReady(const RccRegisters_t *rcc, uint32_t ready_bit)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
     uint32_t timeout = RCC_CLOCK_READY_TIMEOUT_ITERATIONS;
 
-    rcc->CR |= RCC_CR_HSION;
-
-    while (((rcc->CR & RCC_CR_HSIRDY) == 0U) && (timeout > 0U))
+    while (((rcc->CR & ready_bit) == 0U) && (timeout > 0U))
     {
         timeout--;
     }
 
-    if (timeout == 0U)
+    if ((rcc->CR & ready_bit) == 0U)
     {
         status = DRIVER_STATUS_ERR_TIMEOUT;
     }
 
     return status;
+}
+
+DriverStatus_e rccHsiEnable(RccRegisters_t *rcc)
+{
+    rcc->CR |= RCC_CR_HSION;
+
+    return rccWaitCrReady(rcc, RCC_CR_HSIRDY);
 }
 
 DriverStatus_e rccHsiDisable(RccRegisters_t *rcc)
@@ -216,8 +239,6 @@ DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass)
     }
     else
     {
-        uint32_t timeout = RCC_CLOCK_READY_TIMEOUT_ITERATIONS;
-
         /* HSEBYP must be written while HSEON is clear (RM0390) - the BUSY
          * guard above already ensures that. */
         // cppcheck-suppress misra-c2012-12.2
@@ -226,15 +247,7 @@ DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass)
         rcc->CR |= RCC_CR_HSEON;
 
         // cppcheck-suppress misra-c2012-12.2
-        while (((rcc->CR & RCC_CR_HSERDY) == 0U) && (timeout > 0U))
-        {
-            timeout--;
-        }
-
-        if (timeout == 0U)
-        {
-            status = DRIVER_STATUS_ERR_TIMEOUT;
-        }
+        status = rccWaitCrReady(rcc, RCC_CR_HSERDY);
     }
 
     return status;
@@ -303,24 +316,11 @@ DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t source, uint32_t m, ui
 
 DriverStatus_e rccPllEnable(RccRegisters_t *rcc)
 {
-    DriverStatus_e status = DRIVER_STATUS_OK;
-    uint32_t timeout = RCC_CLOCK_READY_TIMEOUT_ITERATIONS;
-
     // cppcheck-suppress misra-c2012-12.2
     rcc->CR |= RCC_CR_PLLON;
 
     // cppcheck-suppress misra-c2012-12.2
-    while (((rcc->CR & RCC_CR_PLLRDY) == 0U) && (timeout > 0U))
-    {
-        timeout--;
-    }
-
-    if (timeout == 0U)
-    {
-        status = DRIVER_STATUS_ERR_TIMEOUT;
-    }
-
-    return status;
+    return rccWaitCrReady(rcc, RCC_CR_PLLRDY);
 }
 
 DriverStatus_e rccPllDisable(RccRegisters_t *rcc)
@@ -416,8 +416,8 @@ DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint32_t hpre, uint32_
     return status;
 }
 
-DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, PwrRegisters_t *pwr,
-                               uint32_t source, uint32_t vos, uint32_t latency)
+DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, uint32_t source,
+                               uint32_t latency)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
@@ -425,11 +425,6 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, Pwr
         && (source != RCC_CFGR_SYSCLK_PLL))
     {
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
-    }
-
-    if (status == DRIVER_STATUS_OK)
-    {
-        status = pwrSetVoltageScale(pwr, vos);
     }
 
     if (status == DRIVER_STATUS_OK)
@@ -473,7 +468,9 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, Pwr
             timeout--;
         }
 
-        if (timeout == 0U)
+        /* Re-read SWS rather than testing the counter, for the same
+         * reason rccWaitCrReady() does - see its comment. */
+        if (rccActiveSysclkSource(rcc) != source)
         {
             status = DRIVER_STATUS_ERR_TIMEOUT;
         }

@@ -35,16 +35,23 @@
  * the target latency unconditionally before every switch, regardless of
  * whether SYSCLK is increasing or decreasing.
  *
- * A single deterministic register write: RM0390 documents no busy/ready
- * flag for this field, so there is nothing to poll and no timeout case.
+ * RM0390 documents no busy/ready flag for this field, so there is
+ * nothing to poll and no timeout case. It does, however, require the
+ * programmed value be read back and confirmed before relying on it, so
+ * this function verifies the write landed rather than assuming it did.
  *
  * @param flash   Flash interface register block (e.g. FLASH).
  * @param latency Target value for ACR.LATENCY (0-15, the field's full
  *                width - RM0390 defines all 16 encodings as valid wait-
  *                state counts).
- * @return DRIVER_STATUS_OK once ACR.LATENCY has been written.
+ * @return DRIVER_STATUS_OK once ACR.LATENCY has been written and read
+ *         back as the value written.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if latency exceeds the 4-bit
  *         field (> 15).
+ * @return DRIVER_STATUS_ERR_HW_FAULT if ACR.LATENCY does not read back
+ *         the programmed value - the flash interface did not accept it,
+ *         and raising SYSCLK on that assumption would corrupt
+ *         instruction fetch.
  */
 DRIVER_MUST_CHECK DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency);
 

@@ -550,82 +550,59 @@ void test_rcc_driver_bus_prescaler_config_accepts_every_documented_ppre(void)
 
 /* --- rccSysclkSwitch --- */
 
-/** source outside {HSI, HSE, PLL} must be rejected before pwr/flash are
- *  ever touched. */
+/** source outside {HSI, HSE, PLL} must be rejected before flash is ever
+ *  touched. */
 void test_rcc_driver_sysclk_switch_rejects_invalid_source(void)
 {
     RccRegisters_t rcc = {0};
     FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {0};
 
-    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, &pwr, 0x3U, PWR_CR_VOS_SCALE1, 5U);
-
-    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
-    TEST_ASSERT_EQUAL_HEX32(0U, flash.ACR);
-    TEST_ASSERT_EQUAL_HEX32(0U, pwr.CR);
-}
-
-/** An invalid vos is propagated straight from pwrSetVoltageScale() -
- *  flash is never touched, since pwr is sequenced first. */
-void test_rcc_driver_sysclk_switch_propagates_pwr_invalid_param(void)
-{
-    RccRegisters_t rcc = {0};
-    FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {0};
-
-    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, &pwr, RCC_CFGR_SYSCLK_PLL, 0x0U, 5U);
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, 0x3U, 5U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, flash.ACR);
+    TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR);
 }
 
 /** An invalid latency is propagated straight from flashSetLatency(),
- *  after pwr has already been applied (VOSRDY pre-set here so pwr
- *  succeeds and the sequence reaches flash). */
+ *  before CFGR is touched. */
 void test_rcc_driver_sysclk_switch_propagates_flash_invalid_param(void)
 {
     RccRegisters_t rcc = {0};
     FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
 
-    DriverStatus_e status =
-        rccSysclkSwitch(&rcc, &flash, &pwr, RCC_CFGR_SYSCLK_PLL, PWR_CR_VOS_SCALE1, 16U);
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_PLL, 16U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR);
 }
 
-/** vos/latency both succeed, but the requested source's ready bit
- *  (PLLRDY here) was never set - caller forgot to enable/wait for it. */
+/** latency succeeds, but the requested source's ready bit (PLLRDY here)
+ *  was never set - caller forgot to enable/wait for it. */
 void test_rcc_driver_sysclk_switch_reports_not_initialized_when_source_not_ready(void)
 {
     RccRegisters_t rcc = {0};
     FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
 
-    DriverStatus_e status =
-        rccSysclkSwitch(&rcc, &flash, &pwr, RCC_CFGR_SYSCLK_PLL, PWR_CR_VOS_SCALE1, 5U);
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_PLL, 5U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_NOT_INITIALIZED, status);
     TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & RCC_CFGR_SW_Msk);
 }
 
-/** vos/latency succeed, the source is ready (PLLRDY pre-set), and SWS
+/** latency succeeds, the source is ready (PLLRDY pre-set), and SWS
  *  (pre-set to already match, simulating the hardware switch completing
  *  immediately) confirms the switch -> OK, with CFGR.SW written. */
 void test_rcc_driver_sysclk_switch_switches_and_reports_ok(void)
 {
     RccRegisters_t rcc = {.CR = RCC_CR_PLLRDY, .CFGR = RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos};
     FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
 
-    DriverStatus_e status =
-        rccSysclkSwitch(&rcc, &flash, &pwr, RCC_CFGR_SYSCLK_PLL, PWR_CR_VOS_SCALE1, 5U);
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_PLL, 5U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_PLL, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
     TEST_ASSERT_EQUAL_HEX32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
-    TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1, (pwr.CR & PWR_CR_VOS_Msk) >> PWR_CR_VOS_Pos);
 }
 
 /** Same as above, switching to HSI instead of PLL - exercises the
@@ -635,10 +612,8 @@ void test_rcc_driver_sysclk_switch_to_hsi_switches_and_reports_ok(void)
 {
     RccRegisters_t rcc = {.CR = RCC_CR_HSIRDY, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
     FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
 
-    DriverStatus_e status =
-        rccSysclkSwitch(&rcc, &flash, &pwr, RCC_CFGR_SYSCLK_HSI, PWR_CR_VOS_SCALE3, 0U);
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_HSI, 0U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_HSI, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
@@ -651,10 +626,8 @@ void test_rcc_driver_sysclk_switch_to_hse_switches_and_reports_ok(void)
 {
     RccRegisters_t rcc = {.CR = RCC_CR_HSERDY, .CFGR = RCC_CFGR_SYSCLK_HSE << RCC_CFGR_SWS_Pos};
     FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
 
-    DriverStatus_e status =
-        rccSysclkSwitch(&rcc, &flash, &pwr, RCC_CFGR_SYSCLK_HSE, PWR_CR_VOS_SCALE2, 2U);
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_HSE, 2U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_HSE, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
@@ -668,10 +641,8 @@ void test_rcc_driver_sysclk_switch_times_out_when_sws_never_matches(void)
 {
     RccRegisters_t rcc = {.CR = RCC_CR_PLLRDY};
     FlashRegisters_t flash = {0};
-    PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
 
-    DriverStatus_e status =
-        rccSysclkSwitch(&rcc, &flash, &pwr, RCC_CFGR_SYSCLK_PLL, PWR_CR_VOS_SCALE1, 5U);
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_PLL, 5U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_PLL, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
