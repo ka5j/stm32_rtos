@@ -226,13 +226,19 @@ format-check:
 #    (unused macro) on device/inc/gpio_reg.h, device/inc/rcc_reg.h,
 #    device/inc/flash_reg.h, device/inc/pwr_reg.h, and device/inc/
 #    uart_reg.h, and misra-c2012-8.7 (external linkage used in only one
-#    translation unit) on drivers/src/gpio.c, drivers/src/rcc.c, and
-#    drivers/src/uart.c. All are real findings today: nothing in api/bsp/
-#    app calls gpio.c's, rcc.c's, or uart.c's own public functions yet
-#    (flash.c/pwr.c don't need this suppression, even though api/ doesn't
-#    exist either - rcc.c calls flashSetLatency()/pwrSetVoltageScale()
-#    directly, so cppcheck's whole-project analysis already sees a second
-#    translation unit using them); rcc_reg.h's CIR (clock-security-
+#    translation unit) on drivers/src/gpio.c, drivers/src/rcc.c,
+#    drivers/src/uart.c, and drivers/src/pwr.c. All are real findings
+#    today: nothing in api/bsp/app calls those files' own public
+#    functions yet. flash.c is the one driver that still does not need
+#    this suppression - rcc.c calls flashSetLatency() directly, so
+#    cppcheck's whole-project analysis already sees a second translation
+#    unit using it. pwr.c used to be in that same position and no longer
+#    is: rcc.c called pwrSetVoltageScale() until the PWR voltage-scale
+#    sequencing moved out to the caller (RM0390 5.1.4 allows CR.VOS to be
+#    written only while the PLL is off, which is not the window
+#    rccSysclkSwitch() runs in - see rcc.h's file-level comment), leaving
+#    pwr.c with no in-project caller until api/ or bsp/ grows one;
+#    rcc_reg.h's CIR (clock-security-
 #    system) and CSR (LSI enable, reset-cause flags) sections,
 #    flash_reg.h's SR/CR bits beyond ACR.LATENCY, pwr_reg.h's bits beyond
 #    CR.VOS/CSR.VOSRDY, and uart_reg.h's SR.IDLE/TC and every CR1
@@ -281,6 +287,7 @@ lint:
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  --suppress=misra-c2012-8.7:drivers/src/rcc.c \
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
+	  --suppress=misra-c2012-8.7:drivers/src/pwr.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # ------------------------------------------------------------------------
@@ -328,6 +335,7 @@ TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c 
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
+
 TEST_OBJECTS   := $(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(notdir $(TEST_SOURCES)))
 vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity drivers/src
 
@@ -359,6 +367,17 @@ test: $(TEST_OBJECTS)
 # Separate build dir (tests/coverage/) so this never touches build/ or
 # tests/build/ - instrumented objects are not the same as make test's
 # plain ones and must not be mixed with them.
+#
+# Exactly one region in the project is excluded from this gate, marked
+# with GCOVR_EXCL_START/STOP in drivers/src/flash.c: flashSetLatency()'s
+# read-back check compares ACR against the value it just wrote to ACR,
+# and a plain in-memory register struct always agrees by construction, so
+# the failure half is unreachable off-target. That comment carries the
+# full reasoning. Treat any proposed second exclusion with suspicion -
+# the gate is only worth having if reaching 100% means the tests actually
+# exercise the code, and every other branch in drivers/ is reachable
+# because the flag a driver polls is always a field distinct from the one
+# it writes (see TEST_DRIVER_SOURCES above).
 # ------------------------------------------------------------------------
 COVERAGE_MIN_LINE   := 100
 COVERAGE_MIN_BRANCH := 100

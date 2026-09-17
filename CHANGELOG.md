@@ -10,6 +10,18 @@ specifically.
 
 ### Added
 
+- `drivers/inc/pwr.h`, `drivers/src/pwr.c`: `pwrWaitVoltageScaleReady()`,
+  the second half of what was previously a single `pwrSetVoltageScale()`.
+  See the Fixed section below for why voltage scaling had to be split in
+  two.
+- `drivers/src/flash.c`: `flashSetLatency()` now reads `ACR.LATENCY` back
+  and reports `DRIVER_STATUS_ERR_HW_FAULT` if it does not match what was
+  written, as RM0390 requires before relying on a programmed latency.
+  This is the project's only region excluded from the `make coverage`
+  gate (`GCOVR_EXCL_START`/`STOP`): the check compares a register against
+  the value just written to it, which a plain in-memory test struct
+  always agrees with by construction. The reasoning is recorded in the
+  code and in the Makefile's coverage comment.
 - `drivers/inc/uart.h`, `drivers/src/uart.c`: the UART/USART driver -
   `uartInit()` (BRR baud-rate divisor from a bus clock and target baud,
   standard 16x oversampling, plus CR1 parity/direction and CR2 stop
@@ -181,6 +193,12 @@ specifically.
 
 ### Changed
 
+- `Makefile`: `misra-c2012-8.7` is now suppressed for `drivers/src/pwr.c`
+  too. It did not need the suppression while `rcc.c` called
+  `pwrSetVoltageScale()` directly, which gave cppcheck a second
+  translation unit using it; the voltage-scale sequencing moving out to
+  the caller leaves pwr.c with no in-project caller until `api/` or `bsp/`
+  grows one.
 - `CONTRIBUTING.md`: the error-handling-contract example now shows
   `rccGpioClockEnable(RCC, GPIOA)` (two arguments) instead of the stale
   `rccGpioClockEnable(GPIO_PORT_A)` (one argument, predating `rcc.c`).
@@ -207,6 +225,38 @@ specifically.
   `-O0` code doesn't represent shipped instruction counts or cycle timing.
 
 ### Fixed
+
+- **`drivers/src/rcc.c`, `drivers/src/pwr.c`: the PWR voltage-scale
+  sequencing was wrong in both directions and is now corrected.**
+  `rccSysclkSwitch()` took `pwr` and `vos` parameters and applied the
+  voltage scale as part of the switch, but it also requires the
+  requested source's ready bit to be set before switching - so for a PLL
+  source the scale was being written with the PLL already locked. RM0390
+  section 5.1.4 permits `PWR_CR.VOS` to be modified *only while the PLL
+  is off*, so that write was discarded by the hardware and the core would
+  then have run off the PLL at a frequency the regulator was never scaled
+  for. Compounding it, `pwrSetVoltageScale()` polled `CSR.VOSRDY`
+  immediately after writing `CR.VOS`; that flag only reports the
+  regulator settled *after* the PLL is switched on, so simply moving the
+  call earlier would have made it time out on every boot instead.
+  The fix follows the hardware's actual two phases: `pwrSetVoltageScale()`
+  now writes `CR.VOS` and polls nothing, `pwrWaitVoltageScaleReady()`
+  polls `CSR.VOSRDY` and is called after `rccPllEnable()`, and
+  `rccSysclkSwitch()` drops both PWR parameters, narrowing to the flash
+  latency it can legitimately sequence. The full ordered bring-up
+  sequence a caller must now follow is documented in `drivers/inc/rcc.h`'s
+  file-level comment. Neither half was caught by the test suite, which
+  held 100% branch coverage throughout: a register struct in host memory
+  has no opinion about when a field is writable.
+- `drivers/src/rcc.c`, `drivers/src/pwr.c`: the bounded hardware-ready
+  waits could report a spurious timeout. Each spun
+  `while (flag clear && timeout > 0) timeout--;` and then concluded
+  `if (timeout == 0) -> ERR_TIMEOUT`, which misreports success whenever
+  the flag sets on the final iteration - the loop exits with the counter
+  already at zero. They now re-read the flag after the loop and decide on
+  that instead. The three CR oscillator waits in `rcc.c` are now one
+  `rccWaitCrReady()` helper, so the reasoning lives in one place rather
+  than being restated at each site.
 
 - `Doxyfile`: `SORT_MEMBER_DOCS` YES -> NO. Every struct here is a
   memory-mapped register block where declaration order is the real

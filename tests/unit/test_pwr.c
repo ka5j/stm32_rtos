@@ -5,16 +5,18 @@
  *        - pwr.c's functions take the register block as a parameter
  *        rather than reaching for the hardware PWR macro, which is what
  *        makes this testable off-target, including the CSR.VOSRDY poll:
- *        CR (what the driver writes) and CSR (what it polls) are
- *        separate fields, so a test can hold CSR.VOSRDY low indefinitely
- *        to exercise the timeout path with no real hardware or timer
- *        involved. Compiled into tests/unit/test_runner.c's run_tests
- *        binary.
+ *        CR (what pwrSetVoltageScale() writes) and CSR (what
+ *        pwrWaitVoltageScaleReady() polls) are separate fields, so a test
+ *        can hold CSR.VOSRDY low indefinitely to exercise the timeout
+ *        path with no real hardware or timer involved. Compiled into
+ *        tests/unit/test_runner.c's run_tests binary.
  */
 #include "pwr.h"
 #include "unity.h"
 
 #include <stddef.h>
+
+/* --- pwrSetVoltageScale --- */
 
 /** vos == 0x0 (reserved per RM0390) must be rejected before any write. */
 void test_pwr_driver_set_voltage_scale_rejects_reserved_zero(void)
@@ -38,16 +40,14 @@ void test_pwr_driver_set_voltage_scale_rejects_out_of_range(void)
     TEST_ASSERT_EQUAL_HEX32(0U, pwr.CR);
 }
 
-/** Each documented scale (SCALE1/2/3) is written to CR.VOS and reports OK
- *  once CSR.VOSRDY (pre-set here to simulate the hardware already having
- *  caught up) is observed set. */
+/** Each documented scale (SCALE1/2/3) is written to CR.VOS. */
 void test_pwr_driver_set_voltage_scale_writes_each_documented_scale(void)
 {
     static const uint32_t scales[] = {PWR_CR_VOS_SCALE1, PWR_CR_VOS_SCALE2, PWR_CR_VOS_SCALE3};
 
     for (size_t i = 0; i < sizeof(scales) / sizeof(scales[0]); i++)
     {
-        PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
+        PwrRegisters_t pwr = {0};
 
         DriverStatus_e status = pwrSetVoltageScale(&pwr, scales[i]);
 
@@ -60,7 +60,7 @@ void test_pwr_driver_set_voltage_scale_writes_each_documented_scale(void)
  *  (LPDS/PDDS/CWUF/CSBF/PVDE/PLS/DBP/ODEN/ODSWEN) untouched. */
 void test_pwr_driver_set_voltage_scale_touches_only_vos_field(void)
 {
-    PwrRegisters_t pwr = {.CR = 0xFFFFFFFFU, .CSR = PWR_CSR_VOSRDY};
+    PwrRegisters_t pwr = {.CR = 0xFFFFFFFFU};
 
     DriverStatus_e status = pwrSetVoltageScale(&pwr, PWR_CR_VOS_SCALE2);
 
@@ -69,15 +69,52 @@ void test_pwr_driver_set_voltage_scale_touches_only_vos_field(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~PWR_CR_VOS_Msk, pwr.CR & ~PWR_CR_VOS_Msk);
 }
 
-/** CSR.VOSRDY never set (hardware never catches up) exhausts the bounded
- *  retry and reports a timeout - CR.VOS still reflects the requested
- *  write, since the write happens unconditionally before the poll. */
-void test_pwr_driver_set_voltage_scale_times_out_when_vosrdy_never_sets(void)
+/** Selecting a scale does not poll, and in particular does not depend on
+ *  CSR.VOSRDY - which cannot set until the PLL is enabled (RM0390 5.1.4),
+ *  long after this call. A cleared CSR must still report OK, since an
+ *  earlier revision of this driver polled here and would have timed out
+ *  on every boot once the call was correctly ordered before the PLL. */
+void test_pwr_driver_set_voltage_scale_does_not_poll_vosrdy(void)
 {
     PwrRegisters_t pwr = {0};
 
     DriverStatus_e status = pwrSetVoltageScale(&pwr, PWR_CR_VOS_SCALE1);
 
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, pwr.CSR);
+}
+
+/* --- pwrWaitVoltageScaleReady --- */
+
+/** CSR.VOSRDY already set (hardware has caught up) reports OK. */
+void test_pwr_driver_wait_voltage_scale_ready_reports_ok_when_vosrdy_set(void)
+{
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_VOSRDY};
+
+    DriverStatus_e status = pwrWaitVoltageScaleReady(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+}
+
+/** CSR.VOSRDY never set (hardware never catches up) exhausts the bounded
+ *  retry and reports a timeout. */
+void test_pwr_driver_wait_voltage_scale_ready_times_out_when_vosrdy_never_sets(void)
+{
+    PwrRegisters_t pwr = {0};
+
+    DriverStatus_e status = pwrWaitVoltageScaleReady(&pwr);
+
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
-    TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1, (pwr.CR & PWR_CR_VOS_Msk) >> PWR_CR_VOS_Pos);
+}
+
+/** The wait only reads CSR - it must not disturb CR, which already holds
+ *  the scale pwrSetVoltageScale() selected before the PLL came on. */
+void test_pwr_driver_wait_voltage_scale_ready_does_not_write_cr(void)
+{
+    PwrRegisters_t pwr = {.CR = PWR_CR_VOS_SCALE1 << PWR_CR_VOS_Pos, .CSR = PWR_CSR_VOSRDY};
+
+    DriverStatus_e status = pwrWaitVoltageScaleReady(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1 << PWR_CR_VOS_Pos, pwr.CR);
 }
