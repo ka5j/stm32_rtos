@@ -10,6 +10,10 @@ specifically.
 
 ### Added
 
+- `drivers/inc/uart.h`, `drivers/src/uart.c`: `uartFlush()`, a blocking
+  wait on `SR.TC`. `uartTransmit()` now calls it once its buffer is
+  written, so a successful return means the data is actually on the wire
+  rather than merely handed to DR - see the Fixed section.
 - `drivers/inc/pwr.h`, `drivers/src/pwr.c`: `pwrWaitVoltageScaleReady()`,
   the second half of what was previously a single `pwrSetVoltageScale()`.
   See the Fixed section below for why voltage scaling had to be split in
@@ -226,6 +230,30 @@ specifically.
 
 ### Fixed
 
+- `drivers/src/uart.c`: `uartTransmit()` returned as soon as the last
+  byte reached DR, while that byte was still being shifted out. Following
+  it with `uartDeinit()`, a clock gate, a baud change, or a low-power
+  transition truncated the final character. It now ends with a `SR.TC`
+  wait via the new `uartFlush()`, and `uartDeinit()` documents the
+  precondition for callers driving `uartTransmitByte()` directly.
+- `drivers/src/uart.c`: `uartInit()` programmed BRR and the framing
+  fields without first clearing `CR1.UE`. RM0390 requires those be
+  written with the USART disabled, so reconfiguring a running instance
+  (changing baud rate, say) wrote into a live peripheral and could
+  corrupt an in-flight frame. UE is now cleared first and restored last.
+- `drivers/src/uart.c`: the `SR.TXE`/`SR.RXNE` waits had the same
+  off-by-one as the RCC/PWR waits - concluding `ERR_TIMEOUT` from
+  `timeout == 0` misreports success when the flag sets on the final
+  iteration. Both now re-read the flag, through a shared
+  `uartWaitSrFlag()` helper that also serves the new TC wait.
+- `drivers/inc/uart.h`: `uartReceiveByte()`/`uartReceive()` no longer take
+  `const UartRegisters_t *`. Nothing is written through the pointer, which
+  is what the const originally recorded, but reading DR clears `SR.RXNE`
+  and the ORE/NE/FE/PE flags - the peripheral does change. The const
+  advertised a repeatable, side-effect-free observation that the hardware
+  does not provide. cppcheck flags the parameter as const-able for exactly
+  the same reason a reader would assume it; that finding is suppressed
+  inline with the rationale.
 - **`drivers/src/rcc.c`, `drivers/src/pwr.c`: the PWR voltage-scale
   sequencing was wrong in both directions and is now corrected.**
   `rccSysclkSwitch()` took `pwr` and `vos` parameters and applied the
