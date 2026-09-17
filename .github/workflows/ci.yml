@@ -3,9 +3,11 @@ name: CI
 # Public-facing gate: build + docs + format + lint, on a GitHub-hosted
 # runner. Runs on every push to main/develop and every PR - this is the
 # badge/status a reviewer sees, and (via branch protection on main/
-# develop) what actually gates a merge. Hardware-in-the-loop testing
-# lives in hil.yml on a self-hosted runner instead, deliberately not
-# triggered here (see that file for why).
+# develop) what actually gates a merge. Nothing here touches real
+# hardware: on-target verification is manual, driven from the
+# development machine the board is attached to (make flash / make
+# debug), and the self-hosted-runner workflow that used to stand in for
+# it was removed - see CONTRIBUTING.md and SECURITY.md for why.
 #
 # push is scoped to [main, develop], not every branch: a feature branch
 # gets its CI coverage entirely from pull_request once a PR is open
