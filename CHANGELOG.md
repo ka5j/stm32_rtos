@@ -12,9 +12,15 @@ specifically.
 
 - `drivers/inc/uart.h`, `drivers/src/uart.c`: the UART/USART driver -
   `uartInit()` (BRR baud-rate divisor from a bus clock and target baud,
-  standard 16x oversampling, plus CR1 word length/parity/direction and
-  CR2 stop bits, UE set last), `uartDeinit()`, and blocking
-  `uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`.
+  standard 16x oversampling, plus CR1 parity/direction and CR2 stop
+  bits, UE set last), `uartDeinit()`, and blocking
+  `uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`. 8
+  data bits only, matching `uart_reg.h`'s own documented "8N1" scope -
+  CR1.M is unconditionally cleared, not a configurable parameter; an
+  earlier draft of this driver exposed a `word_length` parameter
+  accepting 9-bit mode without widening transmit/receive past
+  `uint8_t`, which would have silently truncated every byte through DR
+  in that mode. Caught in review before merge, not shipped.
   `uartReceiveByte()` always reads DR once RXNE sets, whether or not a
   fault (ORE/NE/FE/PE) is also reported, since RM0390 clears those flags
   via an SR read followed by a DR read - skipping the DR read on a fault
@@ -28,24 +34,31 @@ specifically.
   mantissa fits BRR's 12-bit field (baud too low for the given clock) and
   rejects a mantissa/fraction of 0/0 (baud too high - RM0390 forbids a
   BRR of 0).
-- `device/inc/uart_reg.h`: `USART_CR1_M_8BIT`/`_9BIT` and
-  `USART_CR2_STOP_1`/`_0_5`/`_2`/`_1_5` field-value macros, matching the
-  existing `RCC_CFGR_SYSCLK_*`-style naming pattern - both fields
-  previously had only their raw bit/mask macros, no named values.
+  Every transmit/receive function blocks by spin-polling TXE/RXNE with a
+  bounded iteration count - the only thing implementable before an NVIC
+  driver and RTOS scheduler exist to build an interrupt- or DMA-driven
+  variant against. A task calling these once real tasks exist will
+  monopolize the CPU for the duration of the transfer; this is a known,
+  deliberate limitation of this revision, documented in `uart.h`'s
+  file-level comment, not the intended final form.
+- `device/inc/uart_reg.h`: `USART_CR2_STOP_1`/`_0_5`/`_2`/`_1_5`
+  field-value macros, matching the existing `RCC_CFGR_SYSCLK_*`-style
+  naming pattern - the field previously had only its raw bit/mask macro,
+  no named values.
 - `tests/unit/test_uart.c`: full coverage including every timeout and
-  hardware-fault branch, the BRR fraction-carry case, and (matching
-  `rccBusPrescalerConfig`'s exhaustive-value tests) every one of STOP's 4
-  documented values individually. BRR test vectors were computed
-  independently (Python, not this driver's own arithmetic) and asserted
-  as exact values. `make coverage` holds 100% line/branch across
-  `drivers/src/{gpio,rcc,flash,pwr,uart}.c`.
+  hardware-fault branch, the BRR fraction-carry case, every one of
+  STOP's 4 documented values individually (matching
+  `rccBusPrescalerConfig`'s exhaustive-value tests), and that CR1.M is
+  unconditionally cleared even if it started set. BRR test vectors were
+  computed independently (Python, not this driver's own arithmetic) and
+  asserted as exact values. `make coverage` holds 100% line/branch
+  across `drivers/src/{gpio,rcc,flash,pwr,uart}.c`.
 - `Makefile`: `uart.c` added to `TEST_DRIVER_SOURCES`; `misra-c2012-2.5`
   suppression added for `device/inc/uart_reg.h` (SR.IDLE/TC and every CR1
   interrupt-enable/SBK/RWU/WAKE/OVER8 bit have no consumer - this driver
   is blocking-only, no interrupts or IDLE-line detection) and
   `misra-c2012-8.7` for `drivers/src/uart.c` (no caller outside its own
   file yet, matching `gpio.c`/`rcc.c`).
-
 - `drivers/inc/rcc.h`, `drivers/src/rcc.c`: RCC's HSI/HSE-to-PLL SYSCLK
   bring-up - `rccHsiEnable`/`rccHsiDisable`, `rccHseEnable` (crystal or
   bypass mode)/`rccHseDisable`, `rccPllConfig`/`rccPllEnable`/

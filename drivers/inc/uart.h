@@ -1,9 +1,29 @@
 /**
  * @file uart.h
- * @brief USART/UART driver - 8N1-class asynchronous configuration and
- *        blocking transmit/receive for the STM32F446xx
- *        (device/inc/uart_reg.h). No application-facing logic; consumed
- *        by api/.
+ * @brief USART/UART driver - 8N1 asynchronous configuration and blocking
+ *        transmit/receive for the STM32F446xx (device/inc/uart_reg.h).
+ *        No application-facing logic; consumed by api/.
+ *
+ * 8 data bits only, matching uart_reg.h's own documented "8N1" scope -
+ * CR1.M is left clear (8-bit) and is not a configurable parameter here.
+ * 9-bit mode is architecturally real (RM0390) but was never actually
+ * supported by this driver: an earlier revision exposed CR1.M as a
+ * parameter without widening transmit/receive past uint8_t, so a caller
+ * requesting 9-bit mode would have silently truncated every byte through
+ * DR instead of erroring. Add real 9-bit support (uint16_t transmit/
+ * receive) if a future consumer actually needs it; don't re-expose the
+ * parameter without it.
+ *
+ * Every transmit/receive function here blocks by spin-polling TXE/RXNE
+ * with a bounded iteration count - the only thing implementable before
+ * an NVIC driver exists to configure an interrupt and an RTOS scheduler
+ * exists to block/wake a task against one. A task that calls
+ * uartTransmit()/uartReceive() once real tasks exist will monopolize the
+ * CPU for the duration of the transfer, defeating preemption for
+ * whatever else wanted to run - this is a known, deliberate limitation
+ * of this revision, not the intended final form. Revisit with an
+ * interrupt- or DMA-driven variant once drivers/inc/nvic.h and
+ * rtos/kernel/ exist to build one against.
  *
  * Takes UART's register block as a parameter (UartRegisters_t *) even
  * though every instance (USART1/2/3, UART4/5, USART6) shares this same
@@ -27,21 +47,21 @@
  */
 
 /**
- * @brief Configure a UART/USART peripheral for asynchronous operation and
- *        enable it.
+ * @brief Configure a UART/USART peripheral for asynchronous 8-bit
+ *        operation and enable it.
  *
  * Sets BRR (from @p pclk_hz and @p baud, standard 16x oversampling -
  * OVER8 is not exposed by this driver, left clear), CR2.STOP, and CR1's
- * M/PCE/PS/TE/RE fields, then sets CR1.UE last so the peripheral only
- * turns on once every other field is already correct.
+ * PCE/PS/TE/RE fields (CR1.M is left clear - 8 data bits - see this
+ * file's file-level comment for why 9-bit is not offered), then sets
+ * CR1.UE last so the peripheral only turns on once every other field is
+ * already correct.
  *
  * @param uart          UART register block (e.g. USART2).
  * @param pclk_hz       The peripheral's bus clock frequency in Hz (APB1
  *                      for USART2/3/UART4/5, APB2 for USART1/6 - see
  *                      device/inc/uart_reg.h's base-address comments).
  * @param baud          Target baud rate in bit/s (e.g. 115200).
- * @param word_length   CR1.M field value: ::USART_CR1_M_8BIT or
- *                      ::USART_CR1_M_9BIT.
  * @param stop_bits     CR2.STOP field value: ::USART_CR2_STOP_1,
  *                      ::USART_CR2_STOP_0_5, ::USART_CR2_STOP_2, or
  *                      ::USART_CR2_STOP_1_5.
@@ -58,16 +78,15 @@
  *      GPIO pins this instance uses are already configured for their
  *      alternate function (gpio.h's gpioSetAlternateFunction()).
  * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if word_length, stop_bits,
- *         parity_enable, parity_select, or direction is not one of its
- *         documented values, if @p baud or @p pclk_hz is `0U`, or if the
- *         computed baud-rate divisor doesn't fit BRR (@p baud too high
- *         or too low for @p pclk_hz).
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if stop_bits, parity_enable,
+ *         parity_select, or direction is not one of its documented
+ *         values, if @p baud or @p pclk_hz is `0U`, or if the computed
+ *         baud-rate divisor doesn't fit BRR (@p baud too high or too low
+ *         for @p pclk_hz).
  */
 DRIVER_MUST_CHECK DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud,
-                                          uint32_t word_length, uint32_t stop_bits,
-                                          uint32_t parity_enable, uint32_t parity_select,
-                                          uint32_t direction);
+                                          uint32_t stop_bits, uint32_t parity_enable,
+                                          uint32_t parity_select, uint32_t direction);
 
 /**
  * @brief Reset a UART/USART peripheral's CR1/CR2/CR3/BRR/GTPR back to

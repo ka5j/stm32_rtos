@@ -29,8 +29,8 @@ void test_uart_driver_init_computes_brr_for_45mhz_115200(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartInit(&uart, 45000000U, 115200U, USART_CR1_M_8BIT, USART_CR2_STOP_1,
-                                     0U, 0U, USART_CR1_TE);
+    DriverStatus_e status =
+        uartInit(&uart, 45000000U, 115200U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(391U, uart.BRR);
@@ -43,7 +43,7 @@ void test_uart_driver_init_computes_brr_for_16mhz_9600(void)
     UartRegisters_t uart = {0};
 
     DriverStatus_e status =
-        uartInit(&uart, 16000000U, 9600U, USART_CR1_M_8BIT, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(1667U, uart.BRR);
@@ -57,7 +57,7 @@ void test_uart_driver_init_computes_brr_with_fraction_carry(void)
     UartRegisters_t uart = {0};
 
     DriverStatus_e status =
-        uartInit(&uart, 1000000U, 1025U, USART_CR1_M_8BIT, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+        uartInit(&uart, 1000000U, 1025U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(976U, uart.BRR);
@@ -68,8 +68,7 @@ void test_uart_driver_init_rejects_zero_pclk(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status =
-        uartInit(&uart, 0U, 115200U, USART_CR1_M_8BIT, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+    DriverStatus_e status = uartInit(&uart, 0U, 115200U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1);
@@ -80,8 +79,7 @@ void test_uart_driver_init_rejects_zero_baud(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status =
-        uartInit(&uart, 16000000U, 0U, USART_CR1_M_8BIT, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+    DriverStatus_e status = uartInit(&uart, 16000000U, 0U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1);
@@ -94,7 +92,7 @@ void test_uart_driver_init_rejects_baud_too_low_for_pclk(void)
     UartRegisters_t uart = {0};
 
     DriverStatus_e status =
-        uartInit(&uart, 90000000U, 300U, USART_CR1_M_8BIT, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+        uartInit(&uart, 90000000U, 300U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.BRR);
@@ -107,8 +105,8 @@ void test_uart_driver_init_rejects_baud_too_high_for_pclk(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartInit(&uart, 1000000U, 10000000U, USART_CR1_M_8BIT, USART_CR2_STOP_1,
-                                     0U, 0U, USART_CR1_TE);
+    DriverStatus_e status =
+        uartInit(&uart, 1000000U, 10000000U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.BRR);
@@ -123,8 +121,8 @@ void test_uart_driver_init_accepts_zero_mantissa_with_nonzero_fraction(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartInit(&uart, 1000000U, 1000000U, USART_CR1_M_8BIT, USART_CR2_STOP_1,
-                                     0U, 0U, USART_CR1_TE);
+    DriverStatus_e status =
+        uartInit(&uart, 1000000U, 1000000U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(1U, uart.BRR);
@@ -132,25 +130,12 @@ void test_uart_driver_init_accepts_zero_mantissa_with_nonzero_fraction(void)
 
 /* --- uartInit: parameter validation --- */
 
-/** word_length outside {M_8BIT, M_9BIT} must be rejected. */
-void test_uart_driver_init_rejects_invalid_word_length(void)
-{
-    UartRegisters_t uart = {0};
-
-    DriverStatus_e status =
-        uartInit(&uart, 16000000U, 9600U, 0xFFU, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
-
-    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
-    TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1);
-}
-
 /** stop_bits outside its 4 documented values must be rejected. */
 void test_uart_driver_init_rejects_invalid_stop_bits(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status =
-        uartInit(&uart, 16000000U, 9600U, USART_CR1_M_8BIT, 0xFFU, 0U, 0U, USART_CR1_TE);
+    DriverStatus_e status = uartInit(&uart, 16000000U, 9600U, 0xFFU, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR2);
@@ -170,8 +155,8 @@ void test_uart_driver_init_accepts_every_documented_stop_bits(void)
     {
         UartRegisters_t uart = {0};
 
-        DriverStatus_e status = uartInit(&uart, 16000000U, 9600U, USART_CR1_M_8BIT, stop_values[i],
-                                         0U, 0U, USART_CR1_TE);
+        DriverStatus_e status =
+            uartInit(&uart, 16000000U, 9600U, stop_values[i], 0U, 0U, USART_CR1_TE);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     }
@@ -182,8 +167,8 @@ void test_uart_driver_init_rejects_invalid_parity_enable(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartInit(&uart, 16000000U, 9600U, USART_CR1_M_8BIT, USART_CR2_STOP_1,
-                                     0xFFU, 0U, USART_CR1_TE);
+    DriverStatus_e status =
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0xFFU, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1);
@@ -194,8 +179,8 @@ void test_uart_driver_init_rejects_invalid_parity_select(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartInit(&uart, 16000000U, 9600U, USART_CR1_M_8BIT, USART_CR2_STOP_1,
-                                     0U, 0xFFU, USART_CR1_TE);
+    DriverStatus_e status =
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0U, 0xFFU, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1);
@@ -206,8 +191,8 @@ void test_uart_driver_init_rejects_invalid_direction(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartInit(&uart, 16000000U, 9600U, USART_CR1_M_8BIT, USART_CR2_STOP_1,
-                                     0U, 0U, USART_CR1_SBK);
+    DriverStatus_e status =
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_SBK);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1);
@@ -215,8 +200,10 @@ void test_uart_driver_init_rejects_invalid_direction(void)
 
 /* --- uartInit: field placement --- */
 
-/** A valid call sets M/PCE/PS/TE/RE/UE in CR1, STOP in CR2, and BRR -
- *  and preserves every other CR1/CR2 bit. */
+/** A valid call sets PCE/PS/TE/RE/UE in CR1, STOP in CR2, and BRR -
+ *  preserves every other CR1/CR2 bit, and leaves CR1.M clear (8 data
+ *  bits - this driver never sets it; see the dedicated M-clearing test
+ *  below for the case where it starts set). */
 void test_uart_driver_init_sets_fields_and_preserves_other_bits(void)
 {
     UartRegisters_t uart = {.CR1 = 0xFFFFFFFFU
@@ -224,11 +211,11 @@ void test_uart_driver_init_sets_fields_and_preserves_other_bits(void)
                                        | USART_CR1_RE | USART_CR1_UE),
                             .CR2 = 0xFFFFFFFFU & ~USART_CR2_STOP_Msk};
 
-    DriverStatus_e status = uartInit(&uart, 45000000U, 115200U, USART_CR1_M_9BIT, USART_CR2_STOP_2,
-                                     USART_CR1_PCE, USART_CR1_PS, USART_CR1_TE | USART_CR1_RE);
+    DriverStatus_e status = uartInit(&uart, 45000000U, 115200U, USART_CR2_STOP_2, USART_CR1_PCE,
+                                     USART_CR1_PS, USART_CR1_TE | USART_CR1_RE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-    TEST_ASSERT_EQUAL_HEX32(USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE | USART_CR1_RE
+    TEST_ASSERT_EQUAL_HEX32(USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE | USART_CR1_RE
                                 | USART_CR1_UE,
                             uart.CR1
                                 & (USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE
@@ -244,15 +231,30 @@ void test_uart_driver_init_sets_fields_and_preserves_other_bits(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~USART_CR2_STOP_Msk, uart.CR2 & ~USART_CR2_STOP_Msk);
 }
 
-/** word_length 8-bit, no parity, TE only clears PCE/PS/RE while still
- *  setting UE - the all-defaults path the case above's non-default
- *  values don't cover. */
+/** CR1.M starting set (e.g. left over from external tooling, or simply
+ *  the register's undefined post-reset content in this fake struct) is
+ *  unconditionally cleared - this driver only ever supports 8 data bits
+ *  (see uart.h's file-level comment on why 9-bit is not offered), so a
+ *  stale M bit must never survive a fresh uartInit() call. */
+void test_uart_driver_init_clears_preexisting_m_bit(void)
+{
+    UartRegisters_t uart = {.CR1 = USART_CR1_M};
+
+    DriverStatus_e status =
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1 & USART_CR1_M);
+}
+
+/** No parity, TE only clears PCE/PS/RE while still setting UE - the
+ *  all-defaults path the case above's non-default values don't cover. */
 void test_uart_driver_init_defaults_clear_parity_and_re(void)
 {
     UartRegisters_t uart = {.CR1 = USART_CR1_PCE | USART_CR1_PS | USART_CR1_RE};
 
     DriverStatus_e status =
-        uartInit(&uart, 16000000U, 9600U, USART_CR1_M_8BIT, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(USART_CR1_TE | USART_CR1_UE, uart.CR1);

@@ -76,28 +76,18 @@ static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *
     return status;
 }
 
-DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud,
-                        uint32_t word_length, uint32_t stop_bits, uint32_t parity_enable,
-                        uint32_t parity_select, uint32_t direction)
+DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, uint32_t stop_bits,
+                        uint32_t parity_enable, uint32_t parity_select, uint32_t direction)
 {
     uint32_t brr = 0U;
     DriverStatus_e status = uartComputeBrr(pclk_hz, baud, &brr);
 
-    /* USART_CR1_M_8BIT/_9BIT and every other USART_CR1 and USART_CR2_STOP
-     * value below are fixed, tested compile-time bit values (device/inc/
-     * uart_reg.h), not runtime-computed shifts - cppcheck's MISRA addon
-     * can't bound a shift through a macro expansion like this and flags
-     * every reference to it; see drivers/src/rcc.c's matching comment on
-     * rccHseEnable() for the same finding on the same class of macro. */
-    if (status == DRIVER_STATUS_OK)
-    {
-        // cppcheck-suppress misra-c2012-12.2
-        if ((word_length != USART_CR1_M_8BIT) && (word_length != USART_CR1_M_9BIT))
-        {
-            status = DRIVER_STATUS_ERR_INVALID_PARAM;
-        }
-    }
-
+    /* Every USART_CR1/USART_CR2_STOP value below is a fixed, tested
+     * compile-time bit value (device/inc/uart_reg.h), not a runtime-
+     * computed shift - cppcheck's MISRA addon can't bound a shift
+     * through a macro expansion like this and flags every reference to
+     * it; see drivers/src/rcc.c's matching comment on rccHseEnable() for
+     * the same finding on the same class of macro. */
     if (status == DRIVER_STATUS_OK)
     {
         if ((stop_bits != USART_CR2_STOP_1) && (stop_bits != USART_CR2_STOP_0_5)
@@ -135,6 +125,9 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud,
 
     if (status == DRIVER_STATUS_OK)
     {
+        /* USART_CR1_M is cleared (8 data bits, no parameter for it - see
+         * this file's file-level comment) by being included in cr1_mask
+         * and never OR'd back in below. */
         uint32_t cr1_mask =
             // cppcheck-suppress misra-c2012-12.2
             USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE | USART_CR1_RE;
@@ -142,8 +135,7 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud,
         uart->BRR = brr;
         // cppcheck-suppress misra-c2012-12.2
         uart->CR2 = (uart->CR2 & ~USART_CR2_STOP_Msk) | (stop_bits << USART_CR2_STOP_Pos);
-        uart->CR1 =
-            (uart->CR1 & ~cr1_mask) | word_length | parity_enable | parity_select | direction;
+        uart->CR1 = (uart->CR1 & ~cr1_mask) | parity_enable | parity_select | direction;
 
         /* UE set last, after every other field is already correct - see
          * this function's own doc comment. */
