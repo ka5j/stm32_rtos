@@ -118,6 +118,12 @@ typedef struct UartRegisters_t
 #define USART_CR2_STOP_Pos (12U)                        ///< Bit position within USART_CR2
 #define USART_CR2_STOP_Msk (0x3U << USART_CR2_STOP_Pos) ///< bits 13:12: 00=1 01=0.5 10=2 11=1.5
 
+/* --- USART_CR2_STOP field values --- */
+#define USART_CR2_STOP_1 (0x0U)   ///< STOP field value: 1 stop bit
+#define USART_CR2_STOP_0_5 (0x1U) ///< STOP field value: 0.5 stop bit
+#define USART_CR2_STOP_2 (0x2U)   ///< STOP field value: 2 stop bits
+#define USART_CR2_STOP_1_5 (0x3U) ///< STOP field value: 1.5 stop bits
+
 /** @} */
 
 #endif /* UART_REG_H */
