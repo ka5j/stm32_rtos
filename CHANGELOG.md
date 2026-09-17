@@ -10,6 +10,20 @@ specifically.
 
 ### Added
 
+- `CONTRIBUTING.md`: two new convention sections. "`const` on a
+  register-block parameter" states that `const` is a claim about the
+  hardware (the peripheral is unchanged), not merely about the pointer,
+  which is why a side-effecting read like `uartReceiveByte()` does not
+  get it. "Testing and its limits" records what host tests can and cannot
+  establish, and names the PWR ordering bug as the worked example of the
+  gap.
+- `README.md`: a macOS 27 prerequisite note. The Command Line Tools ship
+  an SDK whose `.tbd` stubs declare an `arm64e.x1` target that the
+  linker in the same install rejects, which breaks every host link and so
+  breaks `make test`, `make coverage`, and the entire pre-commit hook.
+  Setting `SDKROOT` to an earlier installed SDK works around it; this is
+  deliberately not put in the Makefile, where a hardcoded macOS
+  `-isysroot` would break Linux CI.
 - `drivers/inc/uart.h`, `drivers/src/uart.c`: `uartFlush()`, a blocking
   wait on `SR.TC`. `uartTransmit()` now calls it once its buffer is
   written, so a successful return means the data is actually on the wire
@@ -197,6 +211,14 @@ specifically.
 
 ### Changed
 
+- `README.md`'s Status section is now the single source of truth for
+  project status, restructured as a per-layer table. `docs/ARCHITECTURE.md`,
+  `docs/VERSIONING.md`, and `docs/mainpage.md` previously each carried
+  their own prose copy of the same status, so every driver merge needed
+  five synchronized edits that nothing checked for drift; they now link to
+  it instead. It also records the on-target gap explicitly: no driver has
+  ever executed on silicon, because `app/src/main.c` is an empty loop and
+  the linker garbage-collects all of `drivers/` out of the image.
 - Removed `.github/workflows/hil.yml`. Its smoke-test step was never
   written - it ended in `exit 1`, so the only workflow that touched real
   hardware failed by construction on every run - and the board is
