@@ -31,9 +31,13 @@
  * speed corrupts instruction fetch without a visible fault (see
  * flash_reg.h's file-level comment). It is always electrically safe to
  * run at a higher latency than the current SYSCLK strictly requires
- * (costs flash throughput, never correctness), which is why rcc.c applies
- * the target latency unconditionally before every switch, regardless of
- * whether SYSCLK is increasing or decreasing.
+ * (costs flash throughput, never correctness) - but that safety only
+ * runs one direction. rcc.c's rccSysclkSwitch() therefore does *not*
+ * apply a lower target latency this same way: it defers a lowering
+ * change until after CFGR.SWS confirms SYSCLK has actually dropped to
+ * the slower frequency the lower latency is rated for, and only applies
+ * a raising change here, before the switch. See rccSysclkSwitch()'s own
+ * doc comment for the two-sided sequencing this asymmetry requires.
  *
  * RM0390 documents no busy/ready flag for this field, so there is
  * nothing to poll and no timeout case. It does, however, require the
