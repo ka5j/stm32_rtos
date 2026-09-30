@@ -274,6 +274,30 @@ specifically.
 
 ### Fixed
 
+- `Makefile`: `make debug` backgrounded OpenOCD and never reaped it, so
+  the GDB server outlived the session that started it, kept holding the
+  ST-LINK, and made the next `make flash` or `make debug` fail with a
+  device-busy error until it was killed by hand. It now traps EXIT/INT/
+  TERM and kills the server it started.
+- `.github/workflows/codeql.yml`: both `github/codeql-action` pins
+  carried a `# v4` comment while actually pinning `v4.37.8`, and the
+  floating `v4` tag has since moved to a different commit - so the
+  comment named something the workflow was not running. That is the exact
+  drift SHA pinning exists to prevent, reintroduced in the part a human
+  reads. Both now name the exact release. Audited every other pin in the
+  process; `actions/checkout`, `actions/cache`, `actions/deploy-pages`
+  and `actions/upload-pages-artifact` all resolve correctly.
+- `SECURITY.md`: the action-pinning section illustrated the convention
+  with `actions/checkout@11d5960... # v4.4.0`, which is not what this
+  repository pins (`3d3c42e5... # v7.0.1`). A security document whose
+  concrete example does not match the code undermines the document. It
+  also now states that the version comment must name an exact release
+  rather than a floating major.
+- `docs/VERSIONING.md`: the policy contradicted itself on
+  `PROJECT_NUMBER`, saying in one place that it is "deliberately left
+  blank between releases" and in another that it is bumped on the release
+  PR and reports the released version until the next one. The Doxyfile
+  follows the second, so the first was removed.
 - `drivers/src/gpio.c`: `gpioInit()` and `gpioSetAlternateFunction()` now
   validate `pin`. Both already rejected every other out-of-domain
   parameter but took `pin` on trust, and `GpioPin_e` does not constrain
