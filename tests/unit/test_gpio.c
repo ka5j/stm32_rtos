@@ -12,6 +12,65 @@
 
 /* --- gpioInit: parameter validation --- */
 
+/** A pin cast in from outside GpioPin_e's 0-15 domain must be rejected
+ *  before any register is touched. Every field this driver writes is
+ *  indexed by the pin number, so pin 16 would shift a uint32_t by 32 -
+ *  undefined behaviour, not merely a wrong write. The enum type alone
+ *  does not prevent this; C lets any integer be cast to it. */
+void test_gpio_driver_init_rejects_out_of_range_pin(void)
+{
+    GpioRegisters_t port = {0};
+
+    DriverStatus_e status = gpioInit(&port, (GpioPin_e)16, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP,
+                                     GPIO_OSPEED_LOW, GPIO_PUPD_NONE);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.MODER);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.OTYPER);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.OSPEEDR);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.PUPDR);
+}
+
+/** A negative pin cast in wraps to a large unsigned value and must be
+ *  rejected by the same check - the validation casts to uint32_t rather
+ *  than comparing as a signed enum for exactly this case. */
+void test_gpio_driver_init_rejects_negative_pin(void)
+{
+    GpioRegisters_t port = {0};
+
+    DriverStatus_e status = gpioInit(&port, (GpioPin_e)-1, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP,
+                                     GPIO_OSPEED_LOW, GPIO_PUPD_NONE);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.MODER);
+}
+
+/** The highest valid pin (15) must still be accepted - the boundary the
+ *  rejection tests above sit just past. */
+void test_gpio_driver_init_accepts_highest_valid_pin(void)
+{
+    GpioRegisters_t port = {0};
+
+    DriverStatus_e status = gpioInit(&port, GPIO_PIN_15, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP,
+                                     GPIO_OSPEED_LOW, GPIO_PUPD_NONE);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_MODE_OUTPUT << 30U, port.MODER);
+}
+
+/** gpioSetAlternateFunction validates the pin too, before touching
+ *  AFRL/AFRH. */
+void test_gpio_driver_set_alternate_function_rejects_out_of_range_pin(void)
+{
+    GpioRegisters_t port = {0};
+
+    DriverStatus_e status = gpioSetAlternateFunction(&port, (GpioPin_e)16, 7U);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.AFRL);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.AFRH);
+}
+
 /** mode outside MODER's 2-bit range must be rejected before any write. */
 void test_gpio_driver_init_rejects_invalid_mode(void)
 {

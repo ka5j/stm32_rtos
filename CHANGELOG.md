@@ -10,6 +10,19 @@ specifically.
 
 ### Added
 
+- `tools/check_test_registration.awk`, run by `make test`: cross-checks
+  every test function defined in `tests/unit/*.c` against the `extern`
+  declaration and `RUN_TEST()` call it needs in `test_runner.c`. Unity
+  allows one `main()`/`setUp()`/`tearDown()` per binary, so that file
+  reaches every test through a hand-maintained pair - and a test missing
+  either half still compiles and the suite still passes green, it just
+  never runs. `make coverage` would catch that for a driver test, but its
+  filter is `drivers/src` only, so for the 13 `test_<peripheral>_reg.c`
+  files a forgotten registration was entirely silent. Same spirit as the
+  existing `check_vector_table.awk`: two hand-written lists, no shared
+  source of truth, nothing else watching them drift. All 142 tests pass
+  the check today; it was verified to fail on a dropped `RUN_TEST` and on
+  a dropped `extern`+`RUN_TEST` pair before being wired in.
 - `CONTRIBUTING.md`: two new convention sections. "`const` on a
   register-block parameter" states that `const` is a claim about the
   hardware (the peripheral is unchanged), not merely about the pointer,
@@ -261,6 +274,40 @@ specifically.
 
 ### Fixed
 
+- `Makefile`: `make debug` backgrounded OpenOCD and never reaped it, so
+  the GDB server outlived the session that started it, kept holding the
+  ST-LINK, and made the next `make flash` or `make debug` fail with a
+  device-busy error until it was killed by hand. It now traps EXIT/INT/
+  TERM and kills the server it started.
+- `.github/workflows/codeql.yml`: both `github/codeql-action` pins
+  carried a `# v4` comment while actually pinning `v4.37.8`, and the
+  floating `v4` tag has since moved to a different commit - so the
+  comment named something the workflow was not running. That is the exact
+  drift SHA pinning exists to prevent, reintroduced in the part a human
+  reads. Both now name the exact release. Audited every other pin in the
+  process; `actions/checkout`, `actions/cache`, `actions/deploy-pages`
+  and `actions/upload-pages-artifact` all resolve correctly.
+- `SECURITY.md`: the action-pinning section illustrated the convention
+  with `actions/checkout@11d5960... # v4.4.0`, which is not what this
+  repository pins (`3d3c42e5... # v7.0.1`). A security document whose
+  concrete example does not match the code undermines the document. It
+  also now states that the version comment must name an exact release
+  rather than a floating major.
+- `docs/VERSIONING.md`: the policy contradicted itself on
+  `PROJECT_NUMBER`, saying in one place that it is "deliberately left
+  blank between releases" and in another that it is bumped on the release
+  PR and reports the released version until the next one. The Doxyfile
+  follows the second, so the first was removed.
+- `drivers/src/gpio.c`: `gpioInit()` and `gpioSetAlternateFunction()` now
+  validate `pin`. Both already rejected every other out-of-domain
+  parameter but took `pin` on trust, and `GpioPin_e` does not constrain
+  an enum-typed parameter to its enumerators - a caller can cast any
+  integer in. Every field this driver touches is indexed by the pin
+  number, so `(GpioPin_e)16` meant shifting a `uint32_t` by 32: undefined
+  behaviour, not merely a wrong register write. The four functions that
+  return `void`/`GpioPinState_e` have no failure path to report a bad pin
+  and are unchanged; they now carry an explicit `@pre` instead, matching
+  how this project documents preconditions it cannot check.
 - `startup/startup_stm32f446re.s`: `.size vector_table, .-vector_table`
   was emitted *before* the `vector_table:` label, so the symbol's size was
   computed at the wrong point and reported wrong by `nm` and debuggers. It

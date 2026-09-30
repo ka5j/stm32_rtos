@@ -19,6 +19,15 @@
 
 /**
  * @brief GPIO pin numbers (0-15) within a GPIO port.
+ *
+ * C does not constrain an enum-typed parameter to its enumerators, so
+ * this type documents the valid domain but does not enforce it - a
+ * caller can cast any integer in. Functions here that return
+ * ::DriverStatus_e validate the value and reject an out-of-range pin;
+ * the ones that cannot report an error carry an explicit `@pre` instead.
+ * Every register field this driver touches is indexed by the pin number,
+ * so a value above 15 means a shift of 32 or more on a `uint32_t` -
+ * undefined behaviour, not merely a wrong register write.
  */
 typedef enum GpioPin_e
 {
@@ -67,8 +76,9 @@ typedef enum GpioPinState_e
  * @param pupd   One of the GPIO_PUPD_* values (gpio_reg.h).
  * @pre The port's RCC_AHB1ENR_GPIOxEN bit is already enabled.
  * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if mode, otype, ospeed, or pupd
- *         is not one of its documented values (e.g. pupd == 0x3, which is
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if pin is outside GpioPin_e's
+ *         0-15 domain, or if mode, otype, ospeed, or pupd is not one of
+ *         its documented values (e.g. pupd == 0x3, which is
  *         reserved/undefined per RM0390).
  */
 DRIVER_MUST_CHECK DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, uint32_t mode,
@@ -81,6 +91,9 @@ DRIVER_MUST_CHECK DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, 
  *
  * @param port GPIO port register block (e.g. GPIOA).
  * @param pin  Pin number within the port.
+ * @pre @p pin is one of the ::GpioPin_e enumerators (0-15). This
+ *      function has no failure path to report a bad one, and an
+ *      out-of-range value is undefined behaviour - see GpioPin_e.
  */
 void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin);
 
@@ -104,6 +117,9 @@ DRIVER_MUST_CHECK DriverStatus_e gpioSetAlternateFunction(GpioRegisters_t *port,
  * @param port  GPIO port register block (e.g. GPIOA).
  * @param pin   Pin number within the port.
  * @param level GPIO_PIN_SET to drive high, GPIO_PIN_RESET to drive low.
+ * @pre @p pin is one of the ::GpioPin_e enumerators (0-15). This
+ *      function has no failure path to report a bad one, and an
+ *      out-of-range value is undefined behaviour - see GpioPin_e.
  */
 void gpioWritePin(GpioRegisters_t *port, GpioPin_e pin, GpioPinState_e level);
 
@@ -113,6 +129,9 @@ void gpioWritePin(GpioRegisters_t *port, GpioPin_e pin, GpioPinState_e level);
  * @param port GPIO port register block (e.g. GPIOA).
  * @param pin  Pin number within the port.
  * @return GPIO_PIN_SET if the pin reads high, GPIO_PIN_RESET otherwise.
+ * @pre @p pin is one of the ::GpioPin_e enumerators (0-15). This
+ *      function has no failure path to report a bad one, and an
+ *      out-of-range value is undefined behaviour - see GpioPin_e.
  */
 GpioPinState_e gpioReadPin(const GpioRegisters_t *port, GpioPin_e pin);
 
@@ -127,6 +146,9 @@ GpioPinState_e gpioReadPin(const GpioRegisters_t *port, GpioPin_e pin);
  *
  * @param port GPIO port register block (e.g. GPIOA).
  * @param pin  Pin number within the port.
+ * @pre @p pin is one of the ::GpioPin_e enumerators (0-15). This
+ *      function has no failure path to report a bad one, and an
+ *      out-of-range value is undefined behaviour - see GpioPin_e.
  */
 void gpioTogglePin(GpioRegisters_t *port, GpioPin_e pin);
 

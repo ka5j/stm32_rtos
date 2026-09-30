@@ -4,7 +4,7 @@ This project uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH
 
 ## Where a version lives
 
-Every official release is a commit on `main` (see [CONTRIBUTING.md](../CONTRIBUTING.md)'s branch-convention section) tagged with an annotated git tag: `vMAJOR.MINOR.PATCH`. The same number is set as `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile), so `make docs` always reports the version of the last tagged release, not the version in progress on `develop`. `PROJECT_NUMBER` is deliberately left blank between releases rather than set in advance, so it never claims a version that has not actually shipped on `main`.
+Every official release is a commit on `main` (see [CONTRIBUTING.md](../CONTRIBUTING.md)'s branch-convention section) tagged with an annotated git tag: `vMAJOR.MINOR.PATCH`. The same number is set as `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile), so `make docs` always reports the version of the last tagged release, not the version in progress on `develop`. It is bumped as part of the `develop`→`main` release PR and then left alone, so between releases it names the last version that actually shipped rather than one in progress — it never claims a version that has not shipped on `main`.
 
 ## Pre-1.0 (current phase)
 
