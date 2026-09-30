@@ -1,11 +1,35 @@
 name: CI
 
 # Public-facing gate: build + docs + format + lint, on a GitHub-hosted
-# runner. Runs on every push and PR - this is the badge/status a reviewer
-# sees. Hardware-in-the-loop testing lives in hil.yml on a self-hosted
-# runner instead, deliberately not triggered here (see that file for why).
+# runner. Runs on every push to main/develop and every PR - this is the
+# badge/status a reviewer sees, and (via branch protection on main/
+# develop) what actually gates a merge. Nothing here touches real
+# hardware: on-target verification is manual, driven from the
+# development machine the board is attached to (make flash / make
+# debug), and the self-hosted-runner workflow that used to stand in for
+# it was removed - see CONTRIBUTING.md and SECURITY.md for why.
+#
+# push is scoped to [main, develop], not every branch: a feature branch
+# gets its CI coverage entirely from pull_request once a PR is open
+# (CONTRIBUTING.md's branch convention - all feature work goes through a
+# PR into develop), so this avoids ever firing both push and pull_request
+# for the same commit in the common case. That matters beyond wasted
+# runner time: main/develop have required-status-check branch protection
+# (this workflow's own "build-and-check" context is one of the required
+# checks), and a cancelled run's conclusion can stick to a commit
+# alongside a later successful one - GitHub's required-check gate then
+# stays BLOCKED even though the same-named check also passed. A
+# cancel-in-progress concurrency group was tried here previously
+# specifically to dedupe the double-run; it was removed because it's
+# what produces that stuck-cancelled-run state, which is worse than the
+# wasted runner time it was solving. Restricting push here removes the
+# double-trigger for the case that matters (feature branches); the
+# residual case (pushing directly to develop while an open develop->main
+# PR exists) is rare and, without cancel-in-progress, both runs simply
+# complete normally instead of one landing as cancelled.
 on:
   push:
+    branches: [main, develop]
   pull_request:
 
 # Least-privilege default: this workflow only ever reads the repo and
@@ -22,6 +46,17 @@ jobs:
         with:
           fetch-depth: 0   # full history - required to diff PR head against its base branch below
 
+      - name: Cache Arm GNU Toolchain 15.2.rel1
+        # Keyed on the exact pinned version, not a content hash - the
+        # download is immutable for a given version, and bumping the pin
+        # below changes this key too, so a stale cache can never serve the
+        # wrong toolchain version.
+        id: cache-arm-toolchain
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
+          key: arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
+
       - name: Install Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
         # Ubuntu's gcc-arm-none-eabi apt package trails upstream by years,
         # and even an apt install of the "right" package name can silently
@@ -30,10 +65,13 @@ jobs:
         # in this whole pipeline (codegen, not just tooling output), so it
         # gets the same "pin an exact upstream release" treatment as
         # Doxygen below, not a floating apt package.
+        if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz \
             | tar -xJ -C /opt
-          echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
+
+      - name: Add Arm GNU Toolchain to PATH
+        run: echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"
 
       - name: Install cppcheck / clang-format (pinned to Ubuntu 24.04 archive versions)
         # apt's usual `install -y cppcheck clang-format` floats to whatever
@@ -47,6 +85,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
 
+      - name: Install graphviz (for Doxyfile's HAVE_DOT diagrams)
+        # Unpinned, unlike cppcheck/clang-format/Doxygen above: graphviz only
+        # draws the include/directory/group graphs `make docs` embeds, it
+        # doesn't gate pass/fail on anything, so an archive version bump
+        # can't silently change what CI enforces the way a linter or
+        # formatter version bump could.
+        run: sudo apt-get install -y graphviz
+
+      - name: Cache Doxygen 1.18.0
+        id: cache-doxygen
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /opt/doxygen-1.18.0
+          key: doxygen-1.18.0-linux-bin
+
       - name: Install Doxygen 1.18.0
         # Ubuntu's apt package (1.9.8 as of this writing) is far behind the
         # version this Doxyfile targets (see its header comment and
@@ -55,10 +108,13 @@ jobs:
         # WARN_AS_ERROR=YES that the intended version doesn't hit. Install
         # the exact upstream release instead of trusting the distro package
         # to track it.
+        if: steps.cache-doxygen.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz \
             | tar -xz -C /opt
-          echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
+
+      - name: Add Doxygen to PATH
+        run: echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
 
       - name: make all
         run: make all

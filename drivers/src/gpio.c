@@ -10,17 +10,48 @@
  * @{
  */
 
-DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, uint32_t mode, uint32_t otype,
-                        uint32_t ospeed, uint32_t pupd)
+/**
+ * @brief Reject a pin value outside GpioPin_e's 0-15 domain.
+ *
+ * GpioPin_e names the sixteen valid pins, but C does not constrain an
+ * enum-typed parameter to its enumerators - a caller can cast any
+ * integer in. Every field this driver touches is indexed by `pin * 2`
+ * (MODER/OSPEEDR/PUPDR), `pin` (OTYPER/IDR/ODR/BSRR) or
+ * `(pin & 7) * 4` (AFRL/AFRH), so an out-of-range value produces a
+ * shift of 32 or more on a uint32_t, which is undefined behaviour
+ * rather than a merely wrong register write.
+ *
+ * @param pin Candidate pin number.
+ * @return DRIVER_STATUS_OK if pin is one of ::GPIO_PIN_0 .. ::GPIO_PIN_15.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM otherwise.
+ */
+static DriverStatus_e gpioValidatePin(GpioPin_e pin)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
-    if ((mode > GPIO_MODE_ANALOG) || (otype > GPIO_OTYPE_OD) || (ospeed > GPIO_OSPEED_HIGH)
-        || (pupd > GPIO_PUPD_DOWN))
+    if ((uint32_t)pin > (uint32_t)GPIO_PIN_15)
     {
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
     }
-    else
+
+    return status;
+}
+
+DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, uint32_t mode, uint32_t otype,
+                        uint32_t ospeed, uint32_t pupd)
+{
+    DriverStatus_e status = gpioValidatePin(pin);
+
+    if (status == DRIVER_STATUS_OK)
+    {
+        if ((mode > GPIO_MODE_ANALOG) || (otype > GPIO_OTYPE_OD) || (ospeed > GPIO_OSPEED_HIGH)
+            || (pupd > GPIO_PUPD_DOWN))
+        {
+            status = DRIVER_STATUS_ERR_INVALID_PARAM;
+        }
+    }
+
+    if (status == DRIVER_STATUS_OK)
     {
         uint32_t pin_pos = (uint32_t)pin;
         uint32_t field_shift = pin_pos * 2U;
@@ -64,13 +95,17 @@ void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin)
 
 DriverStatus_e gpioSetAlternateFunction(GpioRegisters_t *port, GpioPin_e pin, uint32_t af)
 {
-    DriverStatus_e status = DRIVER_STATUS_OK;
+    DriverStatus_e status = gpioValidatePin(pin);
 
-    if (af > GPIO_AF_MAX)
+    if (status == DRIVER_STATUS_OK)
     {
-        status = DRIVER_STATUS_ERR_INVALID_PARAM;
+        if (af > GPIO_AF_MAX)
+        {
+            status = DRIVER_STATUS_ERR_INVALID_PARAM;
+        }
     }
-    else
+
+    if (status == DRIVER_STATUS_OK)
     {
         uint32_t pin_pos = (uint32_t)pin;
         uint32_t afr_shift = (pin_pos & 0x7U) * 4U;

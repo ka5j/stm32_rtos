@@ -38,11 +38,34 @@ INC_DIRS := core/inc device/inc drivers/inc api/inc bsp/inc \
 INCLUDES := $(addprefix -I,$(INC_DIRS))
 
 ##########################################################################
+# Build profile - debug (default) or release
+##########################################################################
+# debug: -O0, weakest optimizer, so GCC's uninitialized-variable analysis
+# is at its least aggressive and won't optimize away a bug this project
+# wants surfaced (see driver_status.h's DRIVER_STATUS_UNINITIALIZED
+# comment) - this is what every target has always built with so far.
+# release: -O2, representative of what actually ships; needed before any
+# real timing characterization of the scheduler/context switch, since
+# -O0 code does not represent shipped instruction counts or cycle timing.
+# Switching BUILD without `make clean` first mixes object files built
+# under the other profile's flags into the same build/ dir - `make re`
+# (clean + all) is the safe way to switch.
+BUILD ?= debug
+
+ifeq ($(BUILD),debug)
+  OPT_FLAGS := -O0 -g3
+else ifeq ($(BUILD),release)
+  OPT_FLAGS := -O2 -g
+else
+  $(error Unknown BUILD '$(BUILD)' - use 'debug' or 'release')
+endif
+
+##########################################################################
 # Compile / assemble / link flags
 ##########################################################################
 CFLAGS  := $(MCU_FLAGS) $(INCLUDES) -std=c11 -Wall -Wextra \
            -Werror=unused-result \
-           -ffunction-sections -fdata-sections -O0 -g3 -MMD -MP
+           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP
 # -Werror=unused-result: promotes __attribute__((warn_unused_result))
 # (see drivers/inc/driver_status.h's DRIVER_MUST_CHECK) from a warning
 # that scrolls by unnoticed to a build failure. Scoped to this one
@@ -140,9 +163,18 @@ erase:
 # Use case: something is misbehaving on real hardware and you need to
 # single-step, inspect registers, or set breakpoints - for investigating
 # a bug, not for routine "run my code" (that's what flash is for).
+#
+# The trap matters: OpenOCD is backgrounded here, and without it the
+# server outlived the GDB session that started it, kept holding the
+# ST-LINK, and made the next `make flash` or `make debug` fail with a
+# device-busy error until it was killed by hand. Killing it on EXIT/INT/
+# TERM means quitting GDB - or Ctrl-C'ing the whole thing - leaves no
+# stray process behind.
 # ------------------------------------------------------------------------
 debug: $(BUILD_DIR)/$(TARGET).elf
-	openocd -f tools/openocd.cfg & \
+	@openocd -f tools/openocd.cfg & \
+	OPENOCD_PID=$$!; \
+	trap 'kill $$OPENOCD_PID 2>/dev/null' EXIT INT TERM; \
 	$(GDB) $< -ex "target extended-remote :3333"
 
 # ------------------------------------------------------------------------
@@ -197,22 +229,78 @@ format-check:
 # and starts finding real things the moment a .c file includes a register
 # header.
 #
-# Two rules are suppressed, scoped to specific files, not disabled project-
-# wide: misra-c2012-2.5 (unused macro) on device/inc/gpio_reg.h and
-# misra-c2012-8.7 (external linkage used in only one translation unit) on
-# drivers/src/gpio.c. Both are real findings today - nothing in api/bsp/app
-# calls gpio.c/gpio_reg.h yet - but neither is a code defect, and a project-
-# wide suppression would blind this check to a genuinely dead macro or a
-# function that should be static in any future file, not just these two.
-# Remove both suppressions the moment api/ gives this driver a real caller.
+# Two categories of suppression here, deliberately handled differently:
+#
+# 1. Scoped to specific files, not disabled project-wide: misra-c2012-2.5
+#    (unused macro) on device/inc/gpio_reg.h, device/inc/rcc_reg.h,
+#    device/inc/flash_reg.h, device/inc/pwr_reg.h, and device/inc/
+#    uart_reg.h, and misra-c2012-8.7 (external linkage used in only one
+#    translation unit) on drivers/src/gpio.c, drivers/src/rcc.c,
+#    drivers/src/uart.c, and drivers/src/pwr.c. All are real findings
+#    today: nothing in api/bsp/app calls those files' own public
+#    functions yet. flash.c is the one driver that still does not need
+#    this suppression - rcc.c calls flashSetLatency() directly, so
+#    cppcheck's whole-project analysis already sees a second translation
+#    unit using it. pwr.c used to be in that same position and no longer
+#    is: rcc.c called pwrSetVoltageScale() until the PWR voltage-scale
+#    sequencing moved out to the caller (RM0390 5.1.4 allows CR.VOS to be
+#    written only while the PLL is off, which is not the window
+#    rccSysclkSwitch() runs in - see rcc.h's file-level comment), leaving
+#    pwr.c with no in-project caller until api/ or bsp/ grows one;
+#    rcc_reg.h's CIR (clock-security-
+#    system) and CSR (LSI enable, reset-cause flags) sections,
+#    flash_reg.h's SR/CR bits beyond ACR.LATENCY, pwr_reg.h's bits beyond
+#    CR.VOS/CSR.VOSRDY, and uart_reg.h's SR.IDLE and every CR1
+#    interrupt-enable/SBK/RWU/WAKE/OVER8 bit are modeled for completeness
+#    per RM0390 but have no consumer - this project's UART driver is
+#    blocking-only (no interrupts, no IDLE-line detection) and its clock
+#    bring-up doesn't touch the clock security system, reset-cause
+#    reporting, or flash/PWR's other facilities (self-programming,
+#    low-power modes, PVD, ...). uart_reg.h's USART_CR2_STOP_0_5/_1_5 are
+#    likewise unused - they select smartcard-mode framing (RM0390), a
+#    mode this driver never enables, so uartInit() only ever validates
+#    against STOP_1/STOP_2 (see drivers/inc/uart.h's file comment). None
+#    of this is a code defect, and a project-wide suppression would blind
+#    this check to a genuinely dead macro in any future file, not just
+#    these. Remove
+#    a suppression the moment its file's last unused macro or function
+#    gets a real caller.
+#
+# 2. A permanent deviation scoped by glob, not to any one file: misra-
+#    c2012-11.4 (pointer/integer conversion), suppressed for *_reg.h only.
+#    Every peripheral base-address macro in every core/inc/device/inc
+#    register header (`#define GPIOA ((GpioRegisters_t *)GPIOA_BASE)`,
+#    and the same pattern for RCC, USART2, EXTI, ...) does exactly this
+#    cast - it is the only way to define a pointer to a fixed, memory-
+#    mapped hardware address in standard C, and it will never represent a
+#    real defect here. Scoping this per-file instead would mean adding
+#    one more suppression line every single time any peripheral's pointer
+#    macro gets its first real caller, forever, which doesn't scale the
+#    way the file-scoped suppressions below do (a small, bounded set of
+#    driver files) - so this is scoped by the *_reg.h glob instead: every
+#    register header, present and future, without an ever-growing list,
+#    while still leaving the rule active for driver/api/bsp/rtos .c files,
+#    where a genuinely risky pointer/integer conversion (e.g. casting a
+#    runtime-computed address) should still be caught. Verified this
+#    glob doesn't just suppress everything: a deliberately-bad
+#    `(volatile uint32_t *)some_runtime_value` cast in a plain .c file
+#    still gets flagged.
 # ------------------------------------------------------------------------
 lint:
 	cppcheck --addon=misra \
 	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
 	  --suppress=missingIncludeSystem \
+	  --suppress=misra-c2012-11.4:'*_reg.h' \
 	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/rcc_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/flash_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/pwr_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/uart_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
+	  --suppress=misra-c2012-8.7:drivers/src/rcc.c \
+	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
+	  --suppress=misra-c2012-8.7:drivers/src/pwr.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # ------------------------------------------------------------------------
@@ -223,11 +311,19 @@ lint:
 # is testable this way (register-header data, driver logic once it takes
 # its register block as a parameter instead of reaching for the global
 # macro). Separate build dir (tests/build/) so it never touches build/.
-# Also runs tools/check_vector_table.awk, a host-side, no-hardware
-# consistency check in the same spirit as the Unity suite: it cross-checks
-# core/inc/nvic_reg.h's IRQn_e enum against startup/startup_stm32f446re.s's
-# vector table, since the two are hand-written independently with no
-# shared source of truth and nothing else catches them drifting apart.
+# Also runs two host-side, no-hardware consistency checks in the same
+# spirit as the Unity suite, both covering a pair of hand-written lists
+# with no shared source of truth that nothing else catches drifting
+# apart:
+#   - tools/check_vector_table.awk cross-checks core/inc/nvic_reg.h's
+#     IRQn_e enum against startup/startup_stm32f446re.s's vector table.
+#   - tools/check_test_registration.awk cross-checks the test functions
+#     defined in tests/unit/*.c against test_runner.c's extern/RUN_TEST
+#     pairs. A test that is defined but never registered still compiles
+#     and the suite still passes green - it simply never runs. `make
+#     coverage` would catch that for a driver test, but its filter is
+#     drivers/src only, so for the test_<peripheral>_reg.c files a
+#     forgotten registration is otherwise entirely silent.
 # Use case: fast feedback on register/driver logic correctness, no board
 # or cross-toolchain required. Run this before make docs/make all in the
 # pre-commit hook and CI - it's the cheapest real check available.
@@ -238,16 +334,39 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 
 # Driver .c files that are host-testable off-target: pure register-block
 # logic with no direct hardware access, because the block is a function
-# parameter (e.g. gpio.c's GpioRegisters_t *port) rather than a hardware
-# GPIOx-style macro. Add a driver file here only once it meets that bar -
-# one that blocks on real timing/interrupts, or reaches for a hardware
-# macro directly, won't and shouldn't be compiled with HOST_CC.
-TEST_DRIVER_SOURCES := drivers/src/gpio.c
+# parameter (e.g. gpio.c's GpioRegisters_t *port, rcc.c's RccRegisters_t
+# *rcc) rather than a hardware GPIOx/RCC-style macro. Add a driver file
+# here only once it meets that bar - one that reaches for a hardware macro
+# directly won't and shouldn't be compiled with HOST_CC.
+#
+# This bar turned out to include hardware-ready polling too, not just
+# simple register writes: rcc.c/flash.c/pwr.c's HSI/HSE/PLL/SYSCLK/VOS
+# ready-waits are bounded iteration-count retries, not wall-clock
+# timeouts (SysTick isn't configured this early in clock bring-up - see
+# rcc.h's file-level comment), and the ready bit each one polls
+# (HSIRDY, VOSRDY, ...) is a field distinct from what the driver itself
+# writes. A host test holds the ready bit clear indefinitely in a plain
+# in-memory register struct to exercise the timeout branch - no real
+# hardware or timer required. An earlier version of this comment (and of
+# rcc.h/CHANGELOG.md) stated the opposite for rcc.c's then-unimplemented
+# SYSCLK bring-up; that was reconsidered once it was actually written and
+# tested, rather than left standing as-is.
+TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
+                       drivers/src/uart.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
-TEST_OBJECTS   := $(patsubst %.c,$(TEST_BUILD_DIR)/%.o,$(notdir $(TEST_SOURCES)))
-vpath %.c $(TEST_DIR)/unit $(TEST_DIR)/unity drivers/src
+
+# Object paths mirror each source's full path under the build dir (e.g.
+# drivers/src/gpio.c -> tests/build/drivers/src/gpio.o), the same way the
+# firmware build's OBJECTS does. An earlier version flattened these with
+# $(notdir) and resolved them back through a vpath, which worked only as
+# long as no two sources anywhere in TEST_SOURCES shared a basename:
+# tests/unit/gpio.c and drivers/src/gpio.c would have collapsed onto one
+# object file, and whichever vpath entry came first would silently win.
+# Mirroring the path removes the collision by construction rather than
+# relying on a naming convention nothing enforces.
+TEST_OBJECTS   := $(TEST_SOURCES:%.c=$(TEST_BUILD_DIR)/%.o)
 
 $(TEST_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -257,6 +376,7 @@ test: $(TEST_OBJECTS)
 	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
 	$(TEST_BUILD_DIR)/run_tests
 	awk -f tools/check_vector_table.awk core/inc/nvic_reg.h startup/startup_stm32f446re.s
+	awk -f tools/check_test_registration.awk $(TEST_DIR)/unit/*.c
 
 # ------------------------------------------------------------------------
 # make coverage
@@ -277,11 +397,22 @@ test: $(TEST_OBJECTS)
 # Separate build dir (tests/coverage/) so this never touches build/ or
 # tests/build/ - instrumented objects are not the same as make test's
 # plain ones and must not be mixed with them.
+#
+# Exactly one region in the project is excluded from this gate, marked
+# with GCOVR_EXCL_START/STOP in drivers/src/flash.c: flashSetLatency()'s
+# read-back check compares ACR against the value it just wrote to ACR,
+# and a plain in-memory register struct always agrees by construction, so
+# the failure half is unreachable off-target. That comment carries the
+# full reasoning. Treat any proposed second exclusion with suspicion -
+# the gate is only worth having if reaching 100% means the tests actually
+# exercise the code, and every other branch in drivers/ is reachable
+# because the flag a driver polls is always a field distinct from the one
+# it writes (see TEST_DRIVER_SOURCES above).
 # ------------------------------------------------------------------------
 COVERAGE_MIN_LINE   := 100
 COVERAGE_MIN_BRANCH := 100
 COVERAGE_DIR        := $(TEST_DIR)/coverage
-COVERAGE_OBJECTS    := $(patsubst %.c,$(COVERAGE_DIR)/%.o,$(notdir $(TEST_SOURCES)))
+COVERAGE_OBJECTS    := $(TEST_SOURCES:%.c=$(COVERAGE_DIR)/%.o)
 
 $(COVERAGE_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
