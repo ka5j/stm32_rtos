@@ -250,15 +250,19 @@ format-check:
 #    rcc_reg.h's CIR (clock-security-
 #    system) and CSR (LSI enable, reset-cause flags) sections,
 #    flash_reg.h's SR/CR bits beyond ACR.LATENCY, pwr_reg.h's bits beyond
-#    CR.VOS/CSR.VOSRDY, and uart_reg.h's SR.IDLE/TC and every CR1
+#    CR.VOS/CSR.VOSRDY, and uart_reg.h's SR.IDLE and every CR1
 #    interrupt-enable/SBK/RWU/WAKE/OVER8 bit are modeled for completeness
 #    per RM0390 but have no consumer - this project's UART driver is
-#    blocking-only (no interrupts, no IDLE-line detection, no explicit
-#    wait for TC) and its clock bring-up doesn't touch the clock security
-#    system, reset-cause reporting, or flash/PWR's other facilities
-#    (self-programming, low-power modes, PVD, ...). None of this is a
-#    code defect, and a project-wide suppression would blind this check
-#    to a genuinely dead macro in any future file, not just these. Remove
+#    blocking-only (no interrupts, no IDLE-line detection) and its clock
+#    bring-up doesn't touch the clock security system, reset-cause
+#    reporting, or flash/PWR's other facilities (self-programming,
+#    low-power modes, PVD, ...). uart_reg.h's USART_CR2_STOP_0_5/_1_5 are
+#    likewise unused - they select smartcard-mode framing (RM0390), a
+#    mode this driver never enables, so uartInit() only ever validates
+#    against STOP_1/STOP_2 (see drivers/inc/uart.h's file comment). None
+#    of this is a code defect, and a project-wide suppression would blind
+#    this check to a genuinely dead macro in any future file, not just
+#    these. Remove
 #    a suppression the moment its file's last unused macro or function
 #    gets a real caller.
 #

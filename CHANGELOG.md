@@ -407,6 +407,33 @@ specifically.
   status) for the `rccBusPrescalerConfig()` HPRE/PPRE exhaustive-value
   tests, none of which previously asserted anything beyond
   `DRIVER_STATUS_OK`.
+- **`drivers/src/uart.c`: `uartInit()` accepted `USART_CR2_STOP_0_5` and
+  `USART_CR2_STOP_1_5`, two real RM0390 `CR2.STOP` encodings this driver
+  had no way to honor, and reported `DRIVER_STATUS_OK` while doing so.**
+  Both encodings exist for smartcard mode - `uart_reg.h`'s own
+  file-level comment already scopes `CR3`'s smartcard bits (`SCEN`/
+  `IREN`/`IRLP`) as omitted, since this driver never enables that mode -
+  and RM0390 additionally documents both as unavailable specifically on
+  UART4/UART5. A caller requesting either got a framing configuration
+  silently different from what it asked for, the same class of bug the
+  9-bit-mode (`CR1.M`) parameter had before it was removed. `uartInit()`
+  now validates `stop_bits` against only `USART_CR2_STOP_1` and
+  `USART_CR2_STOP_2`; `uart.h`'s file-level comment states why, in the
+  same shape as the existing 9-bit-mode paragraph.
+  `device/inc/uart_reg.h`'s `USART_CR2_STOP_0_5`/`_1_5` macros stay
+  defined (RM0390 documents them; a future consumer implementing
+  smartcard mode would need them) but are now commented as unused by
+  this driver, covered by the file's existing `misra-c2012-2.5`
+  suppression - the Makefile's suppression-rationale comment is updated
+  to name them alongside the other fields it already lists as modeled
+  for completeness with no current consumer.
+  `tests/unit/test_uart.c`: the exhaustive `stop_bits`-acceptance test
+  now covers only the 2 supported values (down from asserting all 4
+  reported `DRIVER_STATUS_OK`, which was itself wrong) and additionally
+  asserts each lands in `CR2.STOP`, not just the return status; a new
+  `test_uart_driver_init_rejects_smartcard_only_stop_bits` is the direct
+  regression test, asserting both smartcard-only encodings are now
+  rejected and `CR2` is left untouched.
 
 - `Doxyfile`: `SORT_MEMBER_DOCS` YES -> NO. Every struct here is a
   memory-mapped register block where declaration order is the real

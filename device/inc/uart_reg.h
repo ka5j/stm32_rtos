@@ -119,10 +119,15 @@ typedef struct UartRegisters_t
 #define USART_CR2_STOP_Msk (0x3U << USART_CR2_STOP_Pos) ///< bits 13:12: 00=1 01=0.5 10=2 11=1.5
 
 /* --- USART_CR2_STOP field values --- */
-#define USART_CR2_STOP_1 (0x0U)   ///< STOP field value: 1 stop bit
-#define USART_CR2_STOP_0_5 (0x1U) ///< STOP field value: 0.5 stop bit
-#define USART_CR2_STOP_2 (0x2U)   ///< STOP field value: 2 stop bits
-#define USART_CR2_STOP_1_5 (0x3U) ///< STOP field value: 1.5 stop bits
+#define USART_CR2_STOP_1 (0x0U) ///< STOP field value: 1 stop bit
+/** STOP field value: 0.5 stop bit - smartcard mode only (RM0390); this
+ *  project's UART driver never enables that mode and does not offer this
+ *  value - see uart.h's file-level comment. */
+#define USART_CR2_STOP_0_5 (0x1U)
+#define USART_CR2_STOP_2 (0x2U) ///< STOP field value: 2 stop bits
+/** STOP field value: 1.5 stop bits - same smartcard-only scope note as
+ *  USART_CR2_STOP_0_5 above. */
+#define USART_CR2_STOP_1_5 (0x3U)
 
 /** @} */
 

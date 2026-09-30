@@ -90,8 +90,10 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
      * the same finding on the same class of macro. */
     if (status == DRIVER_STATUS_OK)
     {
-        if ((stop_bits != USART_CR2_STOP_1) && (stop_bits != USART_CR2_STOP_0_5)
-            && (stop_bits != USART_CR2_STOP_2) && (stop_bits != USART_CR2_STOP_1_5))
+        /* USART_CR2_STOP_0_5/_1_5 are architecturally real (RM0390) but
+         * not accepted here - see uart.h's file-level comment for why
+         * this driver only ever offers 1 or 2 stop bits. */
+        if ((stop_bits != USART_CR2_STOP_1) && (stop_bits != USART_CR2_STOP_2))
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
         }
