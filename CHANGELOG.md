@@ -434,6 +434,34 @@ specifically.
   `test_uart_driver_init_rejects_smartcard_only_stop_bits` is the direct
   regression test, asserting both smartcard-only encodings are now
   rejected and `CR2` is left untouched.
+- **`drivers/src/uart.c`: `uartComputeBrr()` simplified from a manual
+  mantissa/fraction computation to a single correctly-rounded division,
+  fixing a real (if minor) rounding-accuracy bug in the process.** With
+  `OVER8` clear, `BRR`'s own bit layout (`USART_BRR_DIV_MANTISSA` at bits
+  15:4, `USART_BRR_DIV_FRACTION` at bits 3:0) already *is* the binary
+  representation of `USARTDIV * 16`, and `USARTDIV * 16` collapses
+  algebraically to `pclk_hz / baud` - so `BRR = round(pclk_hz / baud)`
+  directly, with no mantissa/fraction split or repacking needed. The
+  previous version computed `USARTDIV*100` via integer division
+  (truncating to 2 decimal digits of the true ratio) before rounding
+  that truncated value to the nearest 16th; truncating before rounding
+  could shift the result away from the true nearest integer. Concretely,
+  for a 42 MHz bus clock at 115200 baud the true ratio is 364.5833
+  (correctly rounds to 365), but the old code produced 364 - one off, in
+  the wrong direction. The new formula computes 365 directly. Every
+  operand of the round-to-nearest `(a + b/2) / b` idiom is now explicitly
+  cast to the 64-bit intermediate (MISRA C:2012 Rule 10.7 - cppcheck
+  flagged the first draft, which relied on C's implicit promotion instead
+  of an explicit cast on `baud / 2U` and the final division).
+  `tests/unit/test_uart.c`: all four existing BRR test vectors are
+  unchanged as regression vectors (391, 1667, 976, 1), reworded where
+  their comments described mantissa/fraction mechanics this function no
+  longer has; a new `test_uart_driver_init_computes_brr_rounds_
+  correctly_past_old_truncation_bug` (the 42 MHz/115200 -> 365 case) is
+  the direct regression test for the accuracy fix; the invalid-baud
+  boundary tests' comments were reworded to describe the bound in terms
+  of `BRR`'s 16-bit field directly instead of a separate 12-bit mantissa
+  field. `make coverage` holds 100% line/branch on the smaller function.
 
 - `Doxyfile`: `SORT_MEMBER_DOCS` YES -> NO. Every struct here is a
   memory-mapped register block where declaration order is the real

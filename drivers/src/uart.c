@@ -18,14 +18,30 @@
  * @brief Compute BRR from a bus clock and target baud rate, standard 16x
  *        oversampling (OVER8 left clear).
  *
- * USARTDIV = pclk / (16 * baud); RM0390 stores it as a 12-bit mantissa
- * plus a 4-bit fraction (fraction/16). Computed as USARTDIV*100 in a
- * 64-bit intermediate - 25*pclk can exceed uint32_t range for a
- * caller-supplied pclk_hz this function has no way to bound in advance -
- * to get two decimal digits of the fractional part without floating
- * point, matching RM0390's own worked examples; the fraction is then
- * rounded to the nearest 16th, carrying into the mantissa if that
- * rounds up to 16.
+ * RM0390 stores USARTDIV = pclk_hz / (16 * baud) as a 12-bit mantissa
+ * (BRR bits 15:4) plus a 4-bit fraction/16 (BRR bits 3:0) - which is
+ * just BRR's own bit layout for the value USARTDIV * 16, since bits
+ * 15:4 holding the mantissa and bits 3:0 holding sixteenths is exactly
+ * the binary representation of mantissa*16 + fraction. USARTDIV * 16
+ * collapses algebraically to pclk_hz / baud, so BRR is simply
+ * round(pclk_hz / baud) with no separate mantissa/fraction step or
+ * repacking needed - the rounded integer *is* the register value.
+ * Round-to-nearest via the standard (a + b/2) / b integer-division idiom.
+ * Computed entirely in a 64-bit intermediate, and every operand cast to
+ * it explicitly (MISRA C:2012 Rule 10.7 - no implicit widening across a
+ * mixed-width operator): pclk_hz + baud/2 does not overflow uint32_t for
+ * any realistic clock, but this function has no way to bound a
+ * caller-supplied pclk_hz, and the previous x100 fixed-point form needed
+ * the same 64-bit guard for the same reason.
+ *
+ * This is strictly more accurate than an earlier version of this
+ * function, which computed USARTDIV*100 in a 64-bit intermediate (an
+ * integer division, truncating to 2 decimal digits of USARTDIV) and
+ * then rounded that truncated value to the nearest 16th - losing
+ * precision before rounding could double the worst-case error. E.g. for
+ * a 42 MHz bus clock at 115200 baud, the true ratio is 364.5833 (nearest
+ * integer 365), but truncating to 2 decimals first produced BRR 364,
+ * one off in the wrong direction; this formula computes 365 directly.
  *
  * @param pclk_hz Bus clock frequency in Hz.
  * @param baud    Target baud rate in bit/s.
@@ -33,9 +49,9 @@
  *                failure.
  * @return DRIVER_STATUS_OK on success.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if pclk_hz or baud is 0, if the
- *         mantissa would exceed BRR's 12-bit field (baud too low for
- *         pclk_hz), or if both the mantissa and fraction compute to 0
- *         (baud too high for pclk_hz - RM0390 forbids a BRR of 0).
+ *         result would exceed BRR's 16-bit field (baud too low for
+ *         pclk_hz), or if it computes to 0 (baud too high for pclk_hz -
+ *         RM0390 forbids a BRR of 0).
  */
 static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *brr)
 {
@@ -47,29 +63,19 @@ static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *
     }
     else
     {
-        uint64_t usartdiv_x100 = ((uint64_t)pclk_hz * 25U) / ((uint64_t)baud * 4U);
-        uint32_t mantissa = (uint32_t)(usartdiv_x100 / 100U);
-        uint32_t fraction_x100 = (uint32_t)(usartdiv_x100 % 100U);
-        uint32_t fraction = ((fraction_x100 * 16U) + 50U) / 100U;
+        uint64_t rounded = ((uint64_t)pclk_hz + ((uint64_t)baud / 2U)) / (uint64_t)baud;
 
-        if (fraction >= 16U)
-        {
-            mantissa++;
-            fraction = 0U;
-        }
-
-        if ((mantissa == 0U) && (fraction == 0U))
+        if (rounded == 0U)
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
         }
-        else if (mantissa > (USART_BRR_DIV_MANTISSA_Msk >> USART_BRR_DIV_MANTISSA_Pos))
+        else if (rounded > (USART_BRR_DIV_MANTISSA_Msk | USART_BRR_DIV_FRACTION_Msk))
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
         }
         else
         {
-            *brr =
-                (mantissa << USART_BRR_DIV_MANTISSA_Pos) | (fraction << USART_BRR_DIV_FRACTION_Pos);
+            *brr = (uint32_t)rounded;
         }
     }
 

@@ -14,7 +14,7 @@
  *        BRR test vectors below were computed independently (Python,
  *        not this driver's own arithmetic) and are asserted as exact
  *        expected values, not just "not zero" - see each test's comment
- *        for the pclk/baud pair and the expected mantissa/fraction.
+ *        for the pclk/baud pair and the expected BRR value.
  */
 #include "uart.h"
 #include "unity.h"
@@ -23,8 +23,8 @@
 
 /* --- uartInit: BRR computation --- */
 
-/** 45 MHz APB1, 115200 baud (common USART2 config): USARTDIV = 24.414...,
- *  mantissa 24, fraction round(0.4140625*16) = 7 -> BRR = (24<<4)|7 = 391. */
+/** 45 MHz APB1, 115200 baud (common USART2 config): pclk/baud =
+ *  390.625, rounds to 391. */
 void test_uart_driver_init_computes_brr_for_45mhz_115200(void)
 {
     UartRegisters_t uart = {0};
@@ -36,8 +36,8 @@ void test_uart_driver_init_computes_brr_for_45mhz_115200(void)
     TEST_ASSERT_EQUAL_HEX32(391U, uart.BRR);
 }
 
-/** 16 MHz HSI default, 9600 baud: USARTDIV = 104.1666..., mantissa 104,
- *  fraction round(0.1666*16) = 3 -> BRR = (104<<4)|3 = 1667. */
+/** 16 MHz HSI default, 9600 baud: pclk/baud = 1666.666..., rounds to
+ *  1667. */
 void test_uart_driver_init_computes_brr_for_16mhz_9600(void)
 {
     UartRegisters_t uart = {0};
@@ -49,10 +49,13 @@ void test_uart_driver_init_computes_brr_for_16mhz_9600(void)
     TEST_ASSERT_EQUAL_HEX32(1667U, uart.BRR);
 }
 
-/** 1 MHz / 1025 baud: fraction rounds up to 16, carrying into the
- *  mantissa (mantissa 60 -> 61, fraction reset to 0) - BRR = 61<<4 = 976.
- *  Exercises the carry branch the two cases above don't reach. */
-void test_uart_driver_init_computes_brr_with_fraction_carry(void)
+/** 1 MHz / 1025 baud: pclk/baud = 975.6097..., rounds up to 976 since
+ *  the fractional part (0.6097) is past the halfway point. Kept as a
+ *  regression vector from when this function computed a separate
+ *  mantissa and fraction and had to carry a rounded-up fraction into the
+ *  mantissa - this formula has no such carry step, but the expected
+ *  result is unchanged. */
+void test_uart_driver_init_computes_brr_rounds_up_to_976(void)
 {
     UartRegisters_t uart = {0};
 
@@ -61,6 +64,26 @@ void test_uart_driver_init_computes_brr_with_fraction_carry(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(976U, uart.BRR);
+}
+
+/** 42 MHz APB2, 115200 baud: pclk/baud = 364.5833..., which rounds to
+ *  365. Regression test for a real accuracy bug in an earlier version of
+ *  uartComputeBrr(): that version computed USARTDIV*100 via integer
+ *  division (truncating to 2 decimal digits of the true ratio) before
+ *  rounding to the nearest 16th, so the truncation already discarded the
+ *  0.5833's higher-precision digits by the time rounding happened,
+ *  producing BRR 364 instead of the correctly-rounded 365 - one off, in
+ *  the wrong direction. This function's direct round(pclk_hz / baud)
+ *  has no intermediate truncation step to lose precision in. */
+void test_uart_driver_init_computes_brr_rounds_correctly_past_old_truncation_bug(void)
+{
+    UartRegisters_t uart = {0};
+
+    DriverStatus_e status =
+        uartInit(&uart, 42000000U, 115200U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(365U, uart.BRR);
 }
 
 /** pclk_hz == 0 must be rejected before any write. */
@@ -85,8 +108,8 @@ void test_uart_driver_init_rejects_zero_baud(void)
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1);
 }
 
-/** baud too low for pclk_hz (90 MHz / 300 baud -> mantissa 18750, past
- *  BRR's 12-bit/4095 field) must be rejected. */
+/** baud too low for pclk_hz (90 MHz / 300 baud -> pclk/baud = 300000,
+ *  past BRR's 16-bit/65535 field) must be rejected. */
 void test_uart_driver_init_rejects_baud_too_low_for_pclk(void)
 {
     UartRegisters_t uart = {0};
@@ -98,9 +121,8 @@ void test_uart_driver_init_rejects_baud_too_low_for_pclk(void)
     TEST_ASSERT_EQUAL_HEX32(0U, uart.BRR);
 }
 
-/** baud too high for pclk_hz (1 MHz / 10 Mbaud -> mantissa and fraction
- *  both compute to 0, a BRR of 0 being invalid per RM0390) must be
- *  rejected. */
+/** baud too high for pclk_hz (1 MHz / 10 Mbaud -> pclk/baud rounds to
+ *  0, a BRR of 0 being invalid per RM0390) must be rejected. */
 void test_uart_driver_init_rejects_baud_too_high_for_pclk(void)
 {
     UartRegisters_t uart = {0};
@@ -112,12 +134,10 @@ void test_uart_driver_init_rejects_baud_too_high_for_pclk(void)
     TEST_ASSERT_EQUAL_HEX32(0U, uart.BRR);
 }
 
-/** 1 MHz / 1,000,000 baud: mantissa computes to 0 with a nonzero
- *  fraction (BRR = 1) - a legitimate low-mantissa result, distinct from
- *  the mantissa==0 && fraction==0 case above. Exercises the
- *  uartComputeBrr() branch where mantissa==0 is true but fraction==0 is
- *  false, which the all-zero case above short-circuits past. */
-void test_uart_driver_init_accepts_zero_mantissa_with_nonzero_fraction(void)
+/** 1 MHz / 1,000,000 baud: pclk/baud rounds to 1, the smallest BRR
+ *  value this driver accepts - distinct from the pclk/baud-rounds-to-0
+ *  case above, which is the one value RM0390 forbids. */
+void test_uart_driver_init_accepts_smallest_nonzero_brr(void)
 {
     UartRegisters_t uart = {0};
 
