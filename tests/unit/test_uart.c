@@ -130,7 +130,7 @@ void test_uart_driver_init_accepts_zero_mantissa_with_nonzero_fraction(void)
 
 /* --- uartInit: parameter validation --- */
 
-/** stop_bits outside its 4 documented values must be rejected. */
+/** stop_bits outside the field's whole range must be rejected. */
 void test_uart_driver_init_rejects_invalid_stop_bits(void)
 {
     UartRegisters_t uart = {0};
@@ -141,15 +141,41 @@ void test_uart_driver_init_rejects_invalid_stop_bits(void)
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR2);
 }
 
-/** Every one of STOP's 4 documented values must independently report
- *  OK - the chained != comparisons short-circuit at a different clause
- *  for each value, so a single valid-value test only exercises one
- *  clause's false outcome; gcov branch coverage requires each of the 4
- *  individually (same reasoning as rcc.c's HPRE/PPRE exhaustive tests). */
+/** USART_CR2_STOP_0_5 and _1_5 are within CR2.STOP's 2-bit field width
+ *  and are real RM0390 encodings, but this driver never enables the
+ *  smartcard mode they belong to (see uart.h's file-level comment) and
+ *  rejects both - distinct from test_uart_driver_init_rejects_invalid_
+ *  stop_bits above, which only proves a value outside the field's whole
+ *  range is rejected, not that these two in-range-but-unsupported values
+ *  are. Regression test: an earlier revision of this driver accepted
+ *  both, silently writing a CR2.STOP encoding it had no way to honor. */
+void test_uart_driver_init_rejects_smartcard_only_stop_bits(void)
+{
+    static const uint32_t smartcard_stop_values[] = {USART_CR2_STOP_0_5, USART_CR2_STOP_1_5};
+
+    for (size_t i = 0; i < sizeof(smartcard_stop_values) / sizeof(smartcard_stop_values[0]); i++)
+    {
+        UartRegisters_t uart = {0};
+
+        DriverStatus_e status =
+            uartInit(&uart, 16000000U, 9600U, smartcard_stop_values[i], 0U, 0U, USART_CR1_TE);
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+        TEST_ASSERT_EQUAL_HEX32(0U, uart.CR2);
+    }
+}
+
+/** Every one of STOP's 2 documented values must independently report OK
+ *  and land in CR2.STOP - the chained != comparisons short-circuit at a
+ *  different clause for each value, so a single valid-value test only
+ *  exercises one clause's false outcome; gcov branch coverage requires
+ *  each of the 2 individually (same reasoning as rcc.c's HPRE/PPRE
+ *  exhaustive tests). Asserting the field's placement, not just the
+ *  status, catches a validator that accepts a value but writes it to the
+ *  wrong field or shift - status alone would not. */
 void test_uart_driver_init_accepts_every_documented_stop_bits(void)
 {
-    static const uint32_t stop_values[] = {USART_CR2_STOP_1, USART_CR2_STOP_0_5, USART_CR2_STOP_2,
-                                           USART_CR2_STOP_1_5};
+    static const uint32_t stop_values[] = {USART_CR2_STOP_1, USART_CR2_STOP_2};
 
     for (size_t i = 0; i < sizeof(stop_values) / sizeof(stop_values[0]); i++)
     {
@@ -159,6 +185,8 @@ void test_uart_driver_init_accepts_every_documented_stop_bits(void)
             uartInit(&uart, 16000000U, 9600U, stop_values[i], 0U, 0U, USART_CR1_TE);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+        TEST_ASSERT_EQUAL_HEX32(stop_values[i],
+                                (uart.CR2 & USART_CR2_STOP_Msk) >> USART_CR2_STOP_Pos);
     }
 }
 

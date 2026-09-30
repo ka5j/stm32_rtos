@@ -115,6 +115,7 @@ extern void test_uart_driver_init_rejects_baud_too_low_for_pclk(void);
 extern void test_uart_driver_init_rejects_baud_too_high_for_pclk(void);
 extern void test_uart_driver_init_accepts_zero_mantissa_with_nonzero_fraction(void);
 extern void test_uart_driver_init_rejects_invalid_stop_bits(void);
+extern void test_uart_driver_init_rejects_smartcard_only_stop_bits(void);
 extern void test_uart_driver_init_accepts_every_documented_stop_bits(void);
 extern void test_uart_driver_init_rejects_invalid_parity_enable(void);
 extern void test_uart_driver_init_rejects_invalid_parity_select(void);
@@ -264,6 +265,7 @@ int main(void)
     RUN_TEST(test_uart_driver_init_rejects_baud_too_high_for_pclk);
     RUN_TEST(test_uart_driver_init_accepts_zero_mantissa_with_nonzero_fraction);
     RUN_TEST(test_uart_driver_init_rejects_invalid_stop_bits);
+    RUN_TEST(test_uart_driver_init_rejects_smartcard_only_stop_bits);
     RUN_TEST(test_uart_driver_init_accepts_every_documented_stop_bits);
     RUN_TEST(test_uart_driver_init_rejects_invalid_parity_enable);
     RUN_TEST(test_uart_driver_init_rejects_invalid_parity_select);

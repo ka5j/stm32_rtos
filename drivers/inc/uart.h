@@ -14,6 +14,18 @@
  * receive) if a future consumer actually needs it; don't re-expose the
  * parameter without it.
  *
+ * CR2.STOP similarly offers only 1 or 2 stop bits, not the full 4-value
+ * field RM0390 documents. The other two encodings, 0.5 and 1.5 stop
+ * bits, exist for smartcard mode - uart_reg.h's own file-level comment
+ * already scopes CR3's smartcard bits (SCEN/IREN/IRLP) as omitted, since
+ * this driver never enables that mode - and RM0390 additionally
+ * documents both as unavailable specifically on UART4/UART5. Accepting
+ * either here would report DRIVER_STATUS_OK while writing a CR2.STOP
+ * encoding this driver has no way to honor: nothing in this driver ever
+ * enables the smartcard mode the encoding is for, on any instance. Same
+ * class of bug as the 9-bit-mode parameter above - removed rather than
+ * shipped accepting a value the rest of the driver cannot act on.
+ *
  * Every transmit/receive function here blocks by spin-polling TXE/RXNE
  * with a bounded iteration count - the only thing implementable before
  * an NVIC driver exists to configure an interrupt and an RTOS scheduler
@@ -69,9 +81,10 @@
  *                      for USART2/3/UART4/5, APB2 for USART1/6 - see
  *                      device/inc/uart_reg.h's base-address comments).
  * @param baud          Target baud rate in bit/s (e.g. 115200).
- * @param stop_bits     CR2.STOP field value: ::USART_CR2_STOP_1,
- *                      ::USART_CR2_STOP_0_5, ::USART_CR2_STOP_2, or
- *                      ::USART_CR2_STOP_1_5.
+ * @param stop_bits     CR2.STOP field value: ::USART_CR2_STOP_1 or
+ *                      ::USART_CR2_STOP_2. ::USART_CR2_STOP_0_5 and
+ *                      ::USART_CR2_STOP_1_5 are not accepted - see this
+ *                      file's top comment for why.
  * @param parity_enable CR1.PCE field value: `0U` (no parity) or
  *                      ::USART_CR1_PCE.
  * @param parity_select CR1.PS field value: `0U` (even) or ::USART_CR1_PS.
