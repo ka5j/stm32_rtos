@@ -8,6 +8,8 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-30
+
 ### Added
 
 - `tools/check_test_registration.awk`, run by `make test`: cross-checks
