@@ -17,6 +17,10 @@ void tearDown(void) {}
 
 extern void test_gpio_base_addresses_are_evenly_spaced(void);
 extern void test_gpio_register_block_size(void);
+extern void test_gpio_driver_init_rejects_out_of_range_pin(void);
+extern void test_gpio_driver_init_rejects_negative_pin(void);
+extern void test_gpio_driver_init_accepts_highest_valid_pin(void);
+extern void test_gpio_driver_set_alternate_function_rejects_out_of_range_pin(void);
 extern void test_gpio_driver_init_rejects_invalid_mode(void);
 extern void test_gpio_driver_init_rejects_invalid_otype(void);
 extern void test_gpio_driver_init_rejects_invalid_ospeed(void);
@@ -159,6 +163,10 @@ int main(void)
     UNITY_BEGIN();
     RUN_TEST(test_gpio_base_addresses_are_evenly_spaced);
     RUN_TEST(test_gpio_register_block_size);
+    RUN_TEST(test_gpio_driver_init_rejects_out_of_range_pin);
+    RUN_TEST(test_gpio_driver_init_rejects_negative_pin);
+    RUN_TEST(test_gpio_driver_init_accepts_highest_valid_pin);
+    RUN_TEST(test_gpio_driver_set_alternate_function_rejects_out_of_range_pin);
     RUN_TEST(test_gpio_driver_init_rejects_invalid_mode);
     RUN_TEST(test_gpio_driver_init_rejects_invalid_otype);
     RUN_TEST(test_gpio_driver_init_rejects_invalid_ospeed);

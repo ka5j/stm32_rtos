@@ -261,6 +261,16 @@ specifically.
 
 ### Fixed
 
+- `drivers/src/gpio.c`: `gpioInit()` and `gpioSetAlternateFunction()` now
+  validate `pin`. Both already rejected every other out-of-domain
+  parameter but took `pin` on trust, and `GpioPin_e` does not constrain
+  an enum-typed parameter to its enumerators - a caller can cast any
+  integer in. Every field this driver touches is indexed by the pin
+  number, so `(GpioPin_e)16` meant shifting a `uint32_t` by 32: undefined
+  behaviour, not merely a wrong register write. The four functions that
+  return `void`/`GpioPinState_e` have no failure path to report a bad pin
+  and are unchanged; they now carry an explicit `@pre` instead, matching
+  how this project documents preconditions it cannot check.
 - `startup/startup_stm32f446re.s`: `.size vector_table, .-vector_table`
   was emitted *before* the `vector_table:` label, so the symbol's size was
   computed at the wrong point and reported wrong by `nm` and debuggers. It
