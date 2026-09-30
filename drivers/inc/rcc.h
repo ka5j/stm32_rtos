@@ -12,7 +12,9 @@
  *     PLL, setting the AHB/APB1/APB2 bus prescalers, and switching SYSCLK
  *     to the configured source via rccSysclkSwitch() - which also applies
  *     the flash access latency (flash.h) the new frequency requires, per
- *     RM0390 Table 15.
+ *     RM0390 Table 15, on whichever side of the switch is actually safe -
+ *     see rccSysclkSwitch()'s own doc comment for why that side depends
+ *     on the switch's direction.
  *
  * The PWR voltage scale that same table pairs with each frequency range
  * is *not* sequenced from inside this driver, because the hardware
@@ -305,13 +307,27 @@ DRIVER_MUST_CHECK DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint
 
 /**
  * @brief Switch SYSCLK to the given source, applying the flash access
- *        latency the new frequency requires first.
+ *        latency the new frequency requires on whichever side of the
+ *        switch is actually safe.
  *
- * Always applies @p latency before touching CFGR.SW, regardless of
- * whether the switch raises or lowers SYSCLK - see flash.h's
- * flashSetLatency() for why this unconditional ordering is safe in both
- * directions. Confirms the requested source is actually ready before
- * switching (a caller that forgot to call rccHsiEnable()/rccHseEnable()/
+ * The latency change is *not* unconditionally sequenced before CFGR.SW -
+ * which side it lands on depends on whether @p latency raises or lowers
+ * what ACR.LATENCY currently holds:
+ *   - Raising: applied here, before CFGR.SW, same as flash.h's
+ *     flashSetLatency() describes - a higher latency is always safe to
+ *     apply early, and reading flash at too few wait states for the
+ *     frequency SYSCLK is about to become is the failure this avoids.
+ *   - Lowering: deferred until *after* CFGR.SWS confirms the switch
+ *     completed. Applying a lower latency before the switch would expose
+ *     every fetch between that write and the switch actually landing -
+ *     including this function's own CFGR.SW write - to too few wait
+ *     states at the still-higher frequency SYSCLK has not yet left. If
+ *     the switch times out, the lowering step is skipped entirely and
+ *     ACR.LATENCY is left at its higher, still-safe current value rather
+ *     than lowered under a frequency it was never rated for.
+ *
+ * Confirms the requested source is actually ready before switching (a
+ * caller that forgot to call rccHsiEnable()/rccHseEnable()/
  * rccPllEnable() first gets a clear DRIVER_STATUS_ERR_NOT_INITIALIZED
  * here rather than a much harder to diagnose failure from the CFGR.SWS
  * poll below).
@@ -331,15 +347,24 @@ DRIVER_MUST_CHECK DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint
  *      selected and settled, since this function requires the PLL to be
  *      locked by the time it is called and the scale can no longer be
  *      changed at that point.
- * @return DRIVER_STATUS_OK once CFGR.SWS confirms the switch completed.
+ * @return DRIVER_STATUS_OK once CFGR.SWS confirms the switch completed
+ *         and, if @p latency was a lowering change, once it has also
+ *         been applied.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if source is not one of the
  *         three documented values, or propagated from flashSetLatency()
- *         if latency is invalid.
+ *         if latency is invalid - always caught on the raising side
+ *         above, since an out-of-range value is always a raise relative
+ *         to ACR.LATENCY's current, always-in-range contents.
  * @return DRIVER_STATUS_ERR_HW_FAULT propagated from flashSetLatency() if
- *         ACR.LATENCY does not read back the value written.
+ *         ACR.LATENCY does not read back the value written. If this
+ *         happens on the deferred (lowering) side, CFGR.SWS has already
+ *         confirmed the switch to the new, slower source; ACR.LATENCY
+ *         still holds its old, higher value, which remains safe for the
+ *         new, slower SYSCLK even though the lowering write itself
+ *         failed.
  * @return DRIVER_STATUS_ERR_TIMEOUT if CFGR.SWS never reports @p source
  *         within RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after the
- *         switch.
+ *         switch. A lowering @p latency is never applied in this case.
  * @return DRIVER_STATUS_ERR_NOT_INITIALIZED if @p source's ready bit
  *         (HSIRDY/HSERDY/PLLRDY) is not set - it was never enabled, or
  *         never finished becoming ready.

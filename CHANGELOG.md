@@ -378,6 +378,35 @@ specifically.
   that instead. The three CR oscillator waits in `rcc.c` are now one
   `rccWaitCrReady()` helper, so the reasoning lives in one place rather
   than being restated at each site.
+- **`drivers/src/rcc.c`: `rccSysclkSwitch()` applied the target flash
+  latency unconditionally before writing `CFGR.SW`, on the reasoning
+  (stated in both `drivers/inc/flash.h` and `drivers/inc/rcc.h`) that a
+  higher latency is always electrically safe to apply early. That
+  reasoning only holds for a *raising* change - on a switch to a lower
+  target latency (e.g. dropping from the PLL at 180 MHz back to HSI),
+  the old code lowered `ACR.LATENCY` while SYSCLK was still running at
+  the higher frequency the old, higher latency was rated for. Every
+  fetch between that write and the switch actually landing - including
+  the function's own `CFGR.SW` write - executed with too few wait
+  states, silently corrupting instruction fetch per `flash_reg.h`'s own
+  documented failure mode; in practice this HardFaults or hangs the core
+  before the switch is ever reached.** Found in review, not on hardware -
+  the driver's off-target tests held 100% branch coverage throughout,
+  same as the PWR sequencing bug above, because nothing in a host test
+  represents "this instruction fetch happened at the wrong flash
+  latency." The fix makes the ordering direction-dependent: raising
+  `ACR.LATENCY` still lands before `CFGR.SW`, as before, but lowering it
+  is now deferred until *after* `CFGR.SWS` confirms the switch completed,
+  and is skipped entirely (leaving the higher, still-safe value in place)
+  if the switch times out. `drivers/inc/flash.h` and `drivers/inc/rcc.h`
+  now document the asymmetry instead of asserting the switch is safe
+  "regardless of direction," which was the sentence that hid the bug.
+  New tests in `tests/unit/test_rcc.c` cover both the lowering-succeeds
+  and lowering-deferred-on-timeout cases, plus a `CFGR` non-interference
+  test for `rccSysclkSwitch()` and field-placement assertions (not just
+  status) for the `rccBusPrescalerConfig()` HPRE/PPRE exhaustive-value
+  tests, none of which previously asserted anything beyond
+  `DRIVER_STATUS_OK`.
 
 - `Doxyfile`: `SORT_MEMBER_DOCS` YES -> NO. Every struct here is a
   memory-mapped register block where declaration order is the real

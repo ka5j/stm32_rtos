@@ -504,11 +504,14 @@ void test_rcc_driver_bus_prescaler_config_writes_all_three_fields(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~owned_mask, rcc.CFGR & ~owned_mask);
 }
 
-/** Every one of HPRE's 9 documented values must independently report OK -
- *  rccValidateHpre()'s chained != comparisons short-circuit at a
- *  different clause for each value, so a single valid-value test (as
- *  above) only exercises one clause's false outcome; gcov branch
- *  coverage requires each of the 9 individually. */
+/** Every one of HPRE's 9 documented values must independently report OK
+ *  and land in CFGR.HPRE - rccValidateHpre()'s chained != comparisons
+ *  short-circuit at a different clause for each value, so a single
+ *  valid-value test (as above) only exercises one clause's false
+ *  outcome; gcov branch coverage requires each of the 9 individually.
+ *  Asserting the field's placement, not just the status, catches a
+ *  validator that accepts a value but writes it to the wrong field or
+ *  shift - status alone would not. */
 void test_rcc_driver_bus_prescaler_config_accepts_every_documented_hpre(void)
 {
     static const uint32_t hpre_values[] = {
@@ -524,13 +527,18 @@ void test_rcc_driver_bus_prescaler_config_accepts_every_documented_hpre(void)
             rccBusPrescalerConfig(&rcc, hpre_values[i], RCC_CFGR_PPRE_DIV1, RCC_CFGR_PPRE_DIV1);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+        TEST_ASSERT_EQUAL_HEX32(hpre_values[i],
+                                (rcc.CFGR & RCC_CFGR_HPRE_Msk) >> RCC_CFGR_HPRE_Pos);
     }
 }
 
 /** Every one of PPRE1/PPRE2's 5 documented values must independently
- *  report OK - same reasoning as the HPRE case above, applied through
- *  the ppre1 parameter (rccValidatePpre() is shared by both fields, so
- *  this also covers ppre2's identical chain). */
+ *  report OK and land in their respective CFGR fields - same reasoning
+ *  as the HPRE case above, applied through the ppre1 parameter
+ *  (rccValidatePpre() is shared by both fields, so this also covers
+ *  ppre2's identical chain). Asserting both fields' placement catches a
+ *  validator that accepts the value but writes it to the wrong field or
+ *  shift, or swaps PPRE1/PPRE2. */
 void test_rcc_driver_bus_prescaler_config_accepts_every_documented_ppre(void)
 {
     static const uint32_t ppre_values[] = {RCC_CFGR_PPRE_DIV1, RCC_CFGR_PPRE_DIV2,
@@ -545,6 +553,10 @@ void test_rcc_driver_bus_prescaler_config_accepts_every_documented_ppre(void)
             rccBusPrescalerConfig(&rcc, RCC_CFGR_HPRE_DIV1, ppre_values[i], ppre_values[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+        TEST_ASSERT_EQUAL_HEX32(ppre_values[i],
+                                (rcc.CFGR & RCC_CFGR_PPRE1_Msk) >> RCC_CFGR_PPRE1_Pos);
+        TEST_ASSERT_EQUAL_HEX32(ppre_values[i],
+                                (rcc.CFGR & RCC_CFGR_PPRE2_Msk) >> RCC_CFGR_PPRE2_Pos);
     }
 }
 
@@ -578,7 +590,10 @@ void test_rcc_driver_sysclk_switch_propagates_flash_invalid_param(void)
 }
 
 /** latency succeeds, but the requested source's ready bit (PLLRDY here)
- *  was never set - caller forgot to enable/wait for it. */
+ *  was never set - caller forgot to enable/wait for it. latency (5) is a
+ *  raise over flash.ACR's reset default (0), so it has already landed by
+ *  this point regardless of the switch's own outcome - raising is always
+ *  safe (flash.h), so there is no reason to hold it back. */
 void test_rcc_driver_sysclk_switch_reports_not_initialized_when_source_not_ready(void)
 {
     RccRegisters_t rcc = {0};
@@ -588,6 +603,7 @@ void test_rcc_driver_sysclk_switch_reports_not_initialized_when_source_not_ready
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_NOT_INITIALIZED, status);
     TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & RCC_CFGR_SW_Msk);
+    TEST_ASSERT_EQUAL_HEX32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
 }
 
 /** latency succeeds, the source is ready (PLLRDY pre-set), and SWS
@@ -646,4 +662,64 @@ void test_rcc_driver_sysclk_switch_times_out_when_sws_never_matches(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_PLL, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
+}
+
+/** A valid call touches CFGR.SW only, leaving every other CFGR bit
+ *  (SWS and any HPRE/PPRE/MCO configuration a caller already applied via
+ *  rccBusPrescalerConfig()) untouched. Unlike the 0xFFFFFFFFU-preload
+ *  idiom used elsewhere (flashSetLatency()/pwrSetVoltageScale()), SWS
+ *  cannot simply be preloaded to all-1s here: the switch only reports OK
+ *  once SWS reads back as the requested source, so SWS is preset to that
+ *  value specifically and every other bit (including SW, which the call
+ *  is expected to overwrite) is preset to all-1s instead. */
+void test_rcc_driver_sysclk_switch_touches_only_sw_field(void)
+{
+    uint32_t initial_cfgr = (0xFFFFFFFFU & ~RCC_CFGR_SW_Msk & ~RCC_CFGR_SWS_Msk)
+                            | (RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos);
+    RccRegisters_t rcc = {.CR = RCC_CR_PLLRDY, .CFGR = initial_cfgr};
+    FlashRegisters_t flash = {0};
+
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_PLL, 5U);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_PLL, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
+    TEST_ASSERT_EQUAL_HEX32(initial_cfgr & ~RCC_CFGR_SW_Msk, rcc.CFGR & ~RCC_CFGR_SW_Msk);
+}
+
+/* --- rccSysclkSwitch: flash-latency sequencing direction --- */
+
+/** Lowering the target latency (0) below flash.ACR's current value (5,
+ *  simulating a prior switch to a faster source) is deferred until after
+ *  CFGR.SWS confirms the switch (preset here to match the target
+ *  immediately) - OK, and ACR.LATENCY ends at the new, lower value only
+ *  because the switch actually completed. */
+void test_rcc_driver_sysclk_switch_lowers_latency_only_after_switch_confirms(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSIRDY, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+    FlashRegisters_t flash = {.ACR = 5U};
+
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_HSI, 0U);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, flash.ACR & FLASH_ACR_LATENCY_Msk);
+}
+
+/** Same lowering request as above, but CFGR.SWS is preset to PLL and
+ *  never updates to the HSI target (simulating a hardware fault where
+ *  the switch never actually takes effect) - the bounded retry exhausts
+ *  and reports a timeout, and critically, ACR.LATENCY is left at its
+ *  higher, still-safe current value (5) rather than lowered to a value
+ *  the still-higher, never-actually-switched-away-from SYSCLK frequency
+ *  was not rated for. This is the regression test for the bug where the
+ *  lowering write landed unconditionally before the switch was even
+ *  attempted. */
+void test_rcc_driver_sysclk_switch_defers_lowering_latency_when_switch_times_out(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSIRDY, .CFGR = RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos};
+    FlashRegisters_t flash = {.ACR = 5U};
+
+    DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_HSI, 0U);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
 }

@@ -420,6 +420,7 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, uin
                                uint32_t latency)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
+    uint32_t current_latency = (flash->ACR & FLASH_ACR_LATENCY_Msk) >> FLASH_ACR_LATENCY_Pos;
 
     if ((source != RCC_CFGR_SYSCLK_HSI) && (source != RCC_CFGR_SYSCLK_HSE)
         && (source != RCC_CFGR_SYSCLK_PLL))
@@ -427,7 +428,18 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, uin
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
     }
 
-    if (status == DRIVER_STATUS_OK)
+    /* Raising the latency is safe unconditionally and must land before
+     * CFGR.SW changes (see flash.h) - applied here, on this branch, only
+     * when the target exceeds what is already programmed. Lowering it is
+     * the reverse: it is only safe once SYSCLK has actually dropped to
+     * the slower frequency the lower latency is rated for, so that case
+     * is deferred to after CFGR.SWS confirms the switch below, not
+     * applied here. An out-of-range latency always exceeds
+     * current_latency (masked to ACR's 4-bit field, so never above 15),
+     * so it always takes this branch and is caught by flashSetLatency()'s
+     * own validation - the deferred call below never needs to repeat
+     * that check. */
+    if ((status == DRIVER_STATUS_OK) && (latency > current_latency))
     {
         status = flashSetLatency(flash, latency);
     }
@@ -474,6 +486,16 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, uin
         {
             status = DRIVER_STATUS_ERR_TIMEOUT;
         }
+    }
+
+    /* The deferred (lowering) half of the latency change - see the
+     * comment above. Only reached once the switch has actually
+     * completed; a timed-out switch leaves the latency at its higher,
+     * still-safe current value instead of lowering it under a SYSCLK
+     * frequency it was never rated for. */
+    if ((status == DRIVER_STATUS_OK) && (latency <= current_latency))
+    {
+        status = flashSetLatency(flash, latency);
     }
 
     return status;
