@@ -10,6 +10,19 @@ specifically.
 
 ### Added
 
+- `tools/check_test_registration.awk`, run by `make test`: cross-checks
+  every test function defined in `tests/unit/*.c` against the `extern`
+  declaration and `RUN_TEST()` call it needs in `test_runner.c`. Unity
+  allows one `main()`/`setUp()`/`tearDown()` per binary, so that file
+  reaches every test through a hand-maintained pair - and a test missing
+  either half still compiles and the suite still passes green, it just
+  never runs. `make coverage` would catch that for a driver test, but its
+  filter is `drivers/src` only, so for the 13 `test_<peripheral>_reg.c`
+  files a forgotten registration was entirely silent. Same spirit as the
+  existing `check_vector_table.awk`: two hand-written lists, no shared
+  source of truth, nothing else watching them drift. All 142 tests pass
+  the check today; it was verified to fail on a dropped `RUN_TEST` and on
+  a dropped `extern`+`RUN_TEST` pair before being wired in.
 - `CONTRIBUTING.md`: two new convention sections. "`const` on a
   register-block parameter" states that `const` is a claim about the
   hardware (the peripheral is unchanged), not merely about the pointer,
