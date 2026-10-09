@@ -74,6 +74,21 @@ typedef struct GpioRegisters_t
 #define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: up
 #define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: down
 
+/* --- Power-on-reset values that differ from zero ---
+ *
+ * Every GPIO register resets to 0 except the three below, and only on
+ * GPIOA and GPIOB: the pins that carry the SWD/JTAG debug interface come
+ * out of reset in alternate-function mode with the pulls the debug port
+ * needs. GPIOC..GPIOH, and OTYPER/AFRL/AFRH on every port, reset to 0.
+ * GPIOA: PA13 (SWDIO) / PA14 (SWCLK) / PA15 (JTDI); GPIOB: PB3 (SWO/JTDO)
+ * / PB4 (NJTRST). */
+#define GPIOA_MODER_RESET (0xA8000000U)   ///< GPIOA_MODER reset: PA13/14/15 in AF mode
+#define GPIOA_OSPEEDR_RESET (0x0C000000U) ///< GPIOA_OSPEEDR reset: PA13 very high speed
+#define GPIOA_PUPDR_RESET (0x64000000U)   ///< GPIOA_PUPDR reset: PA13/15 pull-up, PA14 pull-down
+#define GPIOB_MODER_RESET (0x00000280U)   ///< GPIOB_MODER reset: PB3/4 in AF mode
+#define GPIOB_OSPEEDR_RESET (0x000000C0U) ///< GPIOB_OSPEEDR reset: PB3 very high speed
+#define GPIOB_PUPDR_RESET (0x00000100U)   ///< GPIOB_PUPDR reset: PB4 pull-up
+
 /** @} */
 
 #endif /* GPIO_REG_H */

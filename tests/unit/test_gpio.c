@@ -160,6 +160,79 @@ void test_gpio_driver_init_does_not_touch_afr(void)
     TEST_ASSERT_EQUAL_HEX32(0xCAFEF00DU, port.AFRH);
 }
 
+/* --- gpioPortResetValues --- */
+
+/** GPIOA holds PA13/PA14/PA15 (SWDIO/SWCLK/JTDI), which reset to AF mode
+ *  with pulls. Decode the table per pin rather than trusting the hex, so
+ *  a transposed digit fails here. */
+void test_gpio_driver_port_reset_values_gpioa_swd_pins(void)
+{
+    GpioResetValues_t reset = gpioPortResetValues(GPIOA);
+
+    for (uint32_t pin = 0U; pin < 16U; pin++)
+    {
+        uint32_t shift = pin * 2U;
+        uint32_t af = ((pin >= 13U) ? GPIO_MODE_AF : GPIO_MODE_INPUT);
+        uint32_t speed = (pin == 13U) ? GPIO_OSPEED_HIGH : GPIO_OSPEED_LOW;
+        uint32_t pull = GPIO_PUPD_NONE;
+
+        if ((pin == 13U) || (pin == 15U))
+        {
+            pull = GPIO_PUPD_UP;
+        }
+        else if (pin == 14U)
+        {
+            pull = GPIO_PUPD_DOWN;
+        }
+        else
+        {
+            /* no pull */
+        }
+
+        TEST_ASSERT_EQUAL_HEX32(af, (reset.MODER >> shift) & 0x3U);
+        TEST_ASSERT_EQUAL_HEX32(speed, (reset.OSPEEDR >> shift) & 0x3U);
+        TEST_ASSERT_EQUAL_HEX32(pull, (reset.PUPDR >> shift) & 0x3U);
+    }
+}
+
+/** GPIOB holds PB3/PB4 (SWO/NJTRST): AF mode, PB3 very high speed, PB4
+ *  pull-up. */
+void test_gpio_driver_port_reset_values_gpiob_debug_pins(void)
+{
+    GpioResetValues_t reset = gpioPortResetValues(GPIOB);
+
+    for (uint32_t pin = 0U; pin < 16U; pin++)
+    {
+        uint32_t shift = pin * 2U;
+        uint32_t af = ((pin == 3U) || (pin == 4U)) ? GPIO_MODE_AF : GPIO_MODE_INPUT;
+        uint32_t speed = (pin == 3U) ? GPIO_OSPEED_HIGH : GPIO_OSPEED_LOW;
+        uint32_t pull = (pin == 4U) ? GPIO_PUPD_UP : GPIO_PUPD_NONE;
+
+        TEST_ASSERT_EQUAL_HEX32(af, (reset.MODER >> shift) & 0x3U);
+        TEST_ASSERT_EQUAL_HEX32(speed, (reset.OSPEEDR >> shift) & 0x3U);
+        TEST_ASSERT_EQUAL_HEX32(pull, (reset.PUPDR >> shift) & 0x3U);
+    }
+}
+
+/** GPIOC..GPIOH, and an address that is no GPIO port at all, reset to
+ *  all zeros. */
+void test_gpio_driver_port_reset_values_other_ports_are_zero(void)
+{
+    const GpioRegisters_t *others[] = {GPIOC, GPIOD, GPIOE, GPIOF, GPIOG, GPIOH};
+    GpioRegisters_t not_a_port = {0};
+
+    for (size_t i = 0U; i < (sizeof(others) / sizeof(others[0])); i++)
+    {
+        GpioResetValues_t reset = gpioPortResetValues(others[i]);
+
+        TEST_ASSERT_EQUAL_HEX32(0U, reset.MODER);
+        TEST_ASSERT_EQUAL_HEX32(0U, reset.OSPEEDR);
+        TEST_ASSERT_EQUAL_HEX32(0U, reset.PUPDR);
+    }
+
+    TEST_ASSERT_EQUAL_HEX32(0U, gpioPortResetValues(&not_a_port).MODER);
+}
+
 /* --- gpioDeinit --- */
 
 /** gpioDeinit clears MODER/OTYPER/OSPEEDR/PUPDR only in the specified
