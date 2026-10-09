@@ -10,6 +10,15 @@ specifically.
 
 ### Fixed
 
+- `rccHsiDisable()` and `rccHseDisable()` only refused when `CFGR.SWS`
+  named the oscillator itself. RM0390 also forbids clearing `HSION`/`HSEON`
+  when the oscillator is used *indirectly* as the system clock, i.e. `SWS`
+  names the PLL and `PLLCFGR.PLLSRC` selects that oscillator. In that case
+  the hardware ignores the write while the driver reported
+  `DRIVER_STATUS_OK`. Both now share one guard
+  (`rccOscillatorDisableGuard`) and return `DRIVER_STATUS_ERR_BUSY` for the
+  indirect case too. An active PLL sourced from the *other* oscillator does
+  not block the disable.
 - `gpioDeinit()` zeroed the pin's MODER/OSPEEDR/PUPDR fields and documented
   that as the power-on-reset state, which is only true for most pins. GPIOA
   and GPIOB come out of reset with the SWD/JTAG pins (PA13/14/15, PB3/4) in
