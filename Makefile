@@ -23,12 +23,18 @@ GDB     := $(PREFIX)gdb
 MCU_FLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 
 ##########################################################################
-# Source discovery - picks up every .c/.s under these dirs automatically,
-# so new drivers/api files don't need to be added to the Makefile by hand
+# Source discovery - picks up every .c/.s/.S under these dirs
+# automatically, so new drivers/api files don't need to be added to the
+# Makefile by hand. .s is plain assembly; .S is assembly run through the
+# C preprocessor first (so it can #include the project's headers, e.g. the
+# register definitions a context switch needs). Both are matched
+# case-sensitively on purpose: a lowercase-only pattern silently skipped
+# rtos/kernel/src/context_switch.S, which would have left PendSV_Handler
+# as the weak Default_Handler loop with no build error.
 ##########################################################################
 SRC_DIRS    := core device drivers api bsp rtos app startup
 C_SOURCES   := $(shell find $(SRC_DIRS) -name '*.c' 2>/dev/null)
-ASM_SOURCES := $(shell find $(SRC_DIRS) -name '*.s' 2>/dev/null)
+ASM_SOURCES := $(shell find $(SRC_DIRS) \( -name '*.s' -o -name '*.S' \) 2>/dev/null)
 
 ##########################################################################
 # Include paths - one per inc/ directory in the project structure
@@ -89,13 +95,13 @@ LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections \
 # drivers/src/gpio.c -> build/drivers/src/gpio.o
 ##########################################################################
 OBJECTS := $(C_SOURCES:%.c=$(BUILD_DIR)/%.o)
-OBJECTS += $(ASM_SOURCES:%.s=$(BUILD_DIR)/%.o)
+OBJECTS += $(patsubst %.S,$(BUILD_DIR)/%.o,$(patsubst %.s,$(BUILD_DIR)/%.o,$(ASM_SOURCES)))
 DEPS    := $(OBJECTS:.o=.d)
 
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re docs format format-check lint test coverage
+.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version
 
 # ------------------------------------------------------------------------
 # make / make all
@@ -113,6 +119,12 @@ $(BUILD_DIR)/%.o: %.c
 $(BUILD_DIR)/%.o: %.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -c $< -o $@
+
+# .S goes through the C preprocessor, so unlike .s it needs the include
+# paths.
+$(BUILD_DIR)/%.o: %.S
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) $(INCLUDES) -c $< -o $@
 
 $(BUILD_DIR)/$(TARGET).elf: $(OBJECTS)
 	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
@@ -170,12 +182,29 @@ erase:
 # device-busy error until it was killed by hand. Killing it on EXIT/INT/
 # TERM means quitting GDB - or Ctrl-C'ing the whole thing - leaves no
 # stray process behind.
+#
+# GDB is started only once OpenOCD is accepting connections on its GDB
+# port (3333, OpenOCD's default). Backgrounding OpenOCD and launching GDB
+# immediately raced the server's startup - it has to open the ST-LINK and
+# halt the target first - so GDB's single "target extended-remote"
+# attempt could land before anything was listening and fail with
+# "Connection refused". The wait gives up after ~10 s, or at once if
+# OpenOCD itself exits (no board, ST-LINK busy), instead of hanging.
 # ------------------------------------------------------------------------
+DEBUG_GDB_PORT := 3333
+
 debug: $(BUILD_DIR)/$(TARGET).elf
 	@openocd -f tools/openocd.cfg & \
 	OPENOCD_PID=$$!; \
 	trap 'kill $$OPENOCD_PID 2>/dev/null' EXIT INT TERM; \
-	$(GDB) $< -ex "target extended-remote :3333"
+	tries=0; \
+	until nc -z localhost $(DEBUG_GDB_PORT) 2>/dev/null; do \
+	  kill -0 $$OPENOCD_PID 2>/dev/null || { echo "make debug: OpenOCD exited before listening on :$(DEBUG_GDB_PORT)" >&2; exit 1; }; \
+	  tries=$$((tries + 1)); \
+	  [ $$tries -le 50 ] || { echo "make debug: timed out waiting for OpenOCD on :$(DEBUG_GDB_PORT)" >&2; exit 1; }; \
+	  sleep 0.2; \
+	done; \
+	$(GDB) $< -ex "target extended-remote :$(DEBUG_GDB_PORT)"
 
 # ------------------------------------------------------------------------
 # make re
@@ -197,6 +226,18 @@ re: clean all
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf $(DOXYGEN_DOCS_DIR)
+
+# ------------------------------------------------------------------------
+# make check-version [TAG=vX.Y.Z]
+# Fails if the Doxyfile's PROJECT_NUMBER and CHANGELOG.md's newest released
+# heading name different versions, and - when TAG is given - if the tag
+# names a third. See tools/check_version.awk and docs/VERSIONING.md.
+# Use case: run on every PR in CI (no TAG) so a release PR that bumps one
+# file and not the other is caught before merge; the release workflow
+# passes the pushed tag.
+# ------------------------------------------------------------------------
+check-version:
+	awk -v tag="$(TAG)" -f tools/check_version.awk Doxyfile CHANGELOG.md
 
 # ------------------------------------------------------------------------
 # make format
@@ -224,10 +265,7 @@ format-check:
 # doesn't allow redistributing rule text, only cppcheck's own summary. Look
 # the number up in the MISRA C:2012 document if the summary isn't enough.
 # Only checks .c files cppcheck discovers under $(SRC_DIRS) (headers are
-# checked in the context of whichever .c includes them, not standalone) -
-# so this stays quiet today since drivers/api/bsp/rtos/app are still empty,
-# and starts finding real things the moment a .c file includes a register
-# header.
+# checked in the context of whichever .c includes them, not standalone).
 #
 # Two categories of suppression here, deliberately handled differently:
 #
@@ -251,7 +289,7 @@ format-check:
 #    system) and CSR (LSI enable, reset-cause flags) sections,
 #    flash_reg.h's SR/CR bits beyond ACR.LATENCY, pwr_reg.h's bits beyond
 #    CR.VOS/CSR.VOSRDY, and uart_reg.h's SR.IDLE and every CR1
-#    interrupt-enable/SBK/RWU/WAKE/OVER8 bit are modeled for completeness
+#    interrupt-enable/SBK/RWU/WAKE bit are modeled for completeness
 #    per RM0390 but have no consumer - this project's UART driver is
 #    blocking-only (no interrupts, no IDLE-line detection) and its clock
 #    bring-up doesn't touch the clock security system, reset-cause
@@ -383,7 +421,7 @@ test: $(TEST_OBJECTS)
 # Rebuilds the same test/driver sources as `make test` with GCC's
 # --coverage instrumentation (-fprofile-arcs -ftest-coverage, implied by
 # --coverage), runs the suite to produce .gcda data, then gates on line
-# and branch coverage via gcovr (pip install gcovr) - failing (exit 1)
+# and branch coverage via gcovr (pip install gcovr; on macOS the Command Line Tools' Python is too old for the pinned 8.6 - use Homebrew) - failing (exit 1)
 # below COVERAGE_MIN_LINE/COVERAGE_MIN_BRANCH.
 #
 # Scoped to TEST_DRIVER_SOURCES only (the --filter below), not

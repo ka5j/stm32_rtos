@@ -8,6 +8,109 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-08
+
+### Added
+
+- `.github/workflows/release.yml`: pushing a `vX.Y.Z` tag now checks that
+  the tag, the Doxyfile `PROJECT_NUMBER` and `CHANGELOG.md`'s newest release
+  agree and that the commit is on `main`, builds the release firmware with
+  the pinned toolchain, and creates the GitHub Release with that version's
+  changelog section as the notes and the `.elf`/`.bin`/`.hex`/`.map`, a
+  size report and `SHA256SUMS` attached. Releases were previously created
+  by hand, and v0.1.3 and v0.1.4 never got one. On a pull request touching
+  the release pipeline's files it runs the same steps without publishing,
+  so the first real run is not a real release.
+- `make check-version` (`tools/check_version.awk`), also run in `ci.yml` on
+  every PR and push: fails when the Doxyfile's `PROJECT_NUMBER` and the
+  newest released heading in `CHANGELOG.md` differ. The two are edited by
+  hand in different files at release time and nothing else compared them.
+- `tools/changelog_section.awk`: extracts one version's changelog section
+  for the release notes; refuses an empty or missing section.
+
+### Changed
+
+- Documentation brought back in line with the code: the README, ARCHITECTURE
+  and VERSIONING peripheral/driver lists now name every register block
+  (MPU on the core side; EXTI, Flash, IWDG, PWR, SYSCFG, WWDG on the device
+  side) and every implemented driver (Flash and PWR were missing from the
+  0.2.0 definition); the README's one-line pitch no longer reads as if a
+  scheduler exists; the GPIO and UART driver summaries describe
+  `gpioPortResetValues` and parity; `docs/ARCHITECTURE.md` lists all four awk
+  tools. The `gcovr` prerequisite now says to use Homebrew on macOS: the
+  pinned 8.6 needs Python 3.10, and the Command Line Tools ship 3.9, so the
+  documented `pip install gcovr` fails there.
+- `CHANGELOG.md` now ends with the Keep a Changelog comparison links, so each
+  version heading links to its diff.
+
+- The toolchain and Doxygen install steps, previously copy-pasted across
+  `ci.yml`, `codeql.yml` and `pages.yml`, now live in two composite actions
+  under `.github/actions/` (`setup-arm-toolchain`, `setup-doxygen`), so each
+  version and checksum is defined once. Cache keys now include the start of
+  the pinned checksum.
+- Every job has a `timeout-minutes` ceiling (20 for CI and CodeQL, 15 and 10
+  for the Pages build and deploy) instead of GitHub's 6-hour default, so a
+  hung download fails fast instead of holding a required check pending.
+
+### Fixed
+
+- The Makefile discovered assembly with `-name '*.s'` and had only a `%.s`
+  rule, so `rtos/kernel/src/context_switch.S` (uppercase, preprocessed) was
+  silently never assembled or linked. Left unfixed, the PendSV context
+  switch would have built cleanly, with `PendSV_Handler` still the weak
+  `Default_Handler` loop. Both `.s` and `.S` are now discovered, `.S` gets
+  its own rule that runs the C preprocessor with the project's include
+  paths, and the empty `context_switch.S` placeholder is now part of the
+  link.
+- `make debug` backgrounded OpenOCD and started GDB immediately, so GDB's
+  single `target extended-remote :3333` could run before OpenOCD (which
+  must open the ST-LINK and halt the target first) was listening and fail
+  with "Connection refused". It now waits for the port, and stops with a
+  clear message if OpenOCD exits (no board, ST-LINK busy) or does not
+  listen within ~10 s.
+- Stale comments: `make lint`'s said the drivers were still empty and
+  would find nothing; the lint-suppression note listed `CR1.OVER8` as
+  having no consumer, which stopped being true when `uartInit()` started
+  clearing it; `startup_stm32f446re.s` named itself `.S`.
+- `rccHsiDisable()` and `rccHseDisable()` only refused when `CFGR.SWS`
+  named the oscillator itself. RM0390 also forbids clearing `HSION`/`HSEON`
+  when the oscillator is used *indirectly* as the system clock, i.e. `SWS`
+  names the PLL and `PLLCFGR.PLLSRC` selects that oscillator. In that case
+  the hardware ignores the write while the driver reported
+  `DRIVER_STATUS_OK`. Both now share one guard
+  (`rccOscillatorDisableGuard`) and return `DRIVER_STATUS_ERR_BUSY` for the
+  indirect case too. An active PLL sourced from the *other* oscillator does
+  not block the disable.
+- `gpioDeinit()` zeroed the pin's MODER/OSPEEDR/PUPDR fields and documented
+  that as the power-on-reset state, which is only true for most pins. GPIOA
+  and GPIOB come out of reset with the SWD/JTAG pins (PA13/14/15, PB3/4) in
+  alternate-function mode with pulls, so deinitialising one of them dropped
+  the debug link. It now restores the real reset value for the pin's
+  field. The per-port values live in `gpio_reg.h` (`GPIOA_MODER_RESET` etc.)
+  behind a new `gpioPortResetValues()`, which identifies the port by address
+  only so the lookup is host-testable.
+- `uartInit()` corrupted data whenever parity was enabled. `CR1.M` was
+  always cleared, but RM0390 counts the parity bit inside the frame length
+  `M` selects, so parity on with `M` clear is 7 data bits plus parity: the
+  hardware replaced bit 7 of every transmitted byte with the parity bit,
+  and a receiver would have discarded it. `M` is now derived from the
+  parity setting (set exactly when parity is enabled), giving the 8 data
+  bits plus parity the API always advertised. Transmit/receive stay
+  `uint8_t`: the 9th bit is parity, generated and checked by hardware.
+- `uartInit()` now clears `CR1.OVER8`. The BRR it computes assumes 16x
+  oversampling, so a stale `OVER8` (set by earlier code or a debugger)
+  silently doubled the baud rate the same divisor produced.
+
+### Security
+
+- The Arm GNU Toolchain and Doxygen archives are now verified against a
+  pinned SHA256 before extraction. They were previously fetched with
+  `curl -sSL ... | tar` and no integrity check, which undercut the
+  SHA-pinning policy applied to the GitHub Actions themselves: a changed or
+  tampered download would have been installed silently. A mismatch now
+  fails the job. `curl` also uses `-f`, so an HTTP error fails the step
+  instead of handing an error page to `tar`.
+
 ## [0.1.4] - 2026-09-30
 
 ### Added
@@ -694,3 +797,11 @@ scaffolding - no driver logic implemented yet.
 - `docs/ARCHITECTURE.md`, `CONTRIBUTING.md`: directory layout, layering
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
+
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/ka5j/stm32_rtos/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/ka5j/stm32_rtos/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/ka5j/stm32_rtos/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/ka5j/stm32_rtos/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/ka5j/stm32_rtos/releases/tag/v0.1.0

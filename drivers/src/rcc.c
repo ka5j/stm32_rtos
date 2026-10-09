@@ -157,6 +157,50 @@ static uint32_t rccActiveSysclkSource(const RccRegisters_t *rcc)
 }
 
 /**
+ * @brief Busy guard shared by rccHsiDisable()/rccHseDisable(): report
+ *        whether an oscillator is currently feeding SYSCLK, directly or
+ *        through the PLL.
+ *
+ * RM0390 only lets CR.HSION/HSEON be cleared when the oscillator is not
+ * used "directly or indirectly" as the system clock. Directly is SWS
+ * naming the oscillator itself; indirectly is SWS naming the PLL while
+ * PLLCFGR.PLLSRC selects that oscillator as the PLL's input. Checking
+ * SWS alone misses the second case, where the write is ignored by
+ * hardware while the driver would report success.
+ *
+ * @param rcc          RCC register block (e.g. RCC).
+ * @param sysclk_value The oscillator's own SW/SWS encoding
+ *                     (::RCC_CFGR_SYSCLK_HSI or ::RCC_CFGR_SYSCLK_HSE).
+ * @param pllsrc_value The oscillator's PLLSRC encoding
+ *                     (::RCC_PLLCFGR_PLLSRC_HSI or ::RCC_PLLCFGR_PLLSRC_HSE).
+ * @return DRIVER_STATUS_OK if the oscillator is not feeding SYSCLK.
+ * @return DRIVER_STATUS_ERR_BUSY if it is, directly or through the PLL.
+ */
+static DriverStatus_e rccOscillatorDisableGuard(const RccRegisters_t *rcc, uint32_t sysclk_value,
+                                                uint32_t pllsrc_value)
+{
+    DriverStatus_e status = DRIVER_STATUS_OK;
+    uint32_t active = rccActiveSysclkSource(rcc);
+    // cppcheck-suppress misra-c2012-12.2
+    uint32_t pll_input = rcc->PLLCFGR & RCC_PLLCFGR_PLLSRC;
+
+    if (active == sysclk_value)
+    {
+        status = DRIVER_STATUS_ERR_BUSY;
+    }
+    else if ((active == RCC_CFGR_SYSCLK_PLL) && (pll_input == pllsrc_value))
+    {
+        status = DRIVER_STATUS_ERR_BUSY;
+    }
+    else
+    {
+        /* Not feeding SYSCLK - safe to disable. */
+    }
+
+    return status;
+}
+
+/**
  * @brief Spin until one of CR's oscillator-ready flags reads set, or the
  *        bounded retry count is exhausted. Shared by rccHsiEnable(),
  *        rccHseEnable(), and rccPllEnable(), whose waits differ only in
@@ -202,13 +246,10 @@ DriverStatus_e rccHsiEnable(RccRegisters_t *rcc)
 
 DriverStatus_e rccHsiDisable(RccRegisters_t *rcc)
 {
-    DriverStatus_e status = DRIVER_STATUS_OK;
+    DriverStatus_e status =
+        rccOscillatorDisableGuard(rcc, RCC_CFGR_SYSCLK_HSI, RCC_PLLCFGR_PLLSRC_HSI);
 
-    if (rccActiveSysclkSource(rcc) == RCC_CFGR_SYSCLK_HSI)
-    {
-        status = DRIVER_STATUS_ERR_BUSY;
-    }
-    else
+    if (status == DRIVER_STATUS_OK)
     {
         rcc->CR &= ~RCC_CR_HSION;
     }
@@ -255,13 +296,11 @@ DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass)
 
 DriverStatus_e rccHseDisable(RccRegisters_t *rcc)
 {
-    DriverStatus_e status = DRIVER_STATUS_OK;
+    // cppcheck-suppress misra-c2012-12.2
+    uint32_t pllsrc_hse = RCC_PLLCFGR_PLLSRC_HSE;
+    DriverStatus_e status = rccOscillatorDisableGuard(rcc, RCC_CFGR_SYSCLK_HSE, pllsrc_hse);
 
-    if (rccActiveSysclkSource(rcc) == RCC_CFGR_SYSCLK_HSE)
-    {
-        status = DRIVER_STATUS_ERR_BUSY;
-    }
-    else
+    if (status == DRIVER_STATUS_OK)
     {
         // cppcheck-suppress misra-c2012-12.2
         rcc->CR &= ~RCC_CR_HSEON;

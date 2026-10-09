@@ -10,7 +10,7 @@ Every official release is a commit on `main` (see [CONTRIBUTING.md](../CONTRIBUT
 
 `1.0.0` is reserved for the point at which this is a functioning RTOS: it boots, drivers work, the scheduler preempts and context-switches real tasks, and `api/`/`bsp/`/`rtos/api/` exist and are usable by application code. For where the project actually stands against that bar right now, see [README.md](../README.md)'s Status section, which is the single source of truth for it. Until `1.0.0`:
 
-- **MINOR** (`0.X.0`) bumps when a full architectural layer or major milestone lands on `main`. For example, `0.1.0` marked the completion of the register layer (`core/inc/`, `device/inc/`) plus the development pipeline (build, lint, tests, docs, CI); `0.2.0` is reserved for the completion of the entire `drivers/` layer (GPIO, RCC, UART, NVIC, SysTick all implemented and tested), not any single driver file landing.
+- **MINOR** (`0.X.0`) bumps when a full architectural layer or major milestone lands on `main`. For example, `0.1.0` marked the completion of the register layer (`core/inc/`, `device/inc/`) plus the development pipeline (build, lint, tests, docs, CI); `0.2.0` is reserved for the completion of the entire `drivers/` layer (GPIO, RCC, Flash, PWR, UART, NVIC, SysTick all implemented and tested), not any single driver file landing.
 - **PATCH** (`0.1.X`) bumps for two distinct cases: (1) a fix or small addition within an already-released layer, such as a bug found in an already-tagged register header or a missing peripheral added to an already-completed layer, and (2) incremental progress on a new layer that has not yet fully landed - a single driver file such as `gpio.c` is real, tested, shipped work, but it does not by itself complete `drivers/`, so it stays PATCH under the still-in-progress `0.1.x` line rather than jumping to MINOR prematurely. MINOR fires only once the layer is genuinely complete per the bullet above.
 - Breaking changes are expected and permitted at any point pre-1.0, per SemVer's own rule for `0.y.z` releases, since there is no public API surface yet to break.
 
@@ -25,10 +25,12 @@ Once `1.0.0` ships, standard SemVer rules apply:
 ## Cutting a release
 
 1. On the `develop`→`main` PR that constitutes the release, bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version as part of that PR, and move [CHANGELOG.md](../CHANGELOG.md)'s `[Unreleased]` section content under a new `## [X.Y.Z] - <date>` heading (leaving `[Unreleased]` empty for whatever comes next).
+   Run `make check-version` before opening the PR: it fails if the two disagree. CI runs it on every PR too.
 2. Once merged, tag the resulting commit on `main`:
    ```sh
    git checkout main && git pull
    git tag -a vX.Y.Z -m "vX.Y.Z: <one-line summary of what this release contains>"
    git push origin vX.Y.Z
    ```
+   Pushing the tag triggers `.github/workflows/release.yml`, which re-checks that the tag, Doxyfile and CHANGELOG agree and that the commit is on `main`, builds the firmware, and publishes the GitHub Release: the changelog section as the notes, with the `.elf`/`.bin`/`.hex`/`.map`, a size report and `SHA256SUMS` attached. If a check fails, nothing is published; fix the cause, delete the tag (`git push origin :refs/tags/vX.Y.Z`) and push it again.
 3. From that point forward, until the next release, `make docs` reports `PROJECT_NUMBER` as the currently released version rather than an in-progress one.

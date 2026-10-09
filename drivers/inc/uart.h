@@ -5,9 +5,13 @@
  *        No application-facing logic; consumed by api/.
  *
  * 8 data bits only, matching uart_reg.h's own documented "8N1" scope -
- * CR1.M is left clear (8-bit) and is not a configurable parameter here.
- * 9-bit mode is architecturally real (RM0390) but was never actually
- * supported by this driver: an earlier revision exposed CR1.M as a
+ * CR1.M is not a configurable parameter here. uartInit() derives it from
+ * the parity setting: RM0390 counts the parity bit inside the frame length
+ * M selects, so parity off leaves M clear (8 bits on the wire), and parity
+ * on sets M (9 bits on the wire: 8 data + parity). The extra bit is parity,
+ * generated and checked by hardware, so DR transfers stay uint8_t.
+ * Genuine 9-data-bit mode is architecturally real (RM0390) but was never
+ * actually supported by this driver: an earlier revision exposed CR1.M as a
  * parameter without widening transmit/receive past uint8_t, so a caller
  * requesting 9-bit mode would have silently truncated every byte through
  * DR instead of erroring. Add real 9-bit support (uint16_t transmit/
@@ -59,15 +63,16 @@
  */
 
 /**
- * @brief Configure a UART/USART peripheral for asynchronous 8-bit
- *        operation and enable it.
+ * @brief Configure a UART/USART peripheral for asynchronous 8-data-bit
+ *        operation (optionally with parity) and enable it.
  *
  * Clears CR1.UE first, then sets BRR (from @p pclk_hz and @p baud,
- * standard 16x oversampling - OVER8 is not exposed by this driver, left
- * clear), CR2.STOP, and CR1's PCE/PS/TE/RE fields (CR1.M is left clear -
- * 8 data bits - see this file's file-level comment for why 9-bit is not
- * offered), then sets CR1.UE last so the peripheral only turns on once
- * every other field is already correct.
+ * standard 16x oversampling - OVER8 is not exposed by this driver and is
+ * cleared), CR2.STOP, and CR1's PCE/PS/TE/RE fields (CR1.M is set exactly
+ * when parity is enabled, giving 8 data bits plus parity - see this file's
+ * file-level comment; 9 data bits is not offered), then sets CR1.UE last
+ * so the peripheral only turns on once every other field is already
+ * correct.
  *
  * Disabling the peripheral up front matters on a *re*-configuration, not
  * a first call: RM0390 requires BRR and the framing fields be programmed

@@ -226,6 +226,34 @@ void test_rcc_driver_hsi_disable_rejects_when_active_source(void)
     TEST_ASSERT_EQUAL_HEX32(RCC_CR_HSION, rcc.CR & RCC_CR_HSION);
 }
 
+/** SWS names the PLL and PLLSRC selects HSI -> HSI feeds SYSCLK
+ *  indirectly, so it is rejected and HSION untouched. */
+void test_rcc_driver_hsi_disable_rejects_when_pll_sourced_from_hsi_is_active(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSION | RCC_CR_PLLON,
+                          .PLLCFGR = RCC_PLLCFGR_PLLSRC_HSI,
+                          .CFGR = RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHsiDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_BUSY, status);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CR_HSION, rcc.CR & RCC_CR_HSION);
+}
+
+/** SWS names the PLL but PLLSRC selects HSE -> HSI is not feeding SYSCLK
+ *  and may be disabled. */
+void test_rcc_driver_hsi_disable_allows_when_active_pll_is_sourced_from_hse(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSION | RCC_CR_PLLON,
+                          .PLLCFGR = RCC_PLLCFGR_PLLSRC_HSE,
+                          .CFGR = RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHsiDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, rcc.CR & RCC_CR_HSION);
+}
+
 /* --- rccHseEnable / rccHseDisable --- */
 
 /** bypass outside {0, RCC_CR_HSEBYP} must be rejected before any write. */
@@ -305,6 +333,34 @@ void test_rcc_driver_hse_disable_rejects_when_active_source(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_BUSY, status);
     TEST_ASSERT_EQUAL_HEX32(RCC_CR_HSEON, rcc.CR & RCC_CR_HSEON);
+}
+
+/** SWS names the PLL and PLLSRC selects HSE -> HSE feeds SYSCLK
+ *  indirectly, so it is rejected and HSEON untouched. */
+void test_rcc_driver_hse_disable_rejects_when_pll_sourced_from_hse_is_active(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSEON | RCC_CR_PLLON,
+                          .PLLCFGR = RCC_PLLCFGR_PLLSRC_HSE,
+                          .CFGR = RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHseDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_BUSY, status);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CR_HSEON, rcc.CR & RCC_CR_HSEON);
+}
+
+/** SWS names the PLL but PLLSRC selects HSI -> HSE is not feeding SYSCLK
+ *  and may be disabled. */
+void test_rcc_driver_hse_disable_allows_when_active_pll_is_sourced_from_hsi(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSEON | RCC_CR_PLLON,
+                          .PLLCFGR = RCC_PLLCFGR_PLLSRC_HSI,
+                          .CFGR = RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHseDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, rcc.CR & RCC_CR_HSEON);
 }
 
 /* --- rccPllConfig / rccPllEnable / rccPllDisable --- */

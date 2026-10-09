@@ -249,31 +249,32 @@ void test_uart_driver_init_rejects_invalid_direction(void)
 /* --- uartInit: field placement --- */
 
 /** A valid call sets PCE/PS/TE/RE/UE in CR1, STOP in CR2, and BRR -
- *  preserves every other CR1/CR2 bit, and leaves CR1.M clear (8 data
- *  bits - this driver never sets it; see the dedicated M-clearing test
- *  below for the case where it starts set). */
+ *  preserves every other CR1/CR2 bit (OVER8 aside - it is cleared, see
+ *  its own test below). Parity is on here, so CR1.M is also
+ *  set (8 data bits + parity bit = 9-bit frame); the dedicated M tests
+ *  below cover that derivation in both directions. */
 void test_uart_driver_init_sets_fields_and_preserves_other_bits(void)
 {
     UartRegisters_t uart = {.CR1 = 0xFFFFFFFFU
-                                   & ~(USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE
-                                       | USART_CR1_RE | USART_CR1_UE),
+                                   & ~(USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
+                                       | USART_CR1_TE | USART_CR1_RE | USART_CR1_UE),
                             .CR2 = 0xFFFFFFFFU & ~USART_CR2_STOP_Msk};
 
     DriverStatus_e status = uartInit(&uart, 45000000U, 115200U, USART_CR2_STOP_2, USART_CR1_PCE,
                                      USART_CR1_PS, USART_CR1_TE | USART_CR1_RE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-    TEST_ASSERT_EQUAL_HEX32(USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE | USART_CR1_RE
+    TEST_ASSERT_EQUAL_HEX32(USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE | USART_CR1_RE
                                 | USART_CR1_UE,
                             uart.CR1
-                                & (USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE
-                                   | USART_CR1_RE | USART_CR1_UE));
+                                & (USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
+                                   | USART_CR1_TE | USART_CR1_RE | USART_CR1_UE));
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU
-                                & ~(USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE
-                                    | USART_CR1_RE | USART_CR1_UE),
+                                & ~(USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
+                                    | USART_CR1_TE | USART_CR1_RE | USART_CR1_UE),
                             uart.CR1
-                                & ~(USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE
-                                    | USART_CR1_RE | USART_CR1_UE));
+                                & ~(USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
+                                    | USART_CR1_TE | USART_CR1_RE | USART_CR1_UE));
     TEST_ASSERT_EQUAL_HEX32(USART_CR2_STOP_2,
                             (uart.CR2 & USART_CR2_STOP_Msk) >> USART_CR2_STOP_Pos);
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~USART_CR2_STOP_Msk, uart.CR2 & ~USART_CR2_STOP_Msk);
@@ -281,9 +282,9 @@ void test_uart_driver_init_sets_fields_and_preserves_other_bits(void)
 
 /** CR1.M starting set (e.g. left over from external tooling, or simply
  *  the register's undefined post-reset content in this fake struct) is
- *  unconditionally cleared - this driver only ever supports 8 data bits
- *  (see uart.h's file-level comment on why 9-bit is not offered), so a
- *  stale M bit must never survive a fresh uartInit() call. */
+ *  cleared when parity is off - without parity the frame is exactly 8
+ *  data bits, so a stale M bit must never survive a fresh uartInit()
+ *  call. */
 void test_uart_driver_init_clears_preexisting_m_bit(void)
 {
     UartRegisters_t uart = {.CR1 = USART_CR1_M};
@@ -293,6 +294,39 @@ void test_uart_driver_init_clears_preexisting_m_bit(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1 & USART_CR1_M);
+}
+
+/** Parity on sets CR1.M, even when it starts clear: M clear with PCE set
+ *  is a 7-data-bit + parity frame, which would overwrite DR bit 7 with
+ *  the parity bit and corrupt every byte with its MSB set. 8 data bits
+ *  plus parity needs the 9-bit frame. Checked for both parity polarities
+ *  since PS is orthogonal to the frame length. */
+void test_uart_driver_init_sets_m_bit_when_parity_enabled(void)
+{
+    UartRegisters_t even = {.CR1 = 0U};
+    UartRegisters_t odd = {.CR1 = 0U};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, uartInit(&even, 16000000U, 9600U, USART_CR2_STOP_1,
+                                                 USART_CR1_PCE, 0U, USART_CR1_TE));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, uartInit(&odd, 16000000U, 9600U, USART_CR2_STOP_1,
+                                                 USART_CR1_PCE, USART_CR1_PS, USART_CR1_TE));
+
+    TEST_ASSERT_EQUAL_HEX32(USART_CR1_M, even.CR1 & USART_CR1_M);
+    TEST_ASSERT_EQUAL_HEX32(USART_CR1_M, odd.CR1 & USART_CR1_M);
+}
+
+/** A stale CR1.OVER8 (8x oversampling) is cleared: the BRR computed by
+ *  uartInit() assumes 16x, so leaving OVER8 set would run the port at
+ *  twice the requested baud rate. */
+void test_uart_driver_init_clears_preexisting_over8_bit(void)
+{
+    UartRegisters_t uart = {.CR1 = USART_CR1_OVER8};
+
+    DriverStatus_e status =
+        uartInit(&uart, 16000000U, 9600U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, uart.CR1 & USART_CR1_OVER8);
 }
 
 /** No parity, TE only clears PCE/PS/RE while still setting UE - the

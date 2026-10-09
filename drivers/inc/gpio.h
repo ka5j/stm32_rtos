@@ -60,6 +60,35 @@ typedef enum GpioPinState_e
 } GpioPinState_e;
 
 /**
+ * @brief Power-on-reset contents of the GPIO registers that are not all
+ *        zero on every port - see gpioPortResetValues().
+ */
+typedef struct GpioResetValues_t
+{
+    uint32_t MODER;   ///< Reset value of GPIOx_MODER
+    uint32_t OSPEEDR; ///< Reset value of GPIOx_OSPEEDR
+    uint32_t PUPDR;   ///< Reset value of GPIOx_PUPDR
+} GpioResetValues_t;
+
+/**
+ * @brief Look up a GPIO port's power-on-reset MODER/OSPEEDR/PUPDR values.
+ *
+ * Identifies @p port by address only and never dereferences it. GPIOA and
+ * GPIOB reset to non-zero values because they hold the SWD/JTAG debug
+ * pins (see the GPIOx_*_RESET macros in gpio_reg.h); every other port,
+ * and any address that is not GPIOA..GPIOH, reports all zeros. OTYPER,
+ * AFRL and AFRH reset to zero on every port, so they are not included.
+ *
+ * Public so the lookup can be tested on the host: gpioDeinit() reads the
+ * port register block it was given, which a host test cannot place at
+ * GPIOA's real address.
+ *
+ * @param port GPIO port register block (e.g. GPIOA).
+ * @return The port's reset values.
+ */
+GpioResetValues_t gpioPortResetValues(const GpioRegisters_t *port);
+
+/**
  * @brief Configure a GPIO pin's mode, output type, speed, and pull
  *        resistor in one call.
  *
@@ -86,8 +115,13 @@ DRIVER_MUST_CHECK DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, 
 
 /**
  * @brief Reset a GPIO pin's MODER/OTYPER/OSPEEDR/PUPDR/AFR fields back to
- *        their power-on-reset values (input mode, push-pull, low speed,
- *        no pull, alternate function 0).
+ *        their power-on-reset values.
+ *
+ * For most pins that is input mode, push-pull, low speed, no pull,
+ * alternate function 0. The SWD/JTAG pins (PA13, PA14, PA15, PB3, PB4)
+ * reset to alternate-function mode with the pulls the debug port needs -
+ * see gpioPortResetValues() - and this restores those, so deinitialising
+ * one does not disconnect the debugger.
  *
  * @param port GPIO port register block (e.g. GPIOA).
  * @param pin  Pin number within the port.

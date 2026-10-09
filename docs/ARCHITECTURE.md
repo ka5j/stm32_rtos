@@ -6,9 +6,10 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for naming conventions, the layering r
 
 ```
 stm32_rtos/
-├── core/            Cortex-M4 core peripheral registers (NVIC, SysTick, SCB)
+├── core/            Cortex-M4 core peripheral registers (MPU, NVIC, SCB, SysTick)
 │   └── inc/
-├── device/          STM32F446-specific peripheral registers (GPIO, RCC, UART)
+├── device/          STM32F446-specific peripheral registers (EXTI, Flash,
+│   │                 GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG)
 │   └── inc/
 ├── drivers/         Register-level driver logic (GPIO, RCC, Flash, PWR,
 │                     UART, NVIC, SysTick) over the DriverStatus_e
@@ -39,9 +40,15 @@ stm32_rtos/
 │                     requirement
 ├── startup/         Vector table, reset handler
 ├── linker/          STM32F446RE.ld memory layout
-└── tools/           openocd.cfg, check_vector_table.awk (run by `make test`;
-                     cross-checks core/inc/nvic_reg.h against the startup
-                     vector table)
+└── tools/           openocd.cfg, plus awk checks wired into the Makefile:
+                     check_vector_table.awk and check_test_registration.awk
+                     (both run by `make test`; the first cross-checks
+                     core/inc/nvic_reg.h against the startup vector table,
+                     the second every test function against its
+                     registration in test_runner.c), check_version.awk
+                     (`make check-version`; Doxyfile vs CHANGELOG vs tag),
+                     and changelog_section.awk (release notes, used by
+                     the release workflow)
 ```
 
 `api/` and `rtos/api/` are readily conflated: `api/` is the peripheral-facing layer (drives GPIO/UART directly, independent of the RTOS and board), while `rtos/api/` is the RTOS syscall-facing layer (tasks, semaphores, queues). Application code in `app/` calls into both but never reaches past them into `drivers/` or `rtos/kernel/` directly.

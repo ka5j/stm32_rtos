@@ -1,6 +1,6 @@
 # STM32F446RE Bare-Metal RTOS
 
-A preemptive RTOS for the STM32F446RE, built from scratch on direct register-level access, without HAL/LL or CMSIS device headers. All peripheral and core register structures are derived directly from the reference manual and mapped to their memory addresses.
+A preemptive RTOS for the STM32F446RE, built from scratch on direct register-level access, without HAL/LL or CMSIS device headers. All peripheral and core register structures are derived directly from the reference manual and mapped to their memory addresses. Work in progress: the register and driver layers are largely in place, but the kernel itself (scheduler, context switching) is not started yet — see [Status](#status).
 
 ## Getting Started
 
@@ -12,7 +12,7 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
   - macOS: `brew install clang-format cppcheck doxygen graphviz`
   - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen graphviz`
   - `graphviz` (the `dot` tool) is required for `make docs`'s include/directory/group diagrams (`Doxyfile`'s `HAVE_DOT`); without it on the `PATH`, Doxygen silently omits every diagram instead of failing.
-- `gcovr` — required for `make coverage` only (not the pre-commit hook): `pip install gcovr`
+- `gcovr` — required for `make coverage` only (not the pre-commit hook). CI pins 8.6, which needs Python 3.10 or newer, so on macOS use Homebrew (`brew install gcovr`) rather than the Command Line Tools' Python 3.9; elsewhere `pip install gcovr`
 - A host C compiler (`cc`) for `make test`/`make coverage`, which build and run natively rather than cross-compiling
   - **macOS 27 note**: the Command Line Tools ship an SDK whose `.tbd` stubs declare an `arm64e.x1` target that the linker in the *same* install rejects, so any host link fails with `tapi error: malformed file ... unknown architecture`. This breaks `make test`, `make coverage`, and therefore the whole pre-commit hook. Point the toolchain at an earlier SDK that is still present:
     ```sh
@@ -53,8 +53,8 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
 
 The system is structured in layers, starting from boot (linker script and startup file) and building upward. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the complete directory tree and layer diagram. Generated API documentation (Doxygen) is published at <https://ka5j.github.io/stm32_rtos/> and rebuilt on every push to `main` — see [docs/VERSIONING.md](docs/VERSIONING.md) for the release policy governing what is published there. See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
-1. **Core / device registers** — hand-written structures for Cortex-M4 core peripherals (NVIC, SysTick, SCB) and F446-specific peripherals (GPIO, RCC, UART)
-2. **Drivers** — direct register manipulation (GPIO, RCC/clock configuration, UART, NVIC, SysTick); no application-facing logic
+1. **Core / device registers** — hand-written structures for Cortex-M4 core peripherals (MPU, NVIC, SCB, SysTick) and F446-specific peripherals (EXTI, Flash, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG)
+2. **Drivers** — direct register manipulation (GPIO, RCC/clock configuration, Flash, PWR, UART, NVIC, SysTick); no application-facing logic
 3. **API** (`api/`) — the layer application code calls directly (`led_on()`, `debug_print()`, etc.), abstracting which pin or peripheral is involved
 4. **BSP** — Nucleo-F446RE board-specific pin and peripheral mapping, consumed by the API layer
 5. **RTOS kernel** — scheduler, task control blocks, PendSV-based context switching
@@ -82,6 +82,7 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
 | `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity, then cross-check `core/inc/nvic_reg.h` against the startup vector table and every test function against its registration in `test_runner.c`; fails on any test failure or mismatch |
+| `make check-version` | Fail if the Doxyfile's `PROJECT_NUMBER` and `CHANGELOG.md`'s newest release disagree; `TAG=vX.Y.Z` also checks a tag against them |
 | `make coverage`     | Recompile `TEST_DRIVER_SOURCES` and their tests with coverage instrumentation, run them, then fail (via `gcovr`) if line or branch coverage drops below 100% |
 
 ## Status
@@ -103,11 +104,11 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 **Drivers** implemented so far, all holding 100% line and branch coverage under `make coverage`:
 
 - **`driver_status.h`** — the `DriverStatus_e` contract every driver returns, per [CONTRIBUTING.md](CONTRIBUTING.md)'s error-handling contract.
-- **GPIO** — `gpioInit`/`gpioDeinit`/`gpioSetAlternateFunction`/`gpioWritePin`/`gpioReadPin`/`gpioTogglePin`.
+- **GPIO** — `gpioInit`/`gpioDeinit`/`gpioSetAlternateFunction`/`gpioWritePin`/`gpioReadPin`/`gpioTogglePin`, plus `gpioPortResetValues`, which `gpioDeinit` uses to restore the non-zero reset state of the SWD/JTAG pins on GPIOA/GPIOB.
 - **RCC** — clock gating (`rccGpioClockEnable`/`Disable`, `rccUsart2ClockEnable`/`Disable`, `rccSyscfgClockEnable`/`Disable`, `rccPwrClockEnable`/`Disable`) and HSI/HSE-to-PLL SYSCLK bring-up (`rccHsiEnable`/`Disable`, `rccHseEnable`/`Disable`, `rccPllConfig`/`rccPllEnable`/`rccPllDisable`, `rccBusPrescalerConfig`, `rccSysclkSwitch`). The ordered bring-up sequence a caller must follow is documented in `drivers/inc/rcc.h`'s file-level comment.
 - **Flash** — `flashSetLatency`, with the read-back verification RM0390 requires.
 - **PWR** — `pwrSetVoltageScale` and `pwrWaitVoltageScaleReady`, split because RM0390 permits `CR.VOS` to be written only while the PLL is off while `CSR.VOSRDY` only settles once it is on.
-- **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking 8N1-class asynchronous transfer.
+- **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking asynchronous transfer, 8 data bits with optional parity and 1 or 2 stop bits.
 
 `0.2.0` is reserved for `drivers/`' completion — see [docs/VERSIONING.md](docs/VERSIONING.md).
 
