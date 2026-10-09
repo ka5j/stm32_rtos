@@ -101,7 +101,7 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re docs format format-check lint test coverage
+.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version
 
 # ------------------------------------------------------------------------
 # make / make all
@@ -226,6 +226,18 @@ re: clean all
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf $(DOXYGEN_DOCS_DIR)
+
+# ------------------------------------------------------------------------
+# make check-version [TAG=vX.Y.Z]
+# Fails if the Doxyfile's PROJECT_NUMBER and CHANGELOG.md's newest released
+# heading name different versions, and - when TAG is given - if the tag
+# names a third. See tools/check_version.awk and docs/VERSIONING.md.
+# Use case: run on every PR in CI (no TAG) so a release PR that bumps one
+# file and not the other is caught before merge; the release workflow
+# passes the pushed tag.
+# ------------------------------------------------------------------------
+check-version:
+	awk -v tag="$(TAG)" -f tools/check_version.awk Doxyfile CHANGELOG.md
 
 # ------------------------------------------------------------------------
 # make format

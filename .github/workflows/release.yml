@@ -1,0 +1,107 @@
+name: Release
+
+# Publishes a GitHub Release when a version tag is pushed (see
+# docs/VERSIONING.md's "Cutting a release"). On the tag it:
+#   1. checks the tag, the Doxyfile's PROJECT_NUMBER and CHANGELOG.md's
+#      newest release heading all name the same version, and that the
+#      tagged commit is on main;
+#   2. builds the firmware with the pinned toolchain (release profile);
+#   3. creates the GitHub Release with that version's CHANGELOG section as
+#      the notes, and attaches the .elf/.bin/.hex/.map, a size report and
+#      SHA256SUMS.
+#
+# pull_request (scoped to the files this pipeline is made of) runs the same
+# steps up to - but not including - publishing, using the version already
+# in the Doxyfile. Without it the first real execution of this workflow
+# would be an actual release.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - .github/actions/setup-arm-toolchain/**
+      - tools/check_version.awk
+      - tools/changelog_section.awk
+      - Makefile
+
+# Read-only by default; only the publishing step needs more, and it is
+# skipped on pull_request, where the token is read-only regardless.
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write   # create the release and upload its assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # full history and tags - needed to check the tagged commit is on main
+
+      - name: Work out the version being released
+        # On a tag push the tag is the source of truth and is validated
+        # against the files; on a PR dry run there is no tag, so the
+        # Doxyfile's version stands in for it. The ref name goes through
+        # env, not inline ${{ }} in the script, so a crafted tag name
+        # cannot inject shell.
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "push" ]; then
+            tag="$REF_NAME"
+          else
+            tag="v$(awk '$1 == "PROJECT_NUMBER" && $2 == "=" {print $3}' Doxyfile)"
+          fi
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+
+      - name: Check the tag, Doxyfile and CHANGELOG agree
+        run: make check-version TAG="$TAG"
+
+      - name: Check the tagged commit is on main
+        # docs/VERSIONING.md: every release is a commit on main. A tag
+        # pushed from a feature branch would otherwise publish a release of
+        # unreviewed code.
+        if: github.event_name == 'push'
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$TAG points at $GITHUB_SHA, which is not on main"
+            exit 1
+          }
+
+      - name: Set up Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
+        uses: ./.github/actions/setup-arm-toolchain
+
+      - name: Build the release firmware
+        run: make BUILD=release all
+
+      - name: Collect release assets
+        run: |
+          set -euo pipefail
+          mkdir dist
+          name="stm32_rtos-$TAG"
+          for ext in elf bin hex map; do
+            cp "build/stm32_rtos.$ext" "dist/$name.$ext"
+          done
+          arm-none-eabi-size build/stm32_rtos.elf > "dist/$name.size.txt"
+          # Written outside dist/ first: the redirect creates the file
+          # before the glob expands, so SHA256SUMS would otherwise list
+          # itself.
+          (cd dist && sha256sum -- * > ../SHA256SUMS)
+          mv SHA256SUMS dist/
+          awk -v version="$VERSION" -f tools/changelog_section.awk CHANGELOG.md > notes.md
+          echo "--- assets"; ls -l dist
+          echo "--- size"; cat "dist/$name.size.txt"
+          echo "--- notes (first lines)"; head -n 8 notes.md
+
+      - name: Publish the GitHub Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$TAG" dist/* --title "$TAG" --notes-file notes.md --verify-tag

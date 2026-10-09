@@ -25,10 +25,12 @@ Once `1.0.0` ships, standard SemVer rules apply:
 ## Cutting a release
 
 1. On the `develop`→`main` PR that constitutes the release, bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version as part of that PR, and move [CHANGELOG.md](../CHANGELOG.md)'s `[Unreleased]` section content under a new `## [X.Y.Z] - <date>` heading (leaving `[Unreleased]` empty for whatever comes next).
+   Run `make check-version` before opening the PR: it fails if the two disagree. CI runs it on every PR too.
 2. Once merged, tag the resulting commit on `main`:
    ```sh
    git checkout main && git pull
    git tag -a vX.Y.Z -m "vX.Y.Z: <one-line summary of what this release contains>"
    git push origin vX.Y.Z
    ```
+   Pushing the tag triggers `.github/workflows/release.yml`, which re-checks that the tag, Doxyfile and CHANGELOG agree and that the commit is on `main`, builds the firmware, and publishes the GitHub Release: the changelog section as the notes, with the `.elf`/`.bin`/`.hex`/`.map`, a size report and `SHA256SUMS` attached. If a check fails, nothing is published; fix the cause, delete the tag (`git push origin :refs/tags/vX.Y.Z`) and push it again.
 3. From that point forward, until the next release, `make docs` reports `PROJECT_NUMBER` as the currently released version rather than an in-progress one.

@@ -8,6 +8,24 @@ specifically.
 
 ## [Unreleased]
 
+### Added
+
+- `.github/workflows/release.yml`: pushing a `vX.Y.Z` tag now checks that
+  the tag, the Doxyfile `PROJECT_NUMBER` and `CHANGELOG.md`'s newest release
+  agree and that the commit is on `main`, builds the release firmware with
+  the pinned toolchain, and creates the GitHub Release with that version's
+  changelog section as the notes and the `.elf`/`.bin`/`.hex`/`.map`, a
+  size report and `SHA256SUMS` attached. Releases were previously created
+  by hand, and v0.1.3 and v0.1.4 never got one. On a pull request touching
+  the release pipeline's files it runs the same steps without publishing,
+  so the first real run is not a real release.
+- `make check-version` (`tools/check_version.awk`), also run in `ci.yml` on
+  every PR and push: fails when the Doxyfile's `PROJECT_NUMBER` and the
+  newest released heading in `CHANGELOG.md` differ. The two are edited by
+  hand in different files at release time and nothing else compared them.
+- `tools/changelog_section.awk`: extracts one version's changelog section
+  for the release notes; refuses an empty or missing section.
+
 ### Security
 
 - The Arm GNU Toolchain and Doxygen archives are now verified against a

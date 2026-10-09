@@ -108,6 +108,12 @@ jobs:
       - name: make docs
         run: make docs
 
+      - name: make check-version
+        # Doxyfile PROJECT_NUMBER and CHANGELOG.md's newest release must
+        # agree (docs/VERSIONING.md) - cheap, so it runs on every PR and
+        # push rather than only at release time.
+        run: make check-version
+
       - name: Check touched source files have a Doxygen @file block
         # `make docs` only enforces per-member documentation on a file once
         # it has at least one Doxygen comment (e.g. @file) - a file with
