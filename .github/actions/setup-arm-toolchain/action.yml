@@ -1,0 +1,46 @@
+name: Set up Arm GNU Toolchain
+description: >-
+  Install the pinned Arm GNU Toolchain (arm-none-eabi) into /opt, verified
+  against a pinned SHA256, and add it to PATH. The single place the
+  toolchain version and checksum live - ci.yml and codeql.yml both use it.
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Arm GNU Toolchain 15.2.rel1
+      # Keyed on the version and the first 12 hex digits of the pinned
+      # SHA256 below, not the version alone: bumping the pin changes the
+      # key, so a stale cache can never serve a toolchain that no longer
+      # matches the checksum this action verifies.
+      id: cache-arm-toolchain
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: /opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
+        key: arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi-597893282ac8
+
+    - name: Download, verify and install Arm GNU Toolchain 15.2.rel1
+      # Ubuntu's gcc-arm-none-eabi apt package trails upstream by years,
+      # and even an apt install of the "right" package name can silently
+      # change compiler build out from under this workflow whenever the
+      # archive updates it - the compiler is the most consequential tool
+      # in this whole pipeline (codegen, not just tooling output), so it
+      # gets an exact upstream release, and the download is checked against
+      # a pinned SHA256 before anything is extracted. The checksum is
+      # Arm's own published value for this archive (the .sha256asc file
+      # next to it on developer.arm.com). curl -f so an HTTP error fails
+      # the step instead of handing an error page to tar.
+      if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        archive=arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz
+        sha256=597893282ac8c6ab1a4073977f2362990184599643b4c5ee34870a8215783a16
+        curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
+          "https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/$archive"
+        echo "$sha256  $RUNNER_TEMP/$archive" | sha256sum -c -
+        tar -xJf "$RUNNER_TEMP/$archive" -C /opt
+        rm -f "$RUNNER_TEMP/$archive"
+
+    - name: Add Arm GNU Toolchain to PATH
+      shell: bash
+      run: echo "/opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi/bin" >> "$GITHUB_PATH"

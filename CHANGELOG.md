@@ -8,6 +8,27 @@ specifically.
 
 ## [Unreleased]
 
+### Security
+
+- The Arm GNU Toolchain and Doxygen archives are now verified against a
+  pinned SHA256 before extraction. They were previously fetched with
+  `curl -sSL ... | tar` and no integrity check, which undercut the
+  SHA-pinning policy applied to the GitHub Actions themselves: a changed or
+  tampered download would have been installed silently. A mismatch now
+  fails the job. `curl` also uses `-f`, so an HTTP error fails the step
+  instead of handing an error page to `tar`.
+
+### Changed
+
+- The toolchain and Doxygen install steps, previously copy-pasted across
+  `ci.yml`, `codeql.yml` and `pages.yml`, now live in two composite actions
+  under `.github/actions/` (`setup-arm-toolchain`, `setup-doxygen`), so each
+  version and checksum is defined once. Cache keys now include the start of
+  the pinned checksum.
+- Every job has a `timeout-minutes` ceiling (20 for CI and CodeQL, 15 and 10
+  for the Pages build and deploy) instead of GitHub's 6-hour default, so a
+  hung download fails fast instead of holding a required check pending.
+
 ### Fixed
 
 - The Makefile discovered assembly with `-name '*.s'` and had only a `%.s`
