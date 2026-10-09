@@ -76,14 +76,17 @@ typedef struct GpioRegisters_t
 
 /* --- Power-on-reset values that differ from zero ---
  *
- * Every GPIO register resets to 0 except the three below, and only on
+ * Every GPIO register resets to 0 except the five below, and only on
  * GPIOA and GPIOB: the pins that carry the SWD/JTAG debug interface come
  * out of reset in alternate-function mode with the pulls the debug port
- * needs. GPIOC..GPIOH, and OTYPER/AFRL/AFRH on every port, reset to 0.
- * GPIOA: PA13 (SWDIO) / PA14 (SWCLK) / PA15 (JTDI); GPIOB: PB3 (SWO/JTDO)
- * / PB4 (NJTRST). */
+ * needs. GPIOC..GPIOH, OTYPER/AFRL/AFRH on every port, and GPIOA's OSPEEDR
+ * reset to 0. GPIOA: PA13 (SWDIO) / PA14 (SWCLK) / PA15 (JTDI); GPIOB: PB3
+ * (SWO/JTDO) / PB4 (NJTRST).
+ *
+ * GPIOA_OSPEEDR is zero on the F446 but not on every STM32F4: the F401 and
+ * F411 reset it to 0x0C000000 (PA13 at very high speed). Do not "fix" it
+ * from another family's manual. Values checked against ST's STM32F446 SVD. */
 #define GPIOA_MODER_RESET (0xA8000000U)   ///< GPIOA_MODER reset: PA13/14/15 in AF mode
-#define GPIOA_OSPEEDR_RESET (0x0C000000U) ///< GPIOA_OSPEEDR reset: PA13 very high speed
 #define GPIOA_PUPDR_RESET (0x64000000U)   ///< GPIOA_PUPDR reset: PA13/15 pull-up, PA14 pull-down
 #define GPIOB_MODER_RESET (0x00000280U)   ///< GPIOB_MODER reset: PB3/4 in AF mode
 #define GPIOB_OSPEEDR_RESET (0x000000C0U) ///< GPIOB_OSPEEDR reset: PB3 very high speed

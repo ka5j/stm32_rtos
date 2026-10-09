@@ -163,8 +163,8 @@ void test_gpio_driver_init_does_not_touch_afr(void)
 /* --- gpioPortResetValues --- */
 
 /** GPIOA holds PA13/PA14/PA15 (SWDIO/SWCLK/JTDI), which reset to AF mode
- *  with pulls. Decode the table per pin rather than trusting the hex, so
- *  a transposed digit fails here. */
+ *  with pulls, and nothing else is non-default (OSPEEDR is all zero). Decode the table per pin
+ * rather than trusting the hex, so a transposed digit fails here. */
 void test_gpio_driver_port_reset_values_gpioa_swd_pins(void)
 {
     GpioResetValues_t reset = gpioPortResetValues(GPIOA);
@@ -173,7 +173,6 @@ void test_gpio_driver_port_reset_values_gpioa_swd_pins(void)
     {
         uint32_t shift = pin * 2U;
         uint32_t af = ((pin >= 13U) ? GPIO_MODE_AF : GPIO_MODE_INPUT);
-        uint32_t speed = (pin == 13U) ? GPIO_OSPEED_HIGH : GPIO_OSPEED_LOW;
         uint32_t pull = GPIO_PUPD_NONE;
 
         if ((pin == 13U) || (pin == 15U))
@@ -190,9 +189,13 @@ void test_gpio_driver_port_reset_values_gpioa_swd_pins(void)
         }
 
         TEST_ASSERT_EQUAL_HEX32(af, (reset.MODER >> shift) & 0x3U);
-        TEST_ASSERT_EQUAL_HEX32(speed, (reset.OSPEEDR >> shift) & 0x3U);
         TEST_ASSERT_EQUAL_HEX32(pull, (reset.PUPDR >> shift) & 0x3U);
     }
+
+    /* GPIOA's OSPEEDR resets to zero on the F446, unlike the F401/F411
+     * (0x0C000000, PA13 very high speed). Pinned explicitly so a value
+     * copied from another family's manual fails here. */
+    TEST_ASSERT_EQUAL_HEX32(0U, reset.OSPEEDR);
 }
 
 /** GPIOB holds PB3/PB4 (SWO/NJTRST): AF mode, PB3 very high speed, PB4
