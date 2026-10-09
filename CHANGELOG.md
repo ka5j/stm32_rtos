@@ -8,6 +8,21 @@ specifically.
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation brought back in line with the code: the README, ARCHITECTURE
+  and VERSIONING peripheral/driver lists now name every register block
+  (MPU on the core side; EXTI, Flash, IWDG, PWR, SYSCFG, WWDG on the device
+  side) and every implemented driver (Flash and PWR were missing from the
+  0.2.0 definition); the README's one-line pitch no longer reads as if a
+  scheduler exists; the GPIO and UART driver summaries describe
+  `gpioPortResetValues` and parity; `docs/ARCHITECTURE.md` lists all four awk
+  tools. The `gcovr` prerequisite now says to use Homebrew on macOS: the
+  pinned 8.6 needs Python 3.10, and the Command Line Tools ship 3.9, so the
+  documented `pip install gcovr` fails there.
+- `CHANGELOG.md` now ends with the Keep a Changelog comparison links, so each
+  version heading links to its diff.
+
 ### Added
 
 - `.github/workflows/release.yml`: pushing a `vX.Y.Z` tag now checks that
@@ -782,3 +797,10 @@ scaffolding - no driver logic implemented yet.
 - `docs/ARCHITECTURE.md`, `CONTRIBUTING.md`: directory layout, layering
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
+
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/ka5j/stm32_rtos/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/ka5j/stm32_rtos/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/ka5j/stm32_rtos/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/ka5j/stm32_rtos/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/ka5j/stm32_rtos/releases/tag/v0.1.0

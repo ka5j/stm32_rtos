@@ -421,7 +421,7 @@ test: $(TEST_OBJECTS)
 # Rebuilds the same test/driver sources as `make test` with GCC's
 # --coverage instrumentation (-fprofile-arcs -ftest-coverage, implied by
 # --coverage), runs the suite to produce .gcda data, then gates on line
-# and branch coverage via gcovr (pip install gcovr) - failing (exit 1)
+# and branch coverage via gcovr (pip install gcovr; on macOS the Command Line Tools' Python is too old for the pinned 8.6 - use Homebrew) - failing (exit 1)
 # below COVERAGE_MIN_LINE/COVERAGE_MIN_BRANCH.
 #
 # Scoped to TEST_DRIVER_SOURCES only (the --filter below), not
