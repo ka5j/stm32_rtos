@@ -10,6 +10,13 @@
  * @{
  */
 
+/** Smallest BRR value uartInit() accepts. BRR holds USARTDIV * 16 (see
+ *  uartComputeBrr()), and USARTDIV below 1 cannot be generated: with 16x
+ *  oversampling the baud rate tops out at pclk / 16, which is BRR 16. A
+ *  smaller value used to be accepted (only 0 was rejected) and would have
+ *  configured a baud rate the peripheral cannot produce. */
+#define UART_BRR_MIN (16U)
+
 /** Bounded retry count for SR.TXE/RXNE, not a wall-clock timeout - see
  *  uart.h's file-level comment for why. */
 #define UART_READY_TIMEOUT_ITERATIONS (100000U)
@@ -50,8 +57,8 @@
  * @return DRIVER_STATUS_OK on success.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if pclk_hz or baud is 0, if the
  *         result would exceed BRR's 16-bit field (baud too low for
- *         pclk_hz), or if it computes to 0 (baud too high for pclk_hz -
- *         RM0390 forbids a BRR of 0).
+ *         pclk_hz), or if it is below ::UART_BRR_MIN (baud above pclk_hz /
+ *         16, which 16x oversampling cannot generate).
  */
 static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *brr)
 {
@@ -65,7 +72,7 @@ static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *
     {
         uint64_t rounded = ((uint64_t)pclk_hz + ((uint64_t)baud / 2U)) / (uint64_t)baud;
 
-        if (rounded == 0U)
+        if (rounded < UART_BRR_MIN)
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
         }

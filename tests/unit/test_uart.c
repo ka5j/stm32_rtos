@@ -134,18 +134,39 @@ void test_uart_driver_init_rejects_baud_too_high_for_pclk(void)
     TEST_ASSERT_EQUAL_HEX32(0U, uart.BRR);
 }
 
-/** 1 MHz / 1,000,000 baud: pclk/baud rounds to 1, the smallest BRR
- *  value this driver accepts - distinct from the pclk/baud-rounds-to-0
- *  case above, which is the one value RM0390 forbids. */
-void test_uart_driver_init_accepts_smallest_nonzero_brr(void)
+/** 16 MHz / 1,000,000 baud: pclk/baud is exactly 16 (USARTDIV 1), the
+ *  highest baud rate 16x oversampling can generate (pclk / 16) and so the
+ *  smallest BRR this driver accepts. */
+void test_uart_driver_init_accepts_smallest_valid_brr(void)
 {
     UartRegisters_t uart = {0};
 
     DriverStatus_e status =
-        uartInit(&uart, 1000000U, 1000000U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+        uartInit(&uart, 16000000U, 1000000U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-    TEST_ASSERT_EQUAL_HEX32(1U, uart.BRR);
+    TEST_ASSERT_EQUAL_HEX32(16U, uart.BRR);
+}
+
+/** A divisor below 1 cannot be generated: BRR 1 through 15 are all baud
+ *  rates above pclk / 16. Checks both ends of the range plus the value
+ *  just under the limit, and that BRR is left untouched. (An earlier
+ *  revision rejected only 0 and would have accepted these.) */
+void test_uart_driver_init_rejects_divisor_below_one(void)
+{
+    const uint32_t pclk_hz[] = {1000000U, 8000000U, 15000000U};
+
+    for (size_t i = 0U; i < (sizeof(pclk_hz) / sizeof(pclk_hz[0])); i++)
+    {
+        UartRegisters_t uart = {0};
+
+        /* pclk / 1,000,000 baud rounds to 1, 8 and 15 respectively. */
+        DriverStatus_e status =
+            uartInit(&uart, pclk_hz[i], 1000000U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE);
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+        TEST_ASSERT_EQUAL_HEX32(0U, uart.BRR);
+    }
 }
 
 /* --- uartInit: parameter validation --- */

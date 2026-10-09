@@ -10,6 +10,15 @@ specifically.
 
 ### Fixed
 
+- `uartInit()` accepted any computed BRR from 1 upward and rejected only 0.
+  BRR holds USARTDIV x 16, and USARTDIV below 1 cannot be generated: with
+  16x oversampling the highest baud rate is pclk / 16, which is BRR 16. A
+  baud rate above that (e.g. 8 MHz at 1 Mbaud, BRR 8) returned
+  `DRIVER_STATUS_OK` and configured a baud rate the peripheral cannot
+  produce. It now returns `DRIVER_STATUS_ERR_INVALID_PARAM` for any BRR
+  below 16. The old test that asserted BRR 1 was accepted is replaced by
+  one asserting BRR 16 is the smallest valid value and one covering 1, 8
+  and 15.
 - `GPIOA_OSPEEDR_RESET` was `0x0C000000` (PA13 at very high speed), a value
   that belongs to other STM32F4 variants such as the F401/F411. ST's own
   STM32F446 SVD, which lists a reset value for every register, has GPIOA's
