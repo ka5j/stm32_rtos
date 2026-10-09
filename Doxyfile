@@ -17,7 +17,7 @@ PROJECT_NAME           = "STM32 RTOS"
 
 # Version/revision string. Bumped only on a develop->main release PR - see
 # docs/VERSIONING.md.
-PROJECT_NUMBER         = 0.1.4
+PROJECT_NUMBER         = 0.1.5
 
 # One-line description shown at the top of every page.
 PROJECT_BRIEF          = "Bare-metal preemptive RTOS for STM32F446RE"

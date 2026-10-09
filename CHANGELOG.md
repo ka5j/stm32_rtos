@@ -8,20 +8,7 @@ specifically.
 
 ## [Unreleased]
 
-### Changed
-
-- Documentation brought back in line with the code: the README, ARCHITECTURE
-  and VERSIONING peripheral/driver lists now name every register block
-  (MPU on the core side; EXTI, Flash, IWDG, PWR, SYSCFG, WWDG on the device
-  side) and every implemented driver (Flash and PWR were missing from the
-  0.2.0 definition); the README's one-line pitch no longer reads as if a
-  scheduler exists; the GPIO and UART driver summaries describe
-  `gpioPortResetValues` and parity; `docs/ARCHITECTURE.md` lists all four awk
-  tools. The `gcovr` prerequisite now says to use Homebrew on macOS: the
-  pinned 8.6 needs Python 3.10, and the Command Line Tools ship 3.9, so the
-  documented `pip install gcovr` fails there.
-- `CHANGELOG.md` now ends with the Keep a Changelog comparison links, so each
-  version heading links to its diff.
+## [0.1.5] - 2026-10-08
 
 ### Added
 
@@ -41,17 +28,20 @@ specifically.
 - `tools/changelog_section.awk`: extracts one version's changelog section
   for the release notes; refuses an empty or missing section.
 
-### Security
-
-- The Arm GNU Toolchain and Doxygen archives are now verified against a
-  pinned SHA256 before extraction. They were previously fetched with
-  `curl -sSL ... | tar` and no integrity check, which undercut the
-  SHA-pinning policy applied to the GitHub Actions themselves: a changed or
-  tampered download would have been installed silently. A mismatch now
-  fails the job. `curl` also uses `-f`, so an HTTP error fails the step
-  instead of handing an error page to `tar`.
-
 ### Changed
+
+- Documentation brought back in line with the code: the README, ARCHITECTURE
+  and VERSIONING peripheral/driver lists now name every register block
+  (MPU on the core side; EXTI, Flash, IWDG, PWR, SYSCFG, WWDG on the device
+  side) and every implemented driver (Flash and PWR were missing from the
+  0.2.0 definition); the README's one-line pitch no longer reads as if a
+  scheduler exists; the GPIO and UART driver summaries describe
+  `gpioPortResetValues` and parity; `docs/ARCHITECTURE.md` lists all four awk
+  tools. The `gcovr` prerequisite now says to use Homebrew on macOS: the
+  pinned 8.6 needs Python 3.10, and the Command Line Tools ship 3.9, so the
+  documented `pip install gcovr` fails there.
+- `CHANGELOG.md` now ends with the Keep a Changelog comparison links, so each
+  version heading links to its diff.
 
 - The toolchain and Doxygen install steps, previously copy-pasted across
   `ci.yml`, `codeql.yml` and `pages.yml`, now live in two composite actions
@@ -110,6 +100,16 @@ specifically.
 - `uartInit()` now clears `CR1.OVER8`. The BRR it computes assumes 16x
   oversampling, so a stale `OVER8` (set by earlier code or a debugger)
   silently doubled the baud rate the same divisor produced.
+
+### Security
+
+- The Arm GNU Toolchain and Doxygen archives are now verified against a
+  pinned SHA256 before extraction. They were previously fetched with
+  `curl -sSL ... | tar` and no integrity check, which undercut the
+  SHA-pinning policy applied to the GitHub Actions themselves: a changed or
+  tampered download would have been installed silently. A mismatch now
+  fails the job. `curl` also uses `-f`, so an HTTP error fails the step
+  instead of handing an error page to `tar`.
 
 ## [0.1.4] - 2026-09-30
 
@@ -798,7 +798,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/ka5j/stm32_rtos/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/ka5j/stm32_rtos/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/ka5j/stm32_rtos/compare/v0.1.1...v0.1.2
