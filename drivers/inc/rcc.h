@@ -174,10 +174,11 @@ DRIVER_MUST_CHECK DriverStatus_e rccHsiEnable(RccRegisters_t *rcc);
  *
  * @param rcc RCC register block (e.g. RCC).
  * @return DRIVER_STATUS_OK once CR.HSION is cleared.
- * @return DRIVER_STATUS_ERR_BUSY if CFGR.SWS currently reports HSI as the
- *         active SYSCLK source - disabling it would stop the running
- *         clock. Switch SYSCLK to a different, already-ready source via
- *         rccSysclkSwitch() first.
+ * @return DRIVER_STATUS_ERR_BUSY if HSI is feeding SYSCLK: CFGR.SWS reports
+ *         HSI directly, or reports the PLL while PLLCFGR.PLLSRC selects
+ *         HSI as its input (RM0390 does not let HSION be cleared in
+ *         either case). Switch SYSCLK to a different, already-ready
+ *         source via rccSysclkSwitch() first.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHsiDisable(RccRegisters_t *rcc);
 
@@ -209,11 +210,14 @@ DRIVER_MUST_CHECK DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypa
  *
  * @param rcc RCC register block (e.g. RCC).
  * @return DRIVER_STATUS_OK once CR.HSEON is cleared.
- * @return DRIVER_STATUS_ERR_BUSY if CFGR.SWS currently reports HSE as the
- *         active SYSCLK source. Does not check whether HSE also feeds an
- *         enabled PLL that is itself the active SYSCLK source - disabling
- *         HSE in that configuration stops the PLL and hangs the system;
- *         switch SYSCLK away from the PLL first if HSE is its source.
+ * @return DRIVER_STATUS_ERR_BUSY if HSE is feeding SYSCLK: CFGR.SWS reports
+ *         HSE directly, or reports the PLL while PLLCFGR.PLLSRC selects
+ *         HSE as its input (RM0390 does not let HSEON be cleared in
+ *         either case). Switch SYSCLK to a different, already-ready
+ *         source via rccSysclkSwitch() first.
+ *         Does not check an enabled PLL that is *not* the active SYSCLK
+ *         source: that PLL loses its input, which is the caller's to
+ *         sequence (rccPllDisable() first).
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHseDisable(RccRegisters_t *rcc);
 
