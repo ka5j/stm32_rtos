@@ -75,8 +75,9 @@ typedef struct GpioResetValues_t
  *
  * Identifies @p port by address only and never dereferences it. GPIOA and
  * GPIOB reset to non-zero values because they hold the SWD/JTAG debug
- * pins (see the GPIOx_*_RESET macros in gpio_reg.h); every other port,
- * and any address that is not GPIOA..GPIOH, reports all zeros. OTYPER,
+ * pins (see the GPIOx_*_RESET macros in gpio_reg.h) - GPIOA's OSPEEDR is
+ * the exception and resets to zero; every other port, and any address that
+ * is not GPIOA..GPIOH, reports all zeros. OTYPER,
  * AFRL and AFRH reset to zero on every port, so they are not included.
  *
  * Public so the lookup can be tested on the host: gpioDeinit() reads the

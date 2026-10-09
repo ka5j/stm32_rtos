@@ -8,6 +8,17 @@ specifically.
 
 ## [Unreleased]
 
+### Fixed
+
+- `GPIOA_OSPEEDR_RESET` was `0x0C000000` (PA13 at very high speed), a value
+  that belongs to other STM32F4 variants such as the F401/F411. ST's own
+  STM32F446 SVD, which lists a reset value for every register, has GPIOA's
+  `OSPEEDR` at `0x00000000` (GPIOB's `0x000000C0` and the other four
+  non-zero values were right). Left in, `gpioDeinit()` on PA13 would have
+  written a very-high-speed setting the chip never resets to. The constant is
+  removed, `gpioPortResetValues()` reports 0 for it, and a test pins it. This
+  corrects the reset table added in v0.1.5.
+
 ## [0.1.5] - 2026-10-08
 
 ### Added
