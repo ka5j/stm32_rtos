@@ -10,6 +10,14 @@ specifically.
 
 ### Fixed
 
+- `gpioDeinit()` zeroed the pin's MODER/OSPEEDR/PUPDR fields and documented
+  that as the power-on-reset state, which is only true for most pins. GPIOA
+  and GPIOB come out of reset with the SWD/JTAG pins (PA13/14/15, PB3/4) in
+  alternate-function mode with pulls, so deinitialising one of them dropped
+  the debug link. It now restores the real reset value for the pin's
+  field. The per-port values live in `gpio_reg.h` (`GPIOA_MODER_RESET` etc.)
+  behind a new `gpioPortResetValues()`, which identifies the port by address
+  only so the lookup is host-testable.
 - `uartInit()` corrupted data whenever parity was enabled. `CR1.M` was
   always cleared, but RM0390 counts the parity bit inside the frame length
   `M` selects, so parity on with `M` clear is 7 data bits plus parity: the

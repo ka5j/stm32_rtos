@@ -68,16 +68,42 @@ DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, uint32_t mode, uin
     return status;
 }
 
+GpioResetValues_t gpioPortResetValues(const GpioRegisters_t *port)
+{
+    GpioResetValues_t values = {0U, 0U, 0U};
+
+    if (port == GPIOA)
+    {
+        values.MODER = GPIOA_MODER_RESET;
+        values.OSPEEDR = GPIOA_OSPEEDR_RESET;
+        values.PUPDR = GPIOA_PUPDR_RESET;
+    }
+    else if (port == GPIOB)
+    {
+        values.MODER = GPIOB_MODER_RESET;
+        values.OSPEEDR = GPIOB_OSPEEDR_RESET;
+        values.PUPDR = GPIOB_PUPDR_RESET;
+    }
+    else
+    {
+        /* Every other port resets to all zeros - already set above. */
+    }
+
+    return values;
+}
+
 void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin)
 {
     uint32_t pin_pos = (uint32_t)pin;
     uint32_t field_shift = pin_pos * 2U;
     uint32_t afr_shift = (pin_pos & 0x7U) * 4U;
+    uint32_t pin_field = 0x3U << field_shift;
+    GpioResetValues_t reset = gpioPortResetValues(port);
 
-    port->MODER &= ~(0x3U << field_shift);
+    port->MODER = (port->MODER & ~pin_field) | (reset.MODER & pin_field);
     port->OTYPER &= ~(0x1U << pin_pos);
-    port->OSPEEDR &= ~(0x3U << field_shift);
-    port->PUPDR &= ~(0x3U << field_shift);
+    port->OSPEEDR = (port->OSPEEDR & ~pin_field) | (reset.OSPEEDR & pin_field);
+    port->PUPDR = (port->PUPDR & ~pin_field) | (reset.PUPDR & pin_field);
 
     if (pin_pos < 8U)
     {
