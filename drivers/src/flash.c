@@ -31,9 +31,11 @@ DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency)
          * silently once SYSCLK rises, so it is reported as a hardware
          * fault rather than assumed to have worked.
          *
-         * The GCOVR_EXCL_START/STOP region below is deliberate, and is
-         * the only coverage exclusion in this project - not a gap being
-         * papered over. Every other bounded wait here is host-testable
+         * The coverage-exclusion region below is deliberate, and is the
+         * only one in this project - not a gap being papered over. (Its
+         * marker names are not spelled out in this comment: gcovr matches
+         * them anywhere on a line, so doing so would open a second,
+         * never-closed region and make it warn.) Every other bounded wait here is host-testable
          * precisely because the flag it polls is a field distinct from
          * what the driver writes (see the Makefile's TEST_DRIVER_SOURCES
          * comment), so a test can hold that flag clear in a plain
