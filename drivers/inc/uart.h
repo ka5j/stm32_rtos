@@ -106,8 +106,10 @@
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if stop_bits, parity_enable,
  *         parity_select, or direction is not one of its documented
  *         values, if @p baud or @p pclk_hz is `0U`, or if the computed
- *         baud-rate divisor doesn't fit BRR (@p baud too high or too low
- *         for @p pclk_hz).
+ *         baud-rate divisor doesn't fit BRR: @p baud too low for
+ *         @p pclk_hz (divisor overflows the 16-bit field), or above
+ *         @p pclk_hz / 16 (a divisor below 1, which 16x oversampling
+ *         cannot generate).
  */
 DRIVER_MUST_CHECK DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud,
                                           uint32_t stop_bits, uint32_t parity_enable,
