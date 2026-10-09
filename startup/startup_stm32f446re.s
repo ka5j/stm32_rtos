@@ -1,5 +1,5 @@
 /*
- * startup_stm32f446re.S
+ * startup_stm32f446re.s
  *
  * STM32F446RE (Cortex-M4F) startup file - written from scratch.
  *

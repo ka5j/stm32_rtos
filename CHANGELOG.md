@@ -10,6 +10,24 @@ specifically.
 
 ### Fixed
 
+- The Makefile discovered assembly with `-name '*.s'` and had only a `%.s`
+  rule, so `rtos/kernel/src/context_switch.S` (uppercase, preprocessed) was
+  silently never assembled or linked. Left unfixed, the PendSV context
+  switch would have built cleanly, with `PendSV_Handler` still the weak
+  `Default_Handler` loop. Both `.s` and `.S` are now discovered, `.S` gets
+  its own rule that runs the C preprocessor with the project's include
+  paths, and the empty `context_switch.S` placeholder is now part of the
+  link.
+- `make debug` backgrounded OpenOCD and started GDB immediately, so GDB's
+  single `target extended-remote :3333` could run before OpenOCD (which
+  must open the ST-LINK and halt the target first) was listening and fail
+  with "Connection refused". It now waits for the port, and stops with a
+  clear message if OpenOCD exits (no board, ST-LINK busy) or does not
+  listen within ~10 s.
+- Stale comments: `make lint`'s said the drivers were still empty and
+  would find nothing; the lint-suppression note listed `CR1.OVER8` as
+  having no consumer, which stopped being true when `uartInit()` started
+  clearing it; `startup_stm32f446re.s` named itself `.S`.
 - `rccHsiDisable()` and `rccHseDisable()` only refused when `CFGR.SWS`
   named the oscillator itself. RM0390 also forbids clearing `HSION`/`HSEON`
   when the oscillator is used *indirectly* as the system clock, i.e. `SWS`
