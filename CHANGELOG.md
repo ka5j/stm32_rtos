@@ -8,6 +8,17 @@ specifically.
 
 ## [Unreleased]
 
+### Added
+
+- `tools/install_cppcheck.sh` builds the exact cppcheck version CI pins
+  (2.13.0) from source into a per-user prefix, verifying the cloned commit
+  first, and `make lint` now uses it automatically when it is installed
+  (`CPPCHECK=` overrides). `make lint` also warns whenever the cppcheck it
+  runs differs from CI's version. Different cppcheck versions report
+  different MISRA findings; a `cond ? A : B` expression passed locally under
+  2.21 and failed CI under 2.13.0 (`misra-c2012-10.6`), costing a CI cycle.
+  Reproduced that exact failure with the pinned build before relying on it.
+
 ### Fixed
 
 - `uartInit()` accepted any computed BRR from 1 upward and rejected only 0.

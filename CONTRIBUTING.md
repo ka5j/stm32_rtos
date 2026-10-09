@@ -114,4 +114,4 @@ git config core.hooksPath .githooks
 chmod +x .githooks/pre-commit
 ```
 
-After setup, `git commit` runs `format-check` → `test` → `lint` → `docs` → `all` automatically before the commit is created, matching the checks CI runs remotely. Standalone commands: `make format`, `make format-check`, `make test`, `make lint`, `make docs`, `make all`, `make flash`.
+After setup, `git commit` runs `format-check` → `test` → `lint` → `docs` → `all` automatically before the commit is created, matching the checks CI runs remotely. `make lint` is the one gate where a local pass is not a reliable preview of CI's: CI pins cppcheck 2.13.0 and other versions disagree about MISRA findings (a ternary expression passed under cppcheck 2.21 and failed CI under 2.13.0 with `misra-c2012-10.6`). Run `tools/install_cppcheck.sh` once to build the pinned version; `make lint` then picks it up automatically, and prints a warning whenever the cppcheck it is using is a different version. Standalone commands: `make format`, `make format-check`, `make test`, `make lint`, `make docs`, `make all`, `make flash`.
