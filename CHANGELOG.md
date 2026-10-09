@@ -8,6 +8,20 @@ specifically.
 
 ## [Unreleased]
 
+### Fixed
+
+- `uartInit()` corrupted data whenever parity was enabled. `CR1.M` was
+  always cleared, but RM0390 counts the parity bit inside the frame length
+  `M` selects, so parity on with `M` clear is 7 data bits plus parity: the
+  hardware replaced bit 7 of every transmitted byte with the parity bit,
+  and a receiver would have discarded it. `M` is now derived from the
+  parity setting (set exactly when parity is enabled), giving the 8 data
+  bits plus parity the API always advertised. Transmit/receive stay
+  `uint8_t`: the 9th bit is parity, generated and checked by hardware.
+- `uartInit()` now clears `CR1.OVER8`. The BRR it computes assumes 16x
+  oversampling, so a stale `OVER8` (set by earlier code or a debugger)
+  silently doubled the baud rate the same divisor produced.
+
 ## [0.1.4] - 2026-09-30
 
 ### Added

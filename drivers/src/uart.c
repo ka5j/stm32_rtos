@@ -16,7 +16,7 @@
 
 /**
  * @brief Compute BRR from a bus clock and target baud rate, standard 16x
- *        oversampling (OVER8 left clear).
+ *        oversampling (uartInit() clears OVER8 to match).
  *
  * RM0390 stores USARTDIV = pclk_hz / (16 * baud) as a 12-bit mantissa
  * (BRR bits 15:4) plus a 4-bit fraction/16 (BRR bits 3:0) - which is
@@ -133,12 +133,26 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
 
     if (status == DRIVER_STATUS_OK)
     {
-        /* USART_CR1_M is cleared (8 data bits, no parameter for it - see
-         * this file's file-level comment) by being included in cr1_mask
-         * and never OR'd back in below. */
-        uint32_t cr1_mask =
+        /* M and OVER8 are both rewritten from scratch below, so both are
+         * in cr1_mask: OVER8 because the BRR computed above assumes 16x
+         * oversampling (a stale OVER8 would silently double the baud rate
+         * the same divisor produces), M because it is derived from the
+         * parity setting rather than taken from the caller - RM0390 counts
+         * the parity bit *inside* the M-selected frame length, so 8 data bits
+         * plus parity needs M set (9-bit frame), while M clear with parity
+         * on is 7 data bits plus parity and would overwrite DR bit 7 with
+         * the parity bit. The 9th bit is parity, not data, so transmit/
+         * receive stay uint8_t - see uart.h's file-level comment. */
+        // cppcheck-suppress misra-c2012-12.2
+        uint32_t cr1_mask = USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
+                            | USART_CR1_TE | USART_CR1_RE;
+        uint32_t frame_length = 0U;
+
+        if (parity_enable != 0U)
+        {
             // cppcheck-suppress misra-c2012-12.2
-            USART_CR1_M | USART_CR1_PCE | USART_CR1_PS | USART_CR1_TE | USART_CR1_RE;
+            frame_length = USART_CR1_M;
+        }
 
         /* Disable before touching BRR or the framing fields: RM0390
          * requires them programmed with the USART off, which matters
@@ -150,7 +164,8 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
         uart->BRR = brr;
         // cppcheck-suppress misra-c2012-12.2
         uart->CR2 = (uart->CR2 & ~USART_CR2_STOP_Msk) | (stop_bits << USART_CR2_STOP_Pos);
-        uart->CR1 = (uart->CR1 & ~cr1_mask) | parity_enable | parity_select | direction;
+        uart->CR1 =
+            (uart->CR1 & ~cr1_mask) | frame_length | parity_enable | parity_select | direction;
 
         /* UE set last, after every other field is already correct - see
          * this function's own doc comment. */
