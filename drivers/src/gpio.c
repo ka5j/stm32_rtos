@@ -75,7 +75,6 @@ GpioResetValues_t gpioPortResetValues(const GpioRegisters_t *port)
     if (port == GPIOA)
     {
         values.MODER = GPIOA_MODER_RESET;
-        values.OSPEEDR = GPIOA_OSPEEDR_RESET;
         values.PUPDR = GPIOA_PUPDR_RESET;
     }
     else if (port == GPIOB)
