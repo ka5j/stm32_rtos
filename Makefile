@@ -256,6 +256,18 @@ format-check:
 	clang-format --dry-run --Werror $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
 
 # ------------------------------------------------------------------------
+# cppcheck version: CI pins an exact version (.github/workflows/ci.yml) and
+# different versions report different MISRA findings, so a pass under a
+# newer local cppcheck does not mean CI will pass. tools/install_cppcheck.sh
+# builds the pinned version into $(CPPCHECK_PINNED); once it exists, lint
+# uses it automatically. Override with CPPCHECK=/path/to/cppcheck. Keep
+# CPPCHECK_CI_VERSION in step with ci.yml's pin.
+# ------------------------------------------------------------------------
+CPPCHECK_CI_VERSION := 2.13.0
+CPPCHECK_PINNED     := $(HOME)/.local/share/cppcheck-$(CPPCHECK_CI_VERSION)/bin/cppcheck
+CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cppcheck)
+
+# ------------------------------------------------------------------------
 # make lint
 # Runs cppcheck across the project's source/include dirs, failing (exit 1)
 # on any finding - same severity as a compile error. Catches classes of
@@ -325,7 +337,11 @@ format-check:
 #    still gets flagged.
 # ------------------------------------------------------------------------
 lint:
-	cppcheck --addon=misra \
+	@v=$$($(CPPCHECK) --version | awk '{print $$2}'); \
+	if [ "$$v" != "$(CPPCHECK_CI_VERSION)" ]; then \
+	  echo "make lint: warning: cppcheck $$v is not CI's $(CPPCHECK_CI_VERSION), so a pass here does not guarantee CI passes - run tools/install_cppcheck.sh" >&2; \
+	fi
+	$(CPPCHECK) --addon=misra \
 	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
 	  --suppress=missingIncludeSystem \

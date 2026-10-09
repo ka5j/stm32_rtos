@@ -11,6 +11,7 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
 - `clang-format`, `cppcheck`, `doxygen` on the `PATH` — required for `make format-check`, `make lint`, and `make docs`, and consequently for the pre-commit hook to execute
   - macOS: `brew install clang-format cppcheck doxygen graphviz`
   - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen graphviz`
+  - `cppcheck` version matters: CI pins 2.13.0 and newer versions report different MISRA findings, so code can pass `make lint` locally and still fail CI. `tools/install_cppcheck.sh` builds the pinned version into `~/.local/share/cppcheck-2.13.0` (no sudo), and `make lint` uses it automatically once it is there; otherwise `make lint` warns that its cppcheck differs from CI's.
   - `graphviz` (the `dot` tool) is required for `make docs`'s include/directory/group diagrams (`Doxyfile`'s `HAVE_DOT`); without it on the `PATH`, Doxygen silently omits every diagram instead of failing.
 - `gcovr` — required for `make coverage` only (not the pre-commit hook). CI pins 8.6, which needs Python 3.10 or newer, so on macOS use Homebrew (`brew install gcovr`) rather than the Command Line Tools' Python 3.9; elsewhere `pip install gcovr`
 - A host C compiler (`cc`) for `make test`/`make coverage`, which build and run natively rather than cross-compiling
@@ -79,7 +80,7 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make clean`        | Remove the `build/` directory and generated `docs/html/`                                          |
 | `make format`       | Apply `.clang-format` to every tracked `.c`/`.h` file in place                                     |
 | `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
-| `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding |
+| `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding. Uses the CI-pinned cppcheck if `tools/install_cppcheck.sh` has installed it, and warns if the cppcheck it finds differs from CI's |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
 | `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity, then cross-check `core/inc/nvic_reg.h` against the startup vector table and every test function against its registration in `test_runner.c`; fails on any test failure or mismatch |
 | `make check-version` | Fail if the Doxyfile's `PROJECT_NUMBER` and `CHANGELOG.md`'s newest release disagree; `TAG=vX.Y.Z` also checks a tag against them |
