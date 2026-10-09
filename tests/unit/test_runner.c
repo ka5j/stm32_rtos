@@ -123,6 +123,8 @@ extern void test_uart_driver_init_rejects_invalid_parity_select(void);
 extern void test_uart_driver_init_rejects_invalid_direction(void);
 extern void test_uart_driver_init_sets_fields_and_preserves_other_bits(void);
 extern void test_uart_driver_init_clears_preexisting_m_bit(void);
+extern void test_uart_driver_init_sets_m_bit_when_parity_enabled(void);
+extern void test_uart_driver_init_clears_preexisting_over8_bit(void);
 extern void test_uart_driver_init_defaults_clear_parity_and_re(void);
 extern void test_uart_driver_init_reconfigures_an_already_enabled_instance(void);
 extern void test_uart_driver_deinit_resets_all_registers(void);
@@ -274,6 +276,8 @@ int main(void)
     RUN_TEST(test_uart_driver_init_rejects_invalid_direction);
     RUN_TEST(test_uart_driver_init_sets_fields_and_preserves_other_bits);
     RUN_TEST(test_uart_driver_init_clears_preexisting_m_bit);
+    RUN_TEST(test_uart_driver_init_sets_m_bit_when_parity_enabled);
+    RUN_TEST(test_uart_driver_init_clears_preexisting_over8_bit);
     RUN_TEST(test_uart_driver_init_defaults_clear_parity_and_re);
     RUN_TEST(test_uart_driver_init_reconfigures_an_already_enabled_instance);
     RUN_TEST(test_uart_driver_deinit_resets_all_registers);
