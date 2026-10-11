@@ -615,3 +615,37 @@ void test_uart_driver_receive_propagates_timeout(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
 }
+
+/* --- NULL pointer arguments --- */
+
+/** A NULL buffer with a non-zero length is rejected before anything is sent (TXE/TC are ready,
+ *  so a driver that went ahead would dereference NULL). */
+void test_uart_driver_transmit_rejects_null_buffer_with_length(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_TXE | USART_SR_TC, .DR = 0x5AU};
+
+    DriverStatus_e status = uartTransmit(&uart, NULL, 4U);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+    TEST_ASSERT_EQUAL_HEX32(0x5AU, uart.DR);
+}
+
+/** A NULL output byte is rejected even with a byte pending (RXNE set), instead of being written. */
+void test_uart_driver_receive_byte_rejects_null_output(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_RXNE, .DR = 0x42U};
+
+    DriverStatus_e status = uartReceiveByte(&uart, NULL);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+}
+
+/** A NULL buffer with a non-zero length is rejected before anything is received. */
+void test_uart_driver_receive_rejects_null_buffer_with_length(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_RXNE, .DR = 0x42U};
+
+    DriverStatus_e status = uartReceive(&uart, NULL, 4U);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+}

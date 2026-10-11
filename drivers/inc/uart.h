@@ -186,12 +186,14 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t
  * call directly with uartDeinit(), a clock gate, or a reconfiguration.
  *
  * @param uart   UART register block (e.g. USART2).
- * @param data   Bytes to send.
+ * @param data   Bytes to send. May be NULL only when @p length is `0U`.
  * @param length Number of bytes in @p data. A @p length of `0U` sends
  *               nothing and returns DRIVER_STATUS_OK without waiting on
  *               TC, since no transmission was started.
  * @return DRIVER_STATUS_OK once every byte has been sent and SR.TC
  *         confirms the transmitter is idle.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p data is NULL while
+ *         @p length is non-zero. Nothing is sent.
  * @return DRIVER_STATUS_ERR_TIMEOUT propagated from uartTransmitByte()
  *         the moment any byte times out, or from the closing uartFlush()
  *         if SR.TC never set; bytes already sent are not undone, and no
@@ -219,11 +221,14 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8
  *             not.
  * @param byte Set to the received byte - written even when this function
  *             returns DRIVER_STATUS_ERR_HW_FAULT, since DR is always
- *             read; treat the byte as unreliable in that case.
+ *             read; treat the byte as unreliable in that case. Must not
+ *             be NULL.
  * @pre uartInit() has already enabled this instance with
  *      ::USART_CR1_RE set in its @c direction argument.
  * @return DRIVER_STATUS_OK once a byte with no reported fault has been
  *         read into @p byte.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p byte is NULL. DR is not
+ *         read, so a pending byte stays pending.
  * @return DRIVER_STATUS_ERR_HW_FAULT if SR reports ORE, NE, FE, or PE
  *         for this byte.
  * @return DRIVER_STATUS_ERR_TIMEOUT if SR.RXNE never set within
@@ -235,10 +240,13 @@ DRIVER_MUST_CHECK DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t 
  * @brief Receive a buffer of bytes, blocking on each one in turn.
  *
  * @param uart   UART register block (e.g. USART2).
- * @param data   Buffer to receive into.
+ * @param data   Buffer to receive into. May be NULL only when
+ *               @p length is `0U`.
  * @param length Number of bytes to receive into @p data.
  * @return DRIVER_STATUS_OK once every byte has been received with no
  *         fault.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p data is NULL while
+ *         @p length is non-zero. Nothing is received.
  * @return DRIVER_STATUS_ERR_HW_FAULT or DRIVER_STATUS_ERR_TIMEOUT
  *         propagated from uartReceiveByte() the moment any byte fails;
  *         bytes already received remain in @p data, and no further
