@@ -68,11 +68,22 @@ typedef struct NvicRegisters_t
  * Matches the position of each *_IRQHandler entry in
  * startup/startup_stm32f446re.s. Used to index NVIC->ISER/ICER/ISPR/
  * ICPR/IABR (word = IRQn / 32, bit = IRQn % 32) and NVIC->IP (byte
- * index = IRQn directly). Gaps (61-62, 79-80, 82-83, 85-86, 88-90) are
+ * index = IRQn directly) for the device interrupts (IRQn >= 0). The
+ * negative entries are the Cortex-M4 system exceptions (PM0214), which
+ * have no NVIC enable/pending/priority bits: they are configured through
+ * SCB (SHPRx, SHCSR, ICSR) and never index the NVIC arrays above - a
+ * driver must range-check IRQn >= 0 before using it as an NVIC index.
+ * Gaps (61-62, 79-80, 82-83, 85-86, 88-90) are
  * reserved positions in the vector table and intentionally absent here.
  */
 typedef enum IRQn_e
 {
+    MemoryManagement_IRQn = -12,
+    BusFault_IRQn = -11,
+    UsageFault_IRQn = -10,
+    SVCall_IRQn = -5,
+    PendSV_IRQn = -2,
+    SysTick_IRQn = -1,
     WWDG_IRQn = 0,
     PVD_IRQn = 1,
     TAMP_STAMP_IRQn = 2,

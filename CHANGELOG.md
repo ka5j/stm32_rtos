@@ -10,6 +10,21 @@ specifically.
 
 ### Added
 
+- `core/inc/scb_reg.h`, `core/inc/nvic_reg.h`, `core/inc/systick_reg.h`:
+  added the core-register definitions the NVIC and SysTick drivers and the
+  kernel's context switch need and the headers lacked. SCB: ICSR
+  (`PENDSVSET`/`PENDSVCLR`/`PENDSTSET`/`PENDSTCLR`/`VECTACTIVE`), SCR
+  (`SLEEPONEXIT`/`SLEEPDEEP`/`SEVONPEND`), `CCR.USERSETMPEND`, the SHCSR
+  active and pended bits, the SHPR1 priority fields, and the six
+  `EXC_RETURN_*` values (basic and FPU frames). `IRQn_e` gains the negative
+  system-exception numbers (MemManage -12, BusFault -11, UsageFault -10,
+  SVCall -5, PendSV -2, SysTick -1), which index SCB rather than the NVIC;
+  `tools/check_vector_table.awk` only matches non-negative entries, so the
+  vector-table cross-check is unaffected. SysTick gains the 24-bit
+  `LOAD`/`VAL` masks and the `CALIB` fields. Each is covered by a test.
+  Cross-checked against ARM's CMSIS `core_cm4.h` and ST's
+  `stm32f446xx.h` (ST's F446 SVD has no core peripherals).
+
 - `tools/install_cppcheck.sh` builds the exact cppcheck version CI pins
   (2.13.0) from source into a per-user prefix, verifying the cloned commit
   first, and `make lint` now uses it automatically when it is installed
