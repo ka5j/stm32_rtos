@@ -91,6 +91,14 @@ specifically.
 
 ### Fixed
 
+- `drivers/src/rcc.c`: every `rcc*ClockEnable()` now reads its enable
+  register back after setting the bit, so the clock is running before the
+  caller's first access to the peripheral (e.g. `gpioInit()` straight
+  after `rccGpioClockEnable()`). ST's HAL does the same in each
+  `__HAL_RCC_*_CLK_ENABLE` macro ("Delay after an RCC peripheral clock
+  enabling"), which is what this follows; ST's errata sheet itself was not
+  checked, and the effect cannot be observed in the host tests.
+
 - `drivers/src/uart.c`: `uartTransmit()`/`uartReceive()` with a NULL buffer
   and a non-zero length, and `uartReceiveByte()` with a NULL output, now
   return `DRIVER_STATUS_ERR_INVALID_PARAM` instead of dereferencing NULL,
