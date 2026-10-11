@@ -10,6 +10,18 @@ specifically.
 
 ### Added
 
+- `drivers/inc/nvic.h`, `drivers/src/nvic.c`: the NVIC driver
+  (`nvicEnableIrq`/`DisableIrq`, `SetPending`/`ClearPending`,
+  `SetPriority`/`GetPriority`, and `nvicSetSystemHandlerPriority` for the
+  six configurable system handlers via SCB SHPR1-3). Device IRQn is
+  range-checked (0 to `FMPI2C1_Error_IRQn`) so a negative system-exception
+  number can never index the NVIC arrays; priorities are 0-15, shifted into
+  the implemented top nibble. ISER/ICER/ISPR/ICPR are written as single
+  bits, never read-modify-written. No PRIGROUP setter: `Reset_Handler`
+  already owns it. Covered by `tests/unit/test_nvic.c`; `make lint` gains
+  scoped `misra-c2012-8.7` (nvic.c) and `2.5`/`2.3`/`2.4` (`nvic_reg.h`,
+  `scb_reg.h`) suppressions now that those headers are analysed.
+
 - `core/inc/scb_reg.h`, `core/inc/nvic_reg.h`, `core/inc/systick_reg.h`:
   added the core-register definitions the NVIC and SysTick drivers and the
   kernel's context switch need and the headers lacked. SCB: ICSR
