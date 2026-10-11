@@ -118,3 +118,50 @@ void test_pwr_driver_wait_voltage_scale_ready_does_not_write_cr(void)
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1 << PWR_CR_VOS_Pos, pwr.CR);
 }
+
+/* --- pwrEnableOverdrive --- */
+
+/** With both ready flags set, overdrive enables ODEN then ODSWEN and reports OK. */
+void test_pwr_driver_enable_overdrive_sets_both_enable_bits(void)
+{
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_ODRDY | PWR_CSR_ODSWRDY};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN | PWR_CR_ODSWEN, pwr.CR);
+}
+
+/** Overdrive is a read-modify-write: it must preserve CR.VOS and every other CR field. */
+void test_pwr_driver_enable_overdrive_preserves_other_cr_fields(void)
+{
+    PwrRegisters_t pwr = {.CR = PWR_CR_VOS_Msk | PWR_CR_DBP,
+                          .CSR = PWR_CSR_ODRDY | PWR_CSR_ODSWRDY};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_Msk | PWR_CR_DBP | PWR_CR_ODEN | PWR_CR_ODSWEN, pwr.CR);
+}
+
+/** If ODRDY never sets, it times out and must not have written ODSWEN. */
+void test_pwr_driver_enable_overdrive_times_out_without_odrdy_and_skips_switch(void)
+{
+    PwrRegisters_t pwr = {0};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN, pwr.CR);
+}
+
+/** If ODSWRDY never sets after ODRDY did, it times out with both enable bits written. */
+void test_pwr_driver_enable_overdrive_times_out_without_odswrdy(void)
+{
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_ODRDY};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN | PWR_CR_ODSWEN, pwr.CR);
+}
