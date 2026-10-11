@@ -81,7 +81,6 @@ void test_pwr_driver_set_voltage_scale_does_not_poll_vosrdy(void)
     DriverStatus_e status = pwrSetVoltageScale(&pwr, PWR_CR_VOS_SCALE1);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-    TEST_ASSERT_EQUAL_HEX32(0U, pwr.CSR);
 }
 
 /* --- pwrWaitVoltageScaleReady --- */

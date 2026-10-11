@@ -649,3 +649,28 @@ void test_uart_driver_receive_rejects_null_buffer_with_length(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
 }
+
+/** The BRR bounds are inclusive at both ends: a divisor of exactly 16 (USARTDIV 1) and exactly
+ *  0xFFFF are accepted, and one step beyond either is rejected with nothing written. */
+void test_uart_driver_init_brr_bounds_are_inclusive(void)
+{
+    UartRegisters_t uart = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK,
+                      uartInit(&uart, 16U, 1U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
+    TEST_ASSERT_EQUAL_HEX32(16U, uart.BRR);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK,
+                      uartInit(&uart, 65535U, 1U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
+    TEST_ASSERT_EQUAL_HEX32(65535U, uart.BRR);
+
+    UartRegisters_t low = {0};
+    UartRegisters_t high = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM,
+                      uartInit(&low, 15U, 1U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM,
+                      uartInit(&high, 65536U, 1U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
+    TEST_ASSERT_EQUAL_HEX32(0U, low.BRR);
+    TEST_ASSERT_EQUAL_HEX32(0U, high.BRR);
+}

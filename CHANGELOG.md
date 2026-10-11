@@ -89,6 +89,22 @@ specifically.
   2.21 and failed CI under 2.13.0 (`misra-c2012-10.6`), costing a CI cycle.
   Reproduced that exact failure with the pinned build before relying on it.
 
+### Changed
+
+- Tests only: closed the gaps a mutation pass over `drivers/` and `bsp/`
+  found (each mutation passed all 207 tests before, and is caught now).
+  `bspClockInit` tests assert CR.VOS was written before the PLL stage
+  (the ordering bug CONTRIBUTING.md says shipped once) and cover the
+  PLL-already-on `BUSY` case; `gpioInit` is tested with non-zero field
+  values in every register; `rccPllConfig` is tested at M 2/63, N 50/432
+  and PLLP DIV8; `uartInit`'s BRR bounds are tested at exactly 16, 65535
+  and one past each; a tautological assertion in `test_pwr.c` was removed.
+  Not closed: `uartTransmit`/`uartReceive` byte *order* is not observable
+  through a single-register fake DR, and `gpioDeinit`'s SWD reset-value
+  restore cannot be reached on the host (`gpioPortResetValues()` identifies
+  a port by its real address); both are noted in the review but need a
+  production-API seam to test, which is not justified yet.
+
 ### Fixed
 
 - `drivers/src/rcc.c`: every `rcc*ClockEnable()` now reads its enable

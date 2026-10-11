@@ -779,3 +779,37 @@ void test_rcc_driver_sysclk_switch_defers_lowering_latency_when_switch_times_out
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
 }
+
+/** The accepted edges of every PLL parameter are really accepted and land in their own field:
+ *  M 2 and 63, N 50 and 432, and every PLLP divisor including DIV8. A boundary written as
+ *  `<=`/`>=` instead of `<`/`>` would reject one of these. */
+void test_rcc_driver_pll_config_accepts_range_edges(void)
+{
+    static const struct
+    {
+        uint32_t m;
+        uint32_t n;
+        uint32_t p;
+    } cases[] = {
+        {2U, 50U, RCC_PLLCFGR_PLLP_DIV2},
+        {63U, 432U, RCC_PLLCFGR_PLLP_DIV4},
+        {2U, 432U, RCC_PLLCFGR_PLLP_DIV6},
+        {63U, 50U, RCC_PLLCFGR_PLLP_DIV8},
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        RccRegisters_t rcc = {0};
+
+        DriverStatus_e status =
+            rccPllConfig(&rcc, RCC_PLLCFGR_PLLSRC_HSE, cases[i].m, cases[i].n, cases[i].p);
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+        TEST_ASSERT_EQUAL_UINT32(cases[i].m,
+                                 (rcc.PLLCFGR & RCC_PLLCFGR_PLLM_Msk) >> RCC_PLLCFGR_PLLM_Pos);
+        TEST_ASSERT_EQUAL_UINT32(cases[i].n,
+                                 (rcc.PLLCFGR & RCC_PLLCFGR_PLLN_Msk) >> RCC_PLLCFGR_PLLN_Pos);
+        TEST_ASSERT_EQUAL_UINT32(cases[i].p,
+                                 (rcc.PLLCFGR & RCC_PLLCFGR_PLLP_Msk) >> RCC_PLLCFGR_PLLP_Pos);
+    }
+}

@@ -122,6 +122,10 @@ void test_bsp_driver_clock_init_stops_when_pll_never_locks(void)
     DriverStatus_e status = bspClockInit(&rcc, &pwr, &flash);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    /* The scale was written before the PLL was enabled (the ordering RM0390 5.1.4 requires:
+     * CR.VOS can only be written with the PLL off) - a regulator write after rccPllEnable()
+     * would leave CR.VOS untouched here. */
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1, (pwr.CR & PWR_CR_VOS_Msk) >> PWR_CR_VOS_Pos);
     TEST_ASSERT_BITS_LOW(PWR_CR_ODEN, pwr.CR);
     TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & (RCC_CFGR_SW_Msk | RCC_CFGR_PPRE1_Msk));
 }
@@ -136,6 +140,7 @@ void test_bsp_driver_clock_init_stops_when_voltage_scale_never_settles(void)
     DriverStatus_e status = bspClockInit(&rcc, &pwr, &flash);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1, (pwr.CR & PWR_CR_VOS_Msk) >> PWR_CR_VOS_Pos);
     TEST_ASSERT_BITS_LOW(PWR_CR_ODEN, pwr.CR);
 }
 
@@ -164,4 +169,19 @@ void test_bsp_driver_clock_init_stops_when_sysclk_switch_never_completes(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_BITS_LOW(FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN, flash.ACR);
+}
+
+/** The PLL already running (HSE off): rccPllConfig() refuses with BUSY, and the sequence stops
+ *  before over-drive, the prescalers and the switch. */
+void test_bsp_driver_clock_init_reports_busy_when_pll_already_on(void)
+{
+    RccRegisters_t rcc = {.CR = ALL_RCC_READY | RCC_CR_PLLON, .CFGR = SWS_PLL};
+    PwrRegisters_t pwr = {.CSR = ALL_PWR_READY};
+    FlashRegisters_t flash = {0};
+
+    DriverStatus_e status = bspClockInit(&rcc, &pwr, &flash);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_BUSY, status);
+    TEST_ASSERT_BITS_LOW(PWR_CR_ODEN, pwr.CR);
+    TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & RCC_CFGR_SW_Msk);
 }
