@@ -26,10 +26,11 @@
  * that and deliberately offers no grouping setter, so the setting has a
  * single owner.
  *
- * A device IRQn is accepted if it is in 0 to FMPI2C1_Error_IRQn. IRQn_e
- * does not name the reserved positions inside that range (nvic_reg.h
- * lists them); writing the NVIC bit for one is architecturally harmless
- * (no vector exists for it to select), so they are not rejected.
+ * A device IRQn is accepted if it is in 0 to FMPI2C1_Error_IRQn and not
+ * one of the reserved positions inside that range (61-62, 79-80, 82-83,
+ * 85-86, 88-90; IRQn_e does not name them and the startup vector table
+ * holds a zero there). Enabling and then pending a reserved line would
+ * vector through address 0, so they are rejected rather than ignored.
  *
  * ISER/ICER/ISPR/ICPR are write-1-to-act: this driver writes only the
  * single bit it means to change and never reads them back, so enabling
@@ -66,8 +67,9 @@
  * @param irqn Device interrupt number, 0 to ::FMPI2C1_Error_IRQn.
  * @return DRIVER_STATUS_OK once the enable bit has been written.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p irqn is negative (a
- *         system exception, which the NVIC does not control) or above
- *         ::FMPI2C1_Error_IRQn.
+ *         system exception, which the NVIC does not control), above
+ *         ::FMPI2C1_Error_IRQn, or one of the reserved positions inside
+ *         that range.
  */
 DRIVER_MUST_CHECK DriverStatus_e nvicEnableIrq(NvicRegisters_t *nvic, IRQn_e irqn);
 

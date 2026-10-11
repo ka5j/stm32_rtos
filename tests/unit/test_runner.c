@@ -164,6 +164,8 @@ extern void test_nvic_driver_disable_irq_writes_single_icer_bit(void);
 extern void test_nvic_driver_set_pending_writes_single_ispr_bit(void);
 extern void test_nvic_driver_clear_pending_writes_single_icpr_bit(void);
 extern void test_nvic_driver_enable_disable_pending_reject_invalid_irq(void);
+extern void test_nvic_driver_rejects_reserved_irq_positions(void);
+extern void test_nvic_driver_accepts_every_non_reserved_position(void);
 extern void test_nvic_driver_set_priority_shifts_into_top_nibble(void);
 extern void test_nvic_driver_priority_max_is_fifteen(void);
 extern void test_nvic_driver_set_priority_rejects_out_of_range_priority(void);
@@ -376,6 +378,8 @@ int main(void)
     RUN_TEST(test_nvic_driver_set_pending_writes_single_ispr_bit);
     RUN_TEST(test_nvic_driver_clear_pending_writes_single_icpr_bit);
     RUN_TEST(test_nvic_driver_enable_disable_pending_reject_invalid_irq);
+    RUN_TEST(test_nvic_driver_rejects_reserved_irq_positions);
+    RUN_TEST(test_nvic_driver_accepts_every_non_reserved_position);
     RUN_TEST(test_nvic_driver_set_priority_shifts_into_top_nibble);
     RUN_TEST(test_nvic_driver_priority_max_is_fifteen);
     RUN_TEST(test_nvic_driver_set_priority_rejects_out_of_range_priority);

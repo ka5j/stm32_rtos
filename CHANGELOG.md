@@ -91,6 +91,17 @@ specifically.
 
 ### Fixed
 
+- `drivers/src/nvic.c`: the NVIC functions now reject the reserved vector
+  positions inside 0 to `FMPI2C1_Error_IRQn` (61-62, 79-80, 82-83, 85-86,
+  88-90) with `DRIVER_STATUS_ERR_INVALID_PARAM`, where #99 accepted them
+  as "architecturally harmless". Enabling and then pending one vectors
+  through the zero in startup's vector table, which is a fault. The tests
+  for the write-1-to-act banks now preload every ISER/ICER/ISPR/ICPR word
+  with a pattern, so a read-modify-write (`ICER |= bit`, which on silicon
+  disables every enabled line) is caught; the system-handler tests
+  preload SHPR1-3 so a wrong byte-lane mask is caught. Both were found by
+  mutation testing.
+
 - `device/inc/iwdg_reg.h`: removed `WINR` (0x10), `IWDG_SR_WVU` and
   `IWDG_WINR_WIN_*`, which the F446's IWDG does not have; the struct is
   0x10 bytes, not 0x14. ST's F446 SVD and `stm32f446xx.h` both define only

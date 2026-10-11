@@ -26,87 +26,114 @@ static const IRQn_e invalid_irqs[] = {SysTick_IRQn, PendSV_IRQn, MemoryManagemen
 
 #define COUNT_OF(a) (sizeof(a) / sizeof((a)[0]))
 
+/** Reserved vector-table positions inside 0 to FMPI2C1_Error_IRQn (the zero slots in startup's
+ *  vector table, listed in nvic_reg.h). IRQn_e names none of them. */
+static const uint32_t reserved_irqs[] = {61U, 62U, 79U, 80U, 82U, 83U, 85U, 86U, 88U, 89U, 90U};
+
+#define COUNT_OF(a) (sizeof(a) / sizeof((a)[0]))
+
+/* A non-zero pattern in every write-1-to-act word, so a driver that read-modify-writes
+ * (`ICER |= bit`, which on silicon would write back every enabled line and disable them all)
+ * leaves the pattern's bits behind and is caught; a plain `= bit` leaves exactly one bit. */
+#define PATTERN (0xA5A5A5A5U)
+
+static void fill_write1_banks(NvicRegisters_t *nvic)
+{
+    for (size_t w = 0; w < 8U; w++)
+    {
+        nvic->ISER[w] = PATTERN;
+        nvic->ICER[w] = PATTERN;
+        nvic->ISPR[w] = PATTERN;
+        nvic->ICPR[w] = PATTERN;
+    }
+}
+
+/** Assert `bank[word]` holds exactly `bit` and every other word of every bank is still PATTERN. */
+static void assert_only_one_bank_word_written(const NvicRegisters_t *nvic,
+                                              const volatile uint32_t *bank, uint32_t word,
+                                              uint32_t bit)
+{
+    const volatile uint32_t *banks[] = {nvic->ISER, nvic->ICER, nvic->ISPR, nvic->ICPR};
+
+    for (size_t b = 0; b < COUNT_OF(banks); b++)
+    {
+        for (uint32_t w = 0; w < 8U; w++)
+        {
+            if ((banks[b] == bank) && (w == word))
+            {
+                TEST_ASSERT_EQUAL_HEX32(bit, banks[b][w]);
+            }
+            else
+            {
+                TEST_ASSERT_EQUAL_HEX32(PATTERN, banks[b][w]);
+            }
+        }
+    }
+}
+
 /* --- enable / disable / pending: shared shape, one bit in one word --- */
 
-/** nvicEnableIrq() writes only ISER[irq/32] = 1 << (irq%32). */
+/** nvicEnableIrq() writes only ISER[irq/32] = 1 << (irq%32), with no read-modify-write. */
 void test_nvic_driver_enable_irq_writes_single_iser_bit(void)
 {
     for (size_t i = 0; i < COUNT_OF(valid_irqs); i++)
     {
-        NvicRegisters_t nvic = {{0}};
+        NvicRegisters_t nvic = {0};
         uint32_t irq = (uint32_t)valid_irqs[i];
+        fill_write1_banks(&nvic);
 
         DriverStatus_e status = nvicEnableIrq(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        TEST_ASSERT_EQUAL_HEX32(1UL << (irq % 32U), nvic.ISER[irq / 32U]);
-        for (size_t w = 0; w < 8U; w++)
-        {
-            if (w != (irq / 32U))
-            {
-                TEST_ASSERT_EQUAL_HEX32(0U, nvic.ISER[w]);
-            }
-            TEST_ASSERT_EQUAL_HEX32(0U, nvic.ICER[w]);
-            TEST_ASSERT_EQUAL_HEX32(0U, nvic.ISPR[w]);
-            TEST_ASSERT_EQUAL_HEX32(0U, nvic.ICPR[w]);
-        }
+        assert_only_one_bank_word_written(&nvic, nvic.ISER, irq / 32U, 1UL << (irq % 32U));
     }
 }
 
-/** nvicDisableIrq() writes only ICER[irq/32] = 1 << (irq%32). */
+/** nvicDisableIrq() writes only ICER[irq/32] = 1 << (irq%32), with no read-modify-write. */
 void test_nvic_driver_disable_irq_writes_single_icer_bit(void)
 {
     for (size_t i = 0; i < COUNT_OF(valid_irqs); i++)
     {
-        NvicRegisters_t nvic = {{0}};
+        NvicRegisters_t nvic = {0};
         uint32_t irq = (uint32_t)valid_irqs[i];
+        fill_write1_banks(&nvic);
 
         DriverStatus_e status = nvicDisableIrq(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        TEST_ASSERT_EQUAL_HEX32(1UL << (irq % 32U), nvic.ICER[irq / 32U]);
-        for (size_t w = 0; w < 8U; w++)
-        {
-            TEST_ASSERT_EQUAL_HEX32(0U, nvic.ISER[w]);
-        }
+        assert_only_one_bank_word_written(&nvic, nvic.ICER, irq / 32U, 1UL << (irq % 32U));
     }
 }
 
-/** nvicSetPending() writes only ISPR[irq/32] = 1 << (irq%32). */
+/** nvicSetPending() writes only ISPR[irq/32] = 1 << (irq%32), with no read-modify-write. */
 void test_nvic_driver_set_pending_writes_single_ispr_bit(void)
 {
     for (size_t i = 0; i < COUNT_OF(valid_irqs); i++)
     {
-        NvicRegisters_t nvic = {{0}};
+        NvicRegisters_t nvic = {0};
         uint32_t irq = (uint32_t)valid_irqs[i];
+        fill_write1_banks(&nvic);
 
         DriverStatus_e status = nvicSetPending(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        TEST_ASSERT_EQUAL_HEX32(1UL << (irq % 32U), nvic.ISPR[irq / 32U]);
-        for (size_t w = 0; w < 8U; w++)
-        {
-            TEST_ASSERT_EQUAL_HEX32(0U, nvic.ICPR[w]);
-        }
+        assert_only_one_bank_word_written(&nvic, nvic.ISPR, irq / 32U, 1UL << (irq % 32U));
     }
 }
 
-/** nvicClearPending() writes only ICPR[irq/32] = 1 << (irq%32). */
+/** nvicClearPending() writes only ICPR[irq/32] = 1 << (irq%32), with no read-modify-write. */
 void test_nvic_driver_clear_pending_writes_single_icpr_bit(void)
 {
     for (size_t i = 0; i < COUNT_OF(valid_irqs); i++)
     {
-        NvicRegisters_t nvic = {{0}};
+        NvicRegisters_t nvic = {0};
         uint32_t irq = (uint32_t)valid_irqs[i];
+        fill_write1_banks(&nvic);
 
         DriverStatus_e status = nvicClearPending(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        TEST_ASSERT_EQUAL_HEX32(1UL << (irq % 32U), nvic.ICPR[irq / 32U]);
-        for (size_t w = 0; w < 8U; w++)
-        {
-            TEST_ASSERT_EQUAL_HEX32(0U, nvic.ISPR[w]);
-        }
+        assert_only_one_bank_word_written(&nvic, nvic.ICPR, irq / 32U, 1UL << (irq % 32U));
     }
 }
 
@@ -115,8 +142,8 @@ void test_nvic_driver_enable_disable_pending_reject_invalid_irq(void)
 {
     for (size_t i = 0; i < COUNT_OF(invalid_irqs); i++)
     {
-        NvicRegisters_t nvic = {{0}};
-        NvicRegisters_t untouched = {{0}};
+        NvicRegisters_t nvic = {0};
+        NvicRegisters_t untouched = {0};
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicEnableIrq(&nvic, invalid_irqs[i]));
         TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicDisableIrq(&nvic, invalid_irqs[i]));
@@ -124,6 +151,50 @@ void test_nvic_driver_enable_disable_pending_reject_invalid_irq(void)
         TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM,
                           nvicClearPending(&nvic, invalid_irqs[i]));
         TEST_ASSERT_EQUAL_MEMORY(&untouched, &nvic, sizeof(nvic));
+    }
+}
+
+/** Reserved positions inside the range have no vector (startup holds a zero there), so enabling
+ *  and then pending one would fault; every function that takes an IRQn rejects them. */
+void test_nvic_driver_rejects_reserved_irq_positions(void)
+{
+    for (size_t i = 0; i < COUNT_OF(reserved_irqs); i++)
+    {
+        NvicRegisters_t nvic = {0};
+        NvicRegisters_t untouched = {0};
+        IRQn_e irqn = (IRQn_e)reserved_irqs[i];
+        uint32_t priority = 0U;
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicEnableIrq(&nvic, irqn));
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicDisableIrq(&nvic, irqn));
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicSetPending(&nvic, irqn));
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicClearPending(&nvic, irqn));
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicSetPriority(&nvic, irqn, 1U));
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, nvicGetPriority(&nvic, irqn, &priority));
+        TEST_ASSERT_EQUAL_MEMORY(&untouched, &nvic, sizeof(nvic));
+    }
+}
+
+/** Every position in 0 to FMPI2C1_Error_IRQn is accepted unless it is one of the reserved ones. */
+void test_nvic_driver_accepts_every_non_reserved_position(void)
+{
+    for (uint32_t irq = 0U; irq <= (uint32_t)FMPI2C1_Error_IRQn; irq++)
+    {
+        NvicRegisters_t nvic = {0};
+        int is_reserved = 0;
+
+        for (size_t i = 0; i < COUNT_OF(reserved_irqs); i++)
+        {
+            if (reserved_irqs[i] == irq)
+            {
+                is_reserved = 1;
+            }
+        }
+
+        DriverStatus_e status = nvicEnableIrq(&nvic, (IRQn_e)irq);
+
+        TEST_ASSERT_EQUAL((is_reserved != 0) ? DRIVER_STATUS_ERR_INVALID_PARAM : DRIVER_STATUS_OK,
+                          status);
     }
 }
 
@@ -137,14 +208,20 @@ void test_nvic_driver_set_priority_shifts_into_top_nibble(void)
     {
         for (uint32_t prio = 0U; prio <= NVIC_PRIORITY_MAX; prio++)
         {
-            NvicRegisters_t nvic = {{0}};
+            NvicRegisters_t nvic = {0};
             uint32_t irq = (uint32_t)valid_irqs[i];
 
             DriverStatus_e status = nvicSetPriority(&nvic, valid_irqs[i], prio);
 
             TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
             TEST_ASSERT_EQUAL_HEX8((uint8_t)(prio << 4), nvic.IP[irq]);
-            TEST_ASSERT_EQUAL_HEX8(0U, nvic.IP[(irq == 0U) ? 1U : 0U]);
+            for (uint32_t j = 0U; j < sizeof(nvic.IP); j++)
+            {
+                if (j != irq)
+                {
+                    TEST_ASSERT_EQUAL_HEX8(0U, nvic.IP[j]);
+                }
+            }
         }
     }
 }
@@ -158,7 +235,7 @@ void test_nvic_driver_priority_max_is_fifteen(void)
 /** nvicSetPriority() rejects a priority above NVIC_PRIORITY_MAX without writing. */
 void test_nvic_driver_set_priority_rejects_out_of_range_priority(void)
 {
-    NvicRegisters_t nvic = {{0}};
+    NvicRegisters_t nvic = {0};
 
     DriverStatus_e status = nvicSetPriority(&nvic, EXTI0_IRQn, NVIC_PRIORITY_MAX + 1U);
 
@@ -171,7 +248,7 @@ void test_nvic_driver_set_priority_rejects_invalid_irq(void)
 {
     for (size_t i = 0; i < COUNT_OF(invalid_irqs); i++)
     {
-        NvicRegisters_t nvic = {{0}};
+        NvicRegisters_t nvic = {0};
         NvicRegisters_t untouched = {{0}};
 
         DriverStatus_e status = nvicSetPriority(&nvic, invalid_irqs[i], 1U);
@@ -186,7 +263,7 @@ void test_nvic_driver_get_priority_round_trips(void)
 {
     for (uint32_t prio = 0U; prio <= NVIC_PRIORITY_MAX; prio++)
     {
-        NvicRegisters_t nvic = {{0}};
+        NvicRegisters_t nvic = {0};
         uint32_t read_back = 0xFFFFFFFFU;
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, nvicSetPriority(&nvic, FMPI2C1_Error_IRQn, prio));
@@ -198,7 +275,7 @@ void test_nvic_driver_get_priority_round_trips(void)
 /** nvicGetPriority() ignores the unimplemented low nibble of the priority byte. */
 void test_nvic_driver_get_priority_ignores_low_nibble(void)
 {
-    NvicRegisters_t nvic = {{0}};
+    NvicRegisters_t nvic = {0};
     uint32_t read_back = 0U;
 
     nvic.IP[EXTI0_IRQn] = 0xA5U;
@@ -210,7 +287,7 @@ void test_nvic_driver_get_priority_ignores_low_nibble(void)
 /** nvicGetPriority() rejects an invalid IRQn and leaves the output untouched. */
 void test_nvic_driver_get_priority_rejects_invalid_irq(void)
 {
-    NvicRegisters_t nvic = {{0}};
+    NvicRegisters_t nvic = {0};
     uint32_t read_back = 0x1234U;
 
     DriverStatus_e status = nvicGetPriority(&nvic, SysTick_IRQn, &read_back);
@@ -222,7 +299,7 @@ void test_nvic_driver_get_priority_rejects_invalid_irq(void)
 /** nvicGetPriority() rejects a NULL output pointer instead of dereferencing it. */
 void test_nvic_driver_get_priority_rejects_null_output(void)
 {
-    NvicRegisters_t nvic = {{0}};
+    NvicRegisters_t nvic = {0};
 
     DriverStatus_e status = nvicGetPriority(&nvic, EXTI0_IRQn, NULL);
 
@@ -231,7 +308,8 @@ void test_nvic_driver_get_priority_rejects_null_output(void)
 
 /* --- system handler priority --- */
 
-/** Each system handler's priority lands in its own byte lane of the right SHPR word. */
+/** Each system handler's priority lands in its own byte lane of the right SHPR word, and every
+ *  other bit of all three words is left exactly as it was (preloaded with a pattern). */
 void test_nvic_driver_set_system_handler_priority_targets_correct_lane(void)
 {
     static const struct
@@ -247,17 +325,21 @@ void test_nvic_driver_set_system_handler_priority_targets_correct_lane(void)
     for (size_t i = 0; i < COUNT_OF(cases); i++)
     {
         ScbRegisters_t scb = {0};
+        uint32_t expected[3] = {0x11223344U, 0x55667788U, 0x99AABBCCU};
+
+        scb.SHPR1 = expected[0];
+        scb.SHPR2 = expected[1];
+        scb.SHPR3 = expected[2];
+        expected[cases[i].shpr_index - 1U] =
+            (expected[cases[i].shpr_index - 1U] & ~(0xFFU << cases[i].lane_shift))
+            | ((0x9U << 4) << cases[i].lane_shift);
 
         DriverStatus_e status = nvicSetSystemHandlerPriority(&scb, cases[i].irqn, 0x9U);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        TEST_ASSERT_EQUAL_HEX32((0x9U << 4) << cases[i].lane_shift,
-                                (cases[i].shpr_index == 1U)   ? scb.SHPR1
-                                : (cases[i].shpr_index == 2U) ? scb.SHPR2
-                                                              : scb.SHPR3);
-        TEST_ASSERT_EQUAL_HEX32(0U, (cases[i].shpr_index == 1U) ? 0U : scb.SHPR1);
-        TEST_ASSERT_EQUAL_HEX32(0U, (cases[i].shpr_index == 2U) ? 0U : scb.SHPR2);
-        TEST_ASSERT_EQUAL_HEX32(0U, (cases[i].shpr_index == 3U) ? 0U : scb.SHPR3);
+        TEST_ASSERT_EQUAL_HEX32(expected[0], scb.SHPR1);
+        TEST_ASSERT_EQUAL_HEX32(expected[1], scb.SHPR2);
+        TEST_ASSERT_EQUAL_HEX32(expected[2], scb.SHPR3);
     }
 }
 
