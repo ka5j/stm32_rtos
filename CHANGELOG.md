@@ -10,6 +10,18 @@ specifically.
 
 ### Added
 
+- `drivers/inc/pwr.h`, `drivers/src/pwr.c`: `pwrEnableOverdrive()`
+  (CR.ODEN, wait CSR.ODRDY, CR.ODSWEN, wait CSR.ODSWRDY) for the 180 MHz
+  range, with bounded waits like `pwrWaitVoltageScaleReady()`; ODSWEN is
+  not written if ODRDY never sets, and CR.VOS is preserved. The ready-flag
+  waits share one helper, and the timeout constant is renamed
+  `PWR_READY_TIMEOUT_ITERATIONS` (same 100000 value). `drivers/inc/rcc.h`'s
+  ordered bring-up sequence gains the over-drive step between the VOS
+  wait and the prescaler/SYSCLK-switch steps. Sequence and bit positions
+  checked against ST's HAL (`HAL_PWREx_EnableOverDrive`), its
+  `stm32f446xx.h`, and its Nucleo-F446 180 MHz example; RM0390 5.1.4 was
+  not checked directly.
+
 - `drivers/inc/systick.h`, `drivers/src/systick.c`: the SysTick driver,
   completing `drivers/` (7 of 7). `systickInit(systick, core_hz,
   tick_hz)` programs LOAD = `core_hz / tick_hz - 1`, rejecting zero

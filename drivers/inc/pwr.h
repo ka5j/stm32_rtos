@@ -86,7 +86,7 @@ DRIVER_MUST_CHECK DriverStatus_e pwrSetVoltageScale(PwrRegisters_t *pwr, uint32_
  *      out - see this file's top comment.
  * @return DRIVER_STATUS_OK once CSR.VOSRDY is observed set.
  * @return DRIVER_STATUS_ERR_TIMEOUT if CSR.VOSRDY never set within
- *         PWR_VOSRDY_TIMEOUT_ITERATIONS iterations. This is a bounded
+ *         PWR_READY_TIMEOUT_ITERATIONS iterations. This is a bounded
  *         retry count, not a wall-clock timeout - SysTick is not
  *         available this early in clock bring-up (its reload value
  *         depends on the SYSCLK frequency this sequence is establishing),
@@ -94,6 +94,35 @@ DRIVER_MUST_CHECK DriverStatus_e pwrSetVoltageScale(PwrRegisters_t *pwr, uint32_
  *         system_stm32f4xx.c) uses for HSE/PLL ready-waits.
  */
 DRIVER_MUST_CHECK DriverStatus_e pwrWaitVoltageScaleReady(const PwrRegisters_t *pwr);
+
+/**
+ * @brief Enable over-drive mode (CR.ODEN, then CR.ODSWEN), which lets the
+ *        core run faster than the selected voltage scale's normal maximum
+ *        - what the 180 MHz configuration needs.
+ *
+ * The two-step sequence is ODEN, wait for CSR.ODRDY, ODSWEN, wait for
+ * CSR.ODSWRDY - the same order ST's HAL (HAL_PWREx_EnableOverDrive) uses.
+ * ODSWEN is not written if ODRDY never sets. Both steps are
+ * read-modify-writes, so CR.VOS is preserved.
+ *
+ * @param pwr PWR register block (e.g. PWR).
+ * @pre RCC_APB1ENR_PWREN is already enabled (rcc.h's rccPwrClockEnable()).
+ * @pre SYSCLK is still HSI or HSE, not the PLL: ST's HAL documents
+ *      over-drive as entered with an HSI/HSE system clock, and its 180
+ *      MHz example enables it after the PLL has locked and before
+ *      switching SYSCLK to it. See rcc.h's file-level comment for where
+ *      it sits in the full bring-up sequence.
+ * @pre pwrSetVoltageScale() has selected the scale RM0390 Table 15 pairs
+ *      with the target frequency (scale 1 for 180 MHz, as in ST's 180 MHz
+ *      example) and pwrWaitVoltageScaleReady() has reported it settled.
+ * @return DRIVER_STATUS_OK once CSR.ODSWRDY is observed set.
+ * @return DRIVER_STATUS_ERR_TIMEOUT if CSR.ODRDY never set (ODSWEN is
+ *         then not written) or CSR.ODSWRDY never set, each within
+ *         PWR_READY_TIMEOUT_ITERATIONS iterations - a bounded retry
+ *         count, not a wall-clock timeout, for the reason given at
+ *         pwrWaitVoltageScaleReady().
+ */
+DRIVER_MUST_CHECK DriverStatus_e pwrEnableOverdrive(PwrRegisters_t *pwr);
 
 /** @} */
 

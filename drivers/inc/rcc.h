@@ -30,14 +30,21 @@
  *   4. rccPllConfig(RCC, source, m, n, p)
  *   5. rccPllEnable(RCC)                       - scale now takes effect
  *   6. pwrWaitVoltageScaleReady(PWR)           - regulator settled
- *   7. rccBusPrescalerConfig(RCC, hpre, ppre1, ppre2)
- *   8. rccSysclkSwitch(RCC, FLASH, source, latency)
+ *   7. pwrEnableOverdrive(PWR)                 - only for the top range
+ *                                                (180 MHz); PLL locked,
+ *                                                SYSCLK still HSI/HSE
+ *   8. rccBusPrescalerConfig(RCC, hpre, ppre1, ppre2)
+ *   9. rccSysclkSwitch(RCC, FLASH, source, latency)
  *
  * Steps 1, 2 and 6 are skippable only when running SYSCLK straight off
  * HSI or HSE with no PLL, where the regulator's reset default (scale 3)
- * already covers the frequency range.
+ * already covers the frequency range. Step 7 is needed only for
+ * frequencies above the selected scale's normal maximum. Its position
+ * follows ST's own 180 MHz example for this part (PLL on, then
+ * over-drive, then the prescalers and the SYSCLK switch with 5 flash wait
+ * states); RM0390 5.1.4 was not available to check it against directly.
  *
- * Every hardware-ready wait here (HSIRDY/HSERDY/PLLRDY/SWS/VOSRDY) is a
+ * Every hardware-ready wait here (HSIRDY/HSERDY/PLLRDY/SWS/VOSRDY/ODRDY/ODSWRDY) is a
  * bounded iteration-count retry, not a wall-clock timeout: SysTick is not
  * configured this early in bring-up (its reload value depends on the
  * SYSCLK frequency this code is in the middle of establishing), the same
