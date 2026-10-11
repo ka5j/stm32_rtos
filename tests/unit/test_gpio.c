@@ -384,3 +384,36 @@ void test_gpio_driver_toggle_pin_drives_low_when_odr_bit_high(void)
 
     TEST_ASSERT_EQUAL_HEX32(0x1U << (5U + 16U), port.BSRR);
 }
+
+/** Non-zero field values land in the right register at the right pin position. Every field of
+ *  every register is distinct from its neighbours' encoding, so a swapped shift (e.g. OSPEEDR
+ *  shifted by `pin` instead of `pin * 2`) or a mixed-up register is visible. */
+void test_gpio_driver_init_places_nonzero_fields_in_the_right_registers(void)
+{
+    GpioRegisters_t port = {0};
+
+    DriverStatus_e status =
+        gpioInit(&port, GPIO_PIN_5, GPIO_MODE_AF, GPIO_OTYPE_OD, GPIO_OSPEED_HIGH, GPIO_PUPD_DOWN);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_MODE_AF << 10, port.MODER);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_OTYPE_OD << 5, port.OTYPER);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_OSPEED_HIGH << 10, port.OSPEEDR);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_PUPD_DOWN << 10, port.PUPDR);
+}
+
+/** Re-initialising a pin overwrites its old non-zero fields rather than OR-ing into them. */
+void test_gpio_driver_init_overwrites_previous_nonzero_fields(void)
+{
+    GpioRegisters_t port = {
+        .MODER = 3U << 10, .OTYPER = 1U << 5, .OSPEEDR = 3U << 10, .PUPDR = 3U << 10};
+
+    DriverStatus_e status = gpioInit(&port, GPIO_PIN_5, GPIO_MODE_OUTPUT, GPIO_OTYPE_PP,
+                                     GPIO_OSPEED_MEDIUM, GPIO_PUPD_UP);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_MODE_OUTPUT << 10, port.MODER);
+    TEST_ASSERT_EQUAL_HEX32(0U, port.OTYPER);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_OSPEED_MEDIUM << 10, port.OSPEEDR);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_PUPD_UP << 10, port.PUPDR);
+}
