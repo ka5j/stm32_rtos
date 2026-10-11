@@ -289,10 +289,12 @@ CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cp
 #    core/inc/systick_reg.h: the NVIC and SysTick drivers use only a few
 #    of each header's bits - CFSR/HFSR/FPCCR, STIR, IABR, SysTick's
 #    COUNTFLAG and CALIB are modeled for completeness with no consumer
-#    yet - and misra-c2012-8.7 (external linkage used in only one
-#    translation unit) on drivers/src/gpio.c, drivers/src/rcc.c,
-#    drivers/src/uart.c, drivers/src/pwr.c, drivers/src/nvic.c, and
-#    drivers/src/systick.c. All are real findings
+#    yet - and bsp/inc/bsp.h, whose BSP_*_HZ constants have no caller
+#    until SysTick/UART are initialised from them, and misra-c2012-8.7
+#    (external linkage used in only one translation unit) on
+#    drivers/src/gpio.c, drivers/src/rcc.c, drivers/src/uart.c,
+#    drivers/src/pwr.c, drivers/src/nvic.c, drivers/src/systick.c and
+#    bsp/src/bsp.c. All are real findings
 #    today: nothing in api/bsp/app calls those files' own public
 #    functions yet. flash.c is the one driver that still does not need
 #    this suppression - rcc.c calls flashSetLatency() directly, so
@@ -360,6 +362,7 @@ lint:
 	  --suppress=misra-c2012-2.5:core/inc/nvic_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/systick_reg.h \
+	  --suppress=misra-c2012-2.5:bsp/inc/bsp.h \
 	  --suppress=misra-c2012-2.3:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.4:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
@@ -367,6 +370,7 @@ lint:
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
 	  --suppress=misra-c2012-8.7:drivers/src/nvic.c \
 	  --suppress=misra-c2012-8.7:drivers/src/systick.c \
+	  --suppress=misra-c2012-8.7:bsp/src/bsp.c \
 	  --suppress=misra-c2012-8.7:drivers/src/pwr.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
@@ -419,7 +423,8 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # SYSCLK bring-up; that was reconsidered once it was actually written and
 # tested, rather than left standing as-is.
 TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
-                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c
+                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c \
+                       bsp/src/bsp.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
@@ -457,9 +462,10 @@ test: $(TEST_OBJECTS)
 # tests/unit/*_reg.c or the register headers themselves: those are pure
 # data - structs and macros, no branches - so "coverage" isn't a
 # meaningful concept there and would only pad the reported number toward
-# 100% for free. The filter grows automatically as TEST_DRIVER_SOURCES
-# does, so a second host-testable driver file is covered by this gate
-# the moment it's added there, no Makefile change needed.
+# 100% for free. The filter is by directory (drivers/src and bsp/src), so
+# another host-testable file in either is covered by this gate the moment
+# it's added to TEST_DRIVER_SOURCES; a new directory also needs its own
+# --filter below.
 #
 # Separate build dir (tests/coverage/) so this never touches build/ or
 # tests/build/ - instrumented objects are not the same as make test's
@@ -488,7 +494,7 @@ $(COVERAGE_DIR)/%.o: %.c
 coverage: $(COVERAGE_OBJECTS)
 	$(HOST_CC) --coverage $(COVERAGE_OBJECTS) -o $(COVERAGE_DIR)/run_tests_cov
 	$(COVERAGE_DIR)/run_tests_cov
-	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' \
+	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' --filter 'bsp/src/.*' \
 	  --fail-under-line $(COVERAGE_MIN_LINE) --fail-under-branch $(COVERAGE_MIN_BRANCH) \
 	  --print-summary
 

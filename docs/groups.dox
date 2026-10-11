@@ -148,3 +148,9 @@
  * @brief Register-level driver logic (GPIO, RCC, Flash, PWR, UART, NVIC,
  *        SysTick), with no application-facing logic. Consumed by api/.
  */
+
+/**
+ * @defgroup board_support Board Support Package
+ * @brief Board-specific configuration for the NUCLEO-F446RE (today: the
+ *        180 MHz clock bring-up), built on drivers/ and consumed by api/.
+ */

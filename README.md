@@ -96,7 +96,8 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 | Register layer (`core/inc/`, `device/inc/`) | **Complete** — 4 core + 9 device peripherals, one `test_<peripheral>_reg.c` each |
 | Development pipeline (build, format, lint, docs, tests, coverage, hook, CI) | **Complete** |
 | `drivers/` | **7 of 7** — GPIO, RCC, Flash, PWR, UART, NVIC, SysTick done |
-| `api/`, `bsp/` | **Not started** — empty scaffolding |
+| `bsp/` | **Started** — `bspClockInit` (180 MHz clock bring-up) only; pin mapping not started |
+| `api/` | **Not started** — empty scaffolding |
 | `rtos/kernel/`, `rtos/api/` | **Not started** — empty scaffolding |
 | `app/` | **Not started** — `main.c` is an empty loop |
 
@@ -111,6 +112,7 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 - **PWR** — `pwrSetVoltageScale` and `pwrWaitVoltageScaleReady`, split because RM0390 permits `CR.VOS` to be written only while the PLL is off while `CSR.VOSRDY` only settles once it is on — and `pwrEnableOverdrive` (ODEN, wait ODRDY, ODSWEN, wait ODSWRDY) for the 180 MHz range.
 - **NVIC** — `nvicEnableIrq`/`nvicDisableIrq`, `nvicSetPending`/`nvicClearPending`, `nvicSetPriority`/`nvicGetPriority` for device interrupts (IRQn 0-96, priorities 0-15), and `nvicSetSystemHandlerPriority` for MemManage/BusFault/UsageFault/SVCall/PendSV/SysTick via SCB SHPR1-3. Priority grouping is left to `Reset_Handler`, which sets PRIGROUP=3.
 - **SysTick** — `systickInit(systick, core_hz, tick_hz)` (reload = `core_hz / tick_hz - 1`, 24-bit, processor-clock source, interrupt on) and `systickDeinit`. The `SysTick_Handler` and tick counter belong to the kernel, not the driver.
+- **BSP** (`bsp/`) — `bspClockInit(rcc, pwr, flash)`: HSE bypass (8 MHz from the ST-LINK) → PLL M=8, N=360, P=2 → 180 MHz SYSCLK with regulator scale 1 + over-drive, AHB /1, APB1 /4 (45 MHz), APB2 /2 (90 MHz), 5 flash wait states, prefetch and caches on; `BSP_*_HZ` constants name the resulting clocks. Under the same 100% coverage gate as `drivers/`.
 - **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking asynchronous transfer, 8 data bits with optional parity and 1 or 2 stop bits.
 
 `0.2.0` is reserved for `drivers/`' completion — see [docs/VERSIONING.md](docs/VERSIONING.md).
