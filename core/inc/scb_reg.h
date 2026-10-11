@@ -117,25 +117,72 @@ typedef struct FpuRegisters_t
 #define SCB_AIRCR_VECTKEY_Msk (0xFFFFU << SCB_AIRCR_VECTKEY_Pos)  ///< bits 31:16
 #define SCB_AIRCR_VECTKEY_WRITE (0x5FAU << SCB_AIRCR_VECTKEY_Pos) ///< required key to permit write
 
+/* --- SCB_ICSR bit definitions --- */
+#define SCB_ICSR_VECTACTIVE_Pos (0U) ///< Bit position within SCB_ICSR
+#define SCB_ICSR_VECTACTIVE_Msk                                                                    \
+    (0x1FFU << SCB_ICSR_VECTACTIVE_Pos) ///< READ only, bits 8:0, active exception number
+#define SCB_ICSR_PENDSTCLR_Pos (25U)    ///< Bit position within SCB_ICSR
+#define SCB_ICSR_PENDSTCLR (1U << SCB_ICSR_PENDSTCLR_Pos) ///< WRITE - clear SysTick pending
+#define SCB_ICSR_PENDSTSET_Pos (26U)                      ///< Bit position within SCB_ICSR
+#define SCB_ICSR_PENDSTSET (1U << SCB_ICSR_PENDSTSET_Pos) ///< READ/WRITE - set SysTick pending
+#define SCB_ICSR_PENDSVCLR_Pos (27U)                      ///< Bit position within SCB_ICSR
+#define SCB_ICSR_PENDSVCLR (1U << SCB_ICSR_PENDSVCLR_Pos) ///< WRITE - clear PendSV pending
+#define SCB_ICSR_PENDSVSET_Pos (28U)                      ///< Bit position within SCB_ICSR
+#define SCB_ICSR_PENDSVSET (1U << SCB_ICSR_PENDSVSET_Pos) ///< READ/WRITE - set PendSV pending
+
+/* --- SCB_SCR bit definitions --- */
+#define SCB_SCR_SLEEPONEXIT_Pos (1U) ///< Bit position within SCB_SCR
+#define SCB_SCR_SLEEPONEXIT                                                                        \
+    (1U << SCB_SCR_SLEEPONEXIT_Pos)                     ///< WRITE - sleep on return to thread mode
+#define SCB_SCR_SLEEPDEEP_Pos (2U)                      ///< Bit position within SCB_SCR
+#define SCB_SCR_SLEEPDEEP (1U << SCB_SCR_SLEEPDEEP_Pos) ///< WRITE - WFI/WFE enters deep sleep
+#define SCB_SCR_SEVONPEND_Pos (4U)                      ///< Bit position within SCB_SCR
+#define SCB_SCR_SEVONPEND (1U << SCB_SCR_SEVONPEND_Pos) ///< WRITE - pended interrupt wakes WFE
+
 /* --- SCB_CCR bit definitions --- */
 #define SCB_CCR_NONBASETHRDENA_Pos (0U)                           ///< Bit position within SCB_CCR
 #define SCB_CCR_NONBASETHRDENA (1U << SCB_CCR_NONBASETHRDENA_Pos) ///< thread mode entry from ISR
-#define SCB_CCR_UNALIGN_TRP_Pos (3U)                              ///< Bit position within SCB_CCR
-#define SCB_CCR_UNALIGN_TRP (1U << SCB_CCR_UNALIGN_TRP_Pos)       ///< WRITE - trap unaligned access
-#define SCB_CCR_DIV_0_TRP_Pos (4U)                                ///< Bit position within SCB_CCR
-#define SCB_CCR_DIV_0_TRP (1U << SCB_CCR_DIV_0_TRP_Pos)           ///< WRITE - trap divide-by-zero
-#define SCB_CCR_BFHFNMIGN_Pos (8U)                                ///< Bit position within SCB_CCR
+#define SCB_CCR_USERSETMPEND_Pos (1U)                             ///< Bit position within SCB_CCR
+#define SCB_CCR_USERSETMPEND (1U << SCB_CCR_USERSETMPEND_Pos) ///< WRITE - unprivileged STIR access
+#define SCB_CCR_UNALIGN_TRP_Pos (3U)                          ///< Bit position within SCB_CCR
+#define SCB_CCR_UNALIGN_TRP (1U << SCB_CCR_UNALIGN_TRP_Pos)   ///< WRITE - trap unaligned access
+#define SCB_CCR_DIV_0_TRP_Pos (4U)                            ///< Bit position within SCB_CCR
+#define SCB_CCR_DIV_0_TRP (1U << SCB_CCR_DIV_0_TRP_Pos)       ///< WRITE - trap divide-by-zero
+#define SCB_CCR_BFHFNMIGN_Pos (8U)                            ///< Bit position within SCB_CCR
 #define SCB_CCR_BFHFNMIGN (1U << SCB_CCR_BFHFNMIGN_Pos) ///< ignore faults in fault/NMI handlers
 #define SCB_CCR_STKALIGN_Pos (9U)                       ///< Bit position within SCB_CCR
 #define SCB_CCR_STKALIGN (1U << SCB_CCR_STKALIGN_Pos)   ///< force 8-byte stack align on exception
 
 /* --- SCB_SHCSR bit definitions --- */
-#define SCB_SHCSR_MEMFAULTENA_Pos (16U)                         ///< Bit position within SCB_SHCSR
-#define SCB_SHCSR_MEMFAULTENA (1U << SCB_SHCSR_MEMFAULTENA_Pos) ///< WRITE - enable MemManage
-#define SCB_SHCSR_BUSFAULTENA_Pos (17U)                         ///< Bit position within SCB_SHCSR
-#define SCB_SHCSR_BUSFAULTENA (1U << SCB_SHCSR_BUSFAULTENA_Pos) ///< WRITE - enable BusFault
-#define SCB_SHCSR_USGFAULTENA_Pos (18U)                         ///< Bit position within SCB_SHCSR
-#define SCB_SHCSR_USGFAULTENA (1U << SCB_SHCSR_USGFAULTENA_Pos) ///< WRITE - enable UsageFault
+#define SCB_SHCSR_MEMFAULTACT_Pos (0U)                          ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_MEMFAULTACT (1U << SCB_SHCSR_MEMFAULTACT_Pos) ///< READ/WRITE - MemManage active
+#define SCB_SHCSR_BUSFAULTACT_Pos (1U)                          ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_BUSFAULTACT (1U << SCB_SHCSR_BUSFAULTACT_Pos) ///< READ/WRITE - BusFault active
+#define SCB_SHCSR_USGFAULTACT_Pos (3U)                          ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_USGFAULTACT (1U << SCB_SHCSR_USGFAULTACT_Pos) ///< READ/WRITE - UsageFault active
+#define SCB_SHCSR_SVCALLACT_Pos (7U)                            ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_SVCALLACT (1U << SCB_SHCSR_SVCALLACT_Pos)     ///< READ/WRITE - SVCall active
+#define SCB_SHCSR_PENDSVACT_Pos (10U)                           ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_PENDSVACT (1U << SCB_SHCSR_PENDSVACT_Pos)     ///< READ/WRITE - PendSV active
+#define SCB_SHCSR_SYSTICKACT_Pos (11U)                          ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_SYSTICKACT (1U << SCB_SHCSR_SYSTICKACT_Pos)   ///< READ/WRITE - SysTick active
+#define SCB_SHCSR_USGFAULTPENDED_Pos (12U)                      ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_USGFAULTPENDED                                                                   \
+    (1U << SCB_SHCSR_USGFAULTPENDED_Pos)   ///< READ/WRITE - UsageFault pended
+#define SCB_SHCSR_MEMFAULTPENDED_Pos (13U) ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_MEMFAULTPENDED                                                                   \
+    (1U << SCB_SHCSR_MEMFAULTPENDED_Pos)   ///< READ/WRITE - MemManage pended
+#define SCB_SHCSR_BUSFAULTPENDED_Pos (14U) ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_BUSFAULTPENDED                                                                   \
+    (1U << SCB_SHCSR_BUSFAULTPENDED_Pos)                          ///< READ/WRITE - BusFault pended
+#define SCB_SHCSR_SVCALLPENDED_Pos (15U)                          ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_SVCALLPENDED (1U << SCB_SHCSR_SVCALLPENDED_Pos) ///< READ/WRITE - SVCall pended
+#define SCB_SHCSR_MEMFAULTENA_Pos (16U)                           ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_MEMFAULTENA (1U << SCB_SHCSR_MEMFAULTENA_Pos)   ///< WRITE - enable MemManage
+#define SCB_SHCSR_BUSFAULTENA_Pos (17U)                           ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_BUSFAULTENA (1U << SCB_SHCSR_BUSFAULTENA_Pos)   ///< WRITE - enable BusFault
+#define SCB_SHCSR_USGFAULTENA_Pos (18U)                           ///< Bit position within SCB_SHCSR
+#define SCB_SHCSR_USGFAULTENA (1U << SCB_SHCSR_USGFAULTENA_Pos)   ///< WRITE - enable UsageFault
 
 /* --- SCB_CFSR bit definitions (MMFSR: bits 7:0, BFSR: bits 15:8, UFSR: bits 31:16) --- */
 #define SCB_CFSR_IACCVIOL_Pos (0U) ///< Bit position within SCB_CFSR (MMFSR)
@@ -205,6 +252,14 @@ typedef struct FpuRegisters_t
 #define SCB_HFSR_DEBUGEVT_Pos (31U) ///< Bit position within SCB_HFSR
 #define SCB_HFSR_DEBUGEVT (1U << SCB_HFSR_DEBUGEVT_Pos) ///< READ/WRITE 1 to clear - debug event
 
+/* --- SCB_SHPR1 bit definitions (system handler priority fields) --- */
+#define SCB_SHPR1_PRI_4_Pos (0U)                           ///< Bit position within SCB_SHPR1
+#define SCB_SHPR1_PRI_4_Msk (0xFFU << SCB_SHPR1_PRI_4_Pos) ///< bits 7:0, MemManage priority
+#define SCB_SHPR1_PRI_5_Pos (8U)                           ///< Bit position within SCB_SHPR1
+#define SCB_SHPR1_PRI_5_Msk (0xFFU << SCB_SHPR1_PRI_5_Pos) ///< bits 15:8, BusFault priority
+#define SCB_SHPR1_PRI_6_Pos (16U)                          ///< Bit position within SCB_SHPR1
+#define SCB_SHPR1_PRI_6_Msk (0xFFU << SCB_SHPR1_PRI_6_Pos) ///< bits 23:16, UsageFault priority
+
 /* --- SCB_SHPR2/SHPR3 bit definitions (system handler priority fields) --- */
 #define SCB_SHPR2_PRI_11_Pos (24U)                           ///< Bit position within SCB_SHPR2
 #define SCB_SHPR2_PRI_11_Msk (0xFFU << SCB_SHPR2_PRI_11_Pos) ///< bits 31:24, SVCall priority
@@ -212,6 +267,16 @@ typedef struct FpuRegisters_t
 #define SCB_SHPR3_PRI_14_Msk (0xFFU << SCB_SHPR3_PRI_14_Pos) ///< bits 23:16, PendSV priority
 #define SCB_SHPR3_PRI_15_Pos (24U)                           ///< Bit position within SCB_SHPR3
 #define SCB_SHPR3_PRI_15_Msk (0xFFU << SCB_SHPR3_PRI_15_Pos) ///< bits 31:24, SysTick priority
+
+/* --- EXC_RETURN values (LR on exception entry; PM0214 Table 2-17) --- */
+#define EXC_RETURN_HANDLER (0xFFFFFFF1UL)     ///< return to Handler mode, MSP, basic frame
+#define EXC_RETURN_THREAD_MSP (0xFFFFFFF9UL)  ///< return to Thread mode, MSP, basic frame
+#define EXC_RETURN_THREAD_PSP (0xFFFFFFFDUL)  ///< return to Thread mode, PSP, basic frame
+#define EXC_RETURN_HANDLER_FPU (0xFFFFFFE1UL) ///< return to Handler mode, MSP, extended (FPU) frame
+#define EXC_RETURN_THREAD_MSP_FPU                                                                  \
+    (0xFFFFFFE9UL) ///< return to Thread mode, MSP, extended (FPU) frame
+#define EXC_RETURN_THREAD_PSP_FPU                                                                  \
+    (0xFFFFFFEDUL) ///< return to Thread mode, PSP, extended (FPU) frame
 
 /* --- SCB_CPACR bit definitions --- */
 #define SCB_CPACR_CP10_Pos (20U)                        ///< Bit position within SCB_CPACR
