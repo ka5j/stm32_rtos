@@ -10,6 +10,21 @@ specifically.
 
 ### Added
 
+- `bsp/inc/bsp.h`, `bsp/src/bsp.c`: `bspClockInit(rcc, pwr, flash)`, the
+  board's 180 MHz bring-up built from the driver calls in order: PWR
+  clock, HSE bypass (8 MHz from the ST-LINK), regulator scale 1, PLL
+  M=8/N=360/P=2, wait for the regulator, over-drive, AHB /1, APB1 /4
+  (45 MHz), APB2 /2 (90 MHz), SYSCLK to the PLL with 5 flash wait states,
+  then prefetch and caches. Stops at the first failing step and returns
+  its status. `BSP_SYSCLK_HZ`/`BSP_HCLK_HZ`/`BSP_PCLK1_HZ`/`BSP_PCLK2_HZ`
+  name the result for SysTick and UART setup. PLL M/N/P, the prescalers
+  and the latency are the values in ST's own Nucleo-F446 180 MHz example;
+  there is no VCO/APB validation in `rccPllConfig`/`rccBusPrescalerConfig`,
+  and `test_bsp.c` instead asserts this one configuration stays inside
+  the documented limits. Nine host tests (the whole sequence and one
+  timeout per step). Adds a `board_support` Doxygen group, and `make
+  coverage` now also gates `bsp/src` at 100%.
+
 - `drivers/inc/flash.h`, `drivers/src/flash.c`: `flashEnableCaches()`
   sets ACR.PRFTEN, ICEN and DCEN in one read-modify-write that keeps
   LATENCY, and returns void (no failure path). No cache reset: the caches
