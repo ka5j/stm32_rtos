@@ -21,7 +21,7 @@ DriverStatus_e bspClockInit(RccRegisters_t *rcc, PwrRegisters_t *pwr, FlashRegis
      * leaves the regulator untouched. Neither it nor the VOS write needs
      * the other to have happened - both only need the PLL to still be off
      * - so the order relative to rcc.h's step list does not matter. The
-     * misra-12.2 suppressions below are on RCC and PWR macros that expand
+     * misra-12.2 suppressions below are on RCC macros that expand
      * to `1U << n`; see pwr.c's pwrSetVoltageScale() for why cppcheck
      * can't bound those. */
     // cppcheck-suppress misra-c2012-12.2

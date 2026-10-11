@@ -85,10 +85,14 @@ LDSCRIPT := linker/STM32F446RE.ld
 LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map \
            --specs=nosys.specs
-# Note: --specs=nano.specs omitted - Homebrew's arm-none-eabi-gcc ships
-# standard newlib only, not the newlib-nano variant. nosys.specs (syscall
-# stubs) is unaffected. Binary is slightly larger without nano, no
-# functional difference for this project.
+# Note: --specs=nano.specs is not used. It was originally omitted because
+# Homebrew's arm-none-eabi-gcc ships only standard newlib; the Arm GNU
+# Toolchain this project builds with (locally and in CI) does ship it, so
+# that reason is gone. It is still left out because no libc code is linked
+# into the image today (the linker script has no .init_array, startup never
+# calls __libc_init_array, and nothing uses printf/malloc), so nano would
+# change nothing; revisit when something does. nosys.specs (syscall stubs)
+# is unaffected.
 
 ##########################################################################
 # Object files - mirrors the source tree under build/, e.g.
@@ -218,7 +222,10 @@ re: clean all
 
 # ------------------------------------------------------------------------
 # make clean
-# Deletes build/ entirely. No compiling happens.
+# Deletes build/ and the generated docs/html/ entirely. No compiling happens.
+# tests/build and tests/coverage are not touched (both are gitignored); remove
+# tests/coverage by hand before `make coverage` so a stale .gcda from an earlier
+# run cannot skew the numbers.
 # Use case: you suspect a stale object file (renamed a function but an
 # old .o still has the old symbol, or a .d file didn't catch a change)
 # and want to start completely fresh.
@@ -279,50 +286,37 @@ CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cp
 # Only checks .c files cppcheck discovers under $(SRC_DIRS) (headers are
 # checked in the context of whichever .c includes them, not standalone).
 #
-# Two categories of suppression here, deliberately handled differently:
+# Three kinds of suppression here, deliberately handled differently:
 #
-# 1. Scoped to specific files, not disabled project-wide: misra-c2012-2.5
-#    (unused macro) on device/inc/gpio_reg.h, device/inc/rcc_reg.h,
-#    device/inc/flash_reg.h, device/inc/pwr_reg.h, device/inc/uart_reg.h,
-#    core/inc/nvic_reg.h, core/inc/scb_reg.h (also 2.3/2.4 for
-#    FpuRegisters_t, whose first user is the kernel's context switch) and
-#    core/inc/systick_reg.h: the NVIC and SysTick drivers use only a few
-#    of each header's bits - CFSR/HFSR/FPCCR, STIR, IABR, SysTick's
-#    COUNTFLAG and CALIB are modeled for completeness with no consumer
-#    yet - and bsp/inc/bsp.h, whose BSP_*_HZ constants have no caller
-#    until SysTick/UART are initialised from them, and misra-c2012-8.7
-#    (external linkage used in only one translation unit) on
-#    drivers/src/gpio.c, drivers/src/rcc.c, drivers/src/uart.c,
-#    drivers/src/pwr.c, drivers/src/nvic.c, drivers/src/systick.c and
-#    bsp/src/bsp.c. All are real findings
-#    today: nothing in api/bsp/app calls those files' own public
-#    functions yet. flash.c is the one driver that still does not need
-#    this suppression - rcc.c calls flashSetLatency() directly, so
-#    cppcheck's whole-project analysis already sees a second translation
-#    unit using it. pwr.c used to be in that same position and no longer
-#    is: rcc.c called pwrSetVoltageScale() until the PWR voltage-scale
-#    sequencing moved out to the caller (RM0390 5.1.4 allows CR.VOS to be
-#    written only while the PLL is off, which is not the window
-#    rccSysclkSwitch() runs in - see rcc.h's file-level comment), leaving
-#    pwr.c with no in-project caller until api/ or bsp/ grows one;
-#    rcc_reg.h's CIR (clock-security-
-#    system) and CSR (LSI enable, reset-cause flags) sections,
-#    flash_reg.h's SR/CR bits beyond ACR.LATENCY, pwr_reg.h's bits beyond
-#    CR.VOS/CSR.VOSRDY, and uart_reg.h's SR.IDLE and every CR1
-#    interrupt-enable/SBK/RWU/WAKE bit are modeled for completeness
-#    per RM0390 but have no consumer - this project's UART driver is
-#    blocking-only (no interrupts, no IDLE-line detection) and its clock
-#    bring-up doesn't touch the clock security system, reset-cause
-#    reporting, or flash/PWR's other facilities (self-programming,
-#    low-power modes, PVD, ...). uart_reg.h's USART_CR2_STOP_0_5/_1_5 are
-#    likewise unused - they select smartcard-mode framing (RM0390), a
-#    mode this driver never enables, so uartInit() only ever validates
-#    against STOP_1/STOP_2 (see drivers/inc/uart.h's file comment). None
-#    of this is a code defect, and a project-wide suppression would blind
-#    this check to a genuinely dead macro in any future file, not just
-#    these. Remove
-#    a suppression the moment its file's last unused macro or function
-#    gets a real caller.
+# 1. Scoped to specific files, not disabled project-wide, and each one
+#    verified needed under CI's pinned cppcheck (a newer cppcheck reports
+#    more - e.g. 2.21 also wants misra-c2012-8.7 on rcc.c, nvic.c,
+#    systick.c and bsp.c, which 2.13.0 does not - so a local pass with
+#    another version proves nothing either way):
+#    - misra-c2012-2.5 (unused macro) on device/inc/gpio_reg.h,
+#      rcc_reg.h, flash_reg.h, pwr_reg.h and uart_reg.h, core/inc/
+#      nvic_reg.h, scb_reg.h and systick_reg.h, and bsp/inc/bsp.h. These
+#      headers model more than any consumer uses yet - rcc_reg.h's CIR
+#      (clock-security-system) and CSR (LSI enable, reset-cause flags)
+#      sections, flash_reg.h's SR/CR bits and ACR.ICRST/DCRST, pwr_reg.h's
+#      low-power/PVD bits, uart_reg.h's SR.IDLE, every CR1 interrupt-enable
+#      /SBK/RWU/WAKE bit and USART_CR2_STOP_0_5/_1_5 (smartcard-mode
+#      framing, which uartInit() never enables), nvic_reg.h's STIR/IABR,
+#      scb_reg.h's CFSR/HFSR/FPCCR, systick_reg.h's COUNTFLAG/CALIB - and
+#      bsp.h's BSP_*_HZ constants have no caller until SysTick and UART are
+#      initialised from them. Modeled for completeness per RM0390/PM0214,
+#      not defects.
+#    - misra-c2012-2.3/2.4 on core/inc/scb_reg.h for FpuRegisters_t,
+#      whose first user is the kernel's context switch.
+#    - misra-c2012-8.7 (external linkage used in only one translation
+#      unit) on drivers/src/gpio.c and drivers/src/uart.c: nothing calls
+#      them from a second file yet. Every other driver has a second
+#      caller in the whole-project analysis (rcc.c, flash.c, pwr.c are
+#      called by bsp.c, and rcc.c calls flashSetLatency()), and nvic.c,
+#      systick.c and bsp.c have none but are not flagged by 2.13.0.
+#    Remove a suppression the moment its file's last unused macro or
+#    function gets a real caller. A project-wide suppression would blind
+#    this check to a genuinely dead macro in any future file.
 #
 # 2. A permanent deviation scoped by glob, not to any one file: misra-
 #    c2012-11.4 (pointer/integer conversion), suppressed for *_reg.h only.
@@ -343,6 +337,16 @@ CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cp
 #    glob doesn't just suppress everything: a deliberately-bad
 #    `(volatile uint32_t *)some_runtime_value` cast in a plain .c file
 #    still gets flagged.
+#
+# 3. Inline `// cppcheck-suppress misra-c2012-12.2` comments, each with
+#    its reason in the surrounding comment (see pwr.c's pwrSetVoltageScale()
+#    for the canonical one): cppcheck's MISRA addon cannot bound a shift
+#    through a macro such as `1U << X_Pos`, which every register flag
+#    macro here is. They sit on the exact line the addon flags, not on the
+#    whole statement, so a multi-line statement needs its flagged
+#    argument on the line directly after the comment. --suppress=
+#    missingIncludeSystem below just silences cppcheck's note that it did
+#    not look inside <stdint.h>/<stddef.h>.
 # ------------------------------------------------------------------------
 lint:
 	@v=$$($(CPPCHECK) --version | awk '{print $$2}'); \
@@ -366,12 +370,7 @@ lint:
 	  --suppress=misra-c2012-2.3:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.4:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
-	  --suppress=misra-c2012-8.7:drivers/src/rcc.c \
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
-	  --suppress=misra-c2012-8.7:drivers/src/nvic.c \
-	  --suppress=misra-c2012-8.7:drivers/src/systick.c \
-	  --suppress=misra-c2012-8.7:bsp/src/bsp.c \
-	  --suppress=misra-c2012-8.7:drivers/src/pwr.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # ------------------------------------------------------------------------
@@ -392,8 +391,8 @@ lint:
 #     defined in tests/unit/*.c against test_runner.c's extern/RUN_TEST
 #     pairs. A test that is defined but never registered still compiles
 #     and the suite still passes green - it simply never runs. `make
-#     coverage` would catch that for a driver test, but its filter is
-#     drivers/src only, so for the test_<peripheral>_reg.c files a
+#     coverage` would catch that for a driver or bsp test, but its filter
+#     is drivers/src and bsp/src only, so for the test_<peripheral>_reg.c files a
 #     forgotten registration is otherwise entirely silent.
 # Use case: fast feedback on register/driver logic correctness, no board
 # or cross-toolchain required. Run this before make docs/make all in the
@@ -406,13 +405,15 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # Driver .c files that are host-testable off-target: pure register-block
 # logic with no direct hardware access, because the block is a function
 # parameter (e.g. gpio.c's GpioRegisters_t *port, rcc.c's RccRegisters_t
-# *rcc) rather than a hardware GPIOx/RCC-style macro. Add a driver file
-# here only once it meets that bar - one that reaches for a hardware macro
-# directly won't and shouldn't be compiled with HOST_CC.
+# *rcc) rather than a hardware GPIOx/RCC-style macro. Add a driver (or bsp/)
+# file here only once it meets that bar - one that reaches for a hardware
+# macro directly won't and shouldn't be compiled with HOST_CC. bsp/src/bsp.c
+# is listed too: bspClockInit() takes the RCC/PWR/FLASH blocks as parameters,
+# and the gcovr filter below covers bsp/src alongside drivers/src.
 #
 # This bar turned out to include hardware-ready polling too, not just
-# simple register writes: rcc.c/flash.c/pwr.c's HSI/HSE/PLL/SYSCLK/VOS
-# ready-waits are bounded iteration-count retries, not wall-clock
+# simple register writes: rcc.c/pwr.c's HSI/HSE/PLL/SYSCLK/VOS/over-drive
+# ready-waits (and uart.c's TXE/TC/RXNE waits) are bounded iteration-count retries, not wall-clock
 # timeouts (SysTick isn't configured this early in clock bring-up - see
 # rcc.h's file-level comment), and the ready bit each one polls
 # (HSIRDY, VOSRDY, ...) is a field distinct from what the driver itself

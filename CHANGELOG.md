@@ -91,6 +91,31 @@ specifically.
 
 ### Changed
 
+- Docs and comments brought in line with the code after the driver and BSP
+  work: `docs/ARCHITECTURE.md` (the drivers box omitted Flash and PWR; bsp/
+  is no longer only "pin mapping"; `tools/install_cppcheck.sh`),
+  `CONTRIBUTING.md` (layering diagram now `drivers` -> `bsp` -> `api` ->
+  `app`, matching ARCHITECTURE; `if (status)` reasoning; coverage filter
+  now `drivers/src` + `bsp/src`; the four workflows; the standalone-command
+  list), `README.md`/`docs/VERSIONING.md`/`docs/mainpage.md`/`docs/groups.dox`
+  (drivers are complete; "0.2.0 is reserved" reworded; BSP described),
+  `SECURITY.md` (shared composite actions, graphviz unpinned on purpose),
+  `driver_status.h` (`DRIVER_STATUS_ERR_BUSY` is returned by `rcc.c` - it
+  is not reserved for non-blocking drivers), `uart.h` (no longer "8N1",
+  nvic.h now exists), `rcc.h` (CR.VOS resets to 0b11, so "reset default
+  scale 3" was wrong: scale 3 is what runs while the PLL is off; steps 2
+  and 3 are interchangeable), `pwr.h` (over-drive), `bsp.h` (the state a
+  failed `bspClockInit()` leaves behind and that it cannot be retried), and
+  the Makefile, workflow and Doxyfile comments that still described
+  `bsp/` as empty, `pwr.c` as caller-less, or `clean` as only deleting
+  `build/`. `make lint`'s suppression rationale is rewritten against what
+  the pinned cppcheck 2.13.0 actually reports: the `misra-c2012-8.7`
+  suppressions on rcc.c, pwr.c, nvic.c, systick.c and bsp.c and four inline
+  `misra-c2012-12.2` suppressions in nvic.c were not needed and are removed.
+- `bsp/inc/bsp.h`: the PLL VCO and APB/SYSCLK limits are now
+  `_Static_assert`s, so an out-of-range `BSP_*` constant fails any firmware
+  build, not only `make test`.
+
 - Tests only: closed the gaps a mutation pass over `drivers/` and `bsp/`
   found (each mutation passed all 207 tests before, and is caught now).
   `bspClockInit` tests assert CR.VOS was written before the PLL stage
@@ -106,6 +131,11 @@ specifically.
   production-API seam to test, which is not justified yet.
 
 ### Fixed
+
+- `drivers/src/flash.c`: a comment containing the coverage-exclusion
+  marker text made gcovr see a second, never-closed exclusion region and
+  warn on every `make coverage`; the comment no longer spells the markers
+  out (coverage is unchanged at 100%).
 
 - `drivers/src/rcc.c`: every `rcc*ClockEnable()` now reads its enable
   register back after setting the bit, so the clock is running before the

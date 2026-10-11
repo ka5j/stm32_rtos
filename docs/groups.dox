@@ -6,11 +6,12 @@
  *        rather than repeating \@ingroup on every member.
  *
  * The full group hierarchy mirrors the layer diagram in
- * docs/ARCHITECTURE.md and is defined in full even though most layers are
- * still unimplemented (see README.md's Status section). A group should be
- * declared here only once its layer has real content, but must match this
- * naming exactly so the hierarchy never requires restructuring, only
- * additions:
+ * docs/ARCHITECTURE.md. Only the groups whose layers have real content are
+ * declared below (register layer, drivers, board support); the others
+ * appear in this table purely as reserved names (see README.md's Status
+ * section for which layers exist). A group is declared only once its layer
+ * has real content, but must match this naming exactly so the hierarchy
+ * never requires restructuring, only additions:
  *
  *   register_layer          "Register Layer"            (parent)
  *     core_peripherals      "Cortex-M4 Core Peripherals" (core/inc/)
@@ -146,7 +147,8 @@
 /**
  * @defgroup driver_layer Drivers
  * @brief Register-level driver logic (GPIO, RCC, Flash, PWR, UART, NVIC,
- *        SysTick), with no application-facing logic. Consumed by api/.
+ *        SysTick), with no application-facing logic. Consumed by bsp/ and,
+ *        once it exists, api/.
  */
 
 /**

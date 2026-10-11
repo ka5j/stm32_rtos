@@ -1,9 +1,10 @@
 /**
  * @file pwr.h
- * @brief PWR (power control) driver - regulator voltage-scale
- *        configuration for the STM32F446xx (device/inc/pwr_reg.h). No
- *        application-facing logic; consumed by the SYSCLK bring-up
- *        sequence documented in rcc.h.
+ * @brief PWR (power control) driver - regulator voltage-scale and
+ *        over-drive configuration for the STM32F446xx
+ *        (device/inc/pwr_reg.h). No application-facing logic; consumed by
+ *        the SYSCLK bring-up sequence documented in rcc.h, which bsp/'s
+ *        bspClockInit() runs.
  *
  * Voltage scaling is a two-phase operation on this part, and the two
  * phases are separated by the PLL being enabled - which is why this
@@ -42,10 +43,11 @@
  *        SYSCLK frequency the PLL is about to be brought up to.
  *
  * Must be set to at least the scale RM0390 Table 15 requires for the
- * target SYSCLK frequency, before the PLL is enabled. Scale 1 supports
- * the full frequency range, so selecting a more permissive scale than
- * the target frequency strictly requires is always electrically safe
- * (costs power, never correctness).
+ * target SYSCLK frequency, before the PLL is enabled. Scale 1 is the
+ * highest scale, so selecting a more permissive scale than the target
+ * frequency strictly requires is always electrically safe (costs power,
+ * never correctness); the very top of the range (180 MHz) additionally
+ * needs over-drive - see pwrEnableOverdrive().
  *
  * A single deterministic register write, with nothing to poll here: the
  * regulator does not begin moving to the programmed level until the PLL

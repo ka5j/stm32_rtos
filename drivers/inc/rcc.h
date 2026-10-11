@@ -2,7 +2,7 @@
  * @file rcc.h
  * @brief RCC peripheral driver - peripheral clock gating and HSI/HSE-to-PLL
  *        SYSCLK bring-up for the STM32F446xx (device/inc/rcc_reg.h). No
- *        application-facing logic; consumed by api/.
+ *        application-facing logic; consumed by bsp/ and, once it exists, api/.
  *
  * Two halves:
  *   - Clock gating: enabling/disabling the AHB1/APB1/APB2 peripheral
@@ -42,9 +42,15 @@
  *   8. rccBusPrescalerConfig(RCC, hpre, ppre1, ppre2)
  *   9. rccSysclkSwitch(RCC, FLASH, source, latency)
  *
+ * Steps 2 and 3 are independent of each other (both only need the PLL to
+ * still be off), so a caller may do them in either order; bsp/'s
+ * bspClockInit() brings HSE up first so a missing clock fails before the
+ * regulator is touched.
+ *
  * Steps 1, 2 and 6 are skippable only when running SYSCLK straight off
- * HSI or HSE with no PLL, where the regulator's reset default (scale 3)
- * already covers the frequency range. Step 7 is needed only for
+ * HSI or HSE with no PLL: with the PLL off the regulator runs at scale 3
+ * whatever CR.VOS holds (CR.VOS itself resets to 0b11, which is scale 1
+ * once the PLL is on - pwr.h), and scale 3 covers that frequency range. Step 7 is needed only for
  * frequencies above the selected scale's normal maximum. Its position
  * follows ST's own 180 MHz example for this part (PLL on, then
  * over-drive, then the prescalers and the SYSCLK switch with 5 flash wait

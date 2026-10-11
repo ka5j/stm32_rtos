@@ -7,10 +7,10 @@
  * Register layout derived from PM0214 (Cortex-M4 programming manual).
  * Architectural rather than vendor-specific, fixed by Armv7-M's System
  * Control Space memory map. Covers exception/fault configuration and
- * status (AIRCR, SHPR1-3, SHCSR, CFSR, HFSR, MMFAR, BFAR) and FPU
- * enable/lazy-stacking control (CPACR, FPCCR): the two facilities
- * required by a HardFault handler and a PendSV context switch,
- * respectively.
+ * status (ICSR, SCR, CCR, AIRCR, SHPR1-3, SHCSR, CFSR, HFSR, MMFAR,
+ * BFAR), the EXC_RETURN values, and FPU enable/lazy-stacking control
+ * (CPACR, FPCCR): what a HardFault handler and a PendSV context switch
+ * need, plus the SHPR priority fields drivers/nvic.c already uses.
  *
  * The CPU feature/ID registers (PFR0/1, DFR0, AFR0, MMFR0-3, ISAR0-4 at
  * 0xE000ED40-0xE000ED84) are omitted, with RESERVED0 covering that

@@ -54,7 +54,6 @@ static DriverStatus_e nvicValidateIrq(IRQn_e irqn)
     {
         uint32_t word = (uint32_t)irqn >> 5U;
 
-        // cppcheck-suppress misra-c2012-12.2
         if ((reserved_mask[word] & (1U << ((uint32_t)irqn & 0x1FU))) != 0U)
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
@@ -81,7 +80,6 @@ static uint32_t nvicIrqWord(IRQn_e irqn)
  */
 static uint32_t nvicIrqBit(IRQn_e irqn)
 {
-    // cppcheck-suppress misra-c2012-12.2
     return 1U << ((uint32_t)irqn & 0x1FU);
 }
 
@@ -144,7 +142,6 @@ DriverStatus_e nvicSetPriority(NvicRegisters_t *nvic, IRQn_e irqn, uint32_t prio
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         nvic->IP[(uint32_t)irqn] = (uint8_t)(priority << NVIC_PRIO_Pos);
     }
 
@@ -231,7 +228,6 @@ DriverStatus_e nvicSetSystemHandlerPriority(ScbRegisters_t *scb, IRQn_e irqn, ui
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         *shpr = (*shpr & ~msk) | ((priority << NVIC_PRIO_Pos) << pos);
     }
 

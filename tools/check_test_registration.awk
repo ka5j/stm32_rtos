@@ -10,7 +10,8 @@
 # hand-maintained extern + RUN_TEST pair. Nothing else notices when one
 # of those pairs is missing: the test file still compiles, the suite
 # still passes, and the test simply never runs. `make coverage` would
-# catch it for a driver test, but its filter is drivers/src only, so for
+# catch it for a driver or bsp test, but its filter is drivers/src and
+# bsp/src only, so for
 # the test_<peripheral>_reg.c files a forgotten registration is entirely
 # silent. Same spirit as check_vector_table.awk: two hand-written lists
 # with no shared source of truth, and nothing else watching them drift.

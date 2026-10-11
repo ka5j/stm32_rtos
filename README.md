@@ -1,6 +1,6 @@
 # STM32F446RE Bare-Metal RTOS
 
-A preemptive RTOS for the STM32F446RE, built from scratch on direct register-level access, without HAL/LL or CMSIS device headers. All peripheral and core register structures are derived directly from the reference manual and mapped to their memory addresses. Work in progress: the register and driver layers are largely in place, but the kernel itself (scheduler, context switching) is not started yet — see [Status](#status).
+A preemptive RTOS for the STM32F446RE, built from scratch on direct register-level access, without HAL/LL or CMSIS device headers. All peripheral and core register structures are derived directly from the reference manual and mapped to their memory addresses. Work in progress: the register and driver layers are complete and the BSP has its first function (180 MHz clock bring-up), but the kernel itself (scheduler, context switching) is not started yet — see [Status](#status).
 
 ## Getting Started
 
@@ -46,7 +46,7 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
    make flash
    ```
 
-`tools/openocd.cfg` and `linker/STM32F446RE.ld` are included in the repository. The build fails without them; no configuration is required.
+`linker/STM32F446RE.ld` (needed by every build) and `tools/openocd.cfg` (needed by `flash`, `erase` and `debug`) are included in the repository; no configuration is required.
 
 **Before writing or committing any code**, review [CONTRIBUTING.md](CONTRIBUTING.md), which documents naming and layering conventions, the error-handling contract, and the checks the pre-commit hook enforces on every commit.
 
@@ -57,7 +57,7 @@ The system is structured in layers, starting from boot (linker script and startu
 1. **Core / device registers** — hand-written structures for Cortex-M4 core peripherals (MPU, NVIC, SCB, SysTick) and F446-specific peripherals (EXTI, Flash, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG)
 2. **Drivers** — direct register manipulation (GPIO, RCC/clock configuration, Flash, PWR, UART, NVIC, SysTick); no application-facing logic
 3. **API** (`api/`) — the layer application code calls directly (`led_on()`, `debug_print()`, etc.), abstracting which pin or peripheral is involved
-4. **BSP** — Nucleo-F446RE board-specific pin and peripheral mapping, consumed by the API layer
+4. **BSP** (`bsp/`) — Nucleo-F446RE board support, consumed by the API layer: today the 180 MHz clock bring-up (`bspClockInit`), later the pin and peripheral mapping
 5. **RTOS kernel** — scheduler, task control blocks, PendSV-based context switching
 6. **RTOS API** (`rtos/api/`) — the syscall-style interface application code uses (`task_create()`, `task_delay()`, semaphores, queues)
 7. **Application** — task code; includes only from `api/` and `rtos/api/`, never from drivers or the kernel directly
@@ -101,7 +101,7 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 | `rtos/kernel/`, `rtos/api/` | **Not started** — empty scaffolding |
 | `app/` | **Not started** — `main.c` is an empty loop |
 
-**Register layer** covers every Cortex-M4 core peripheral this project models (MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG), aggregated by `tests/unit/test_runner.c`.
+**Register layer** covers every Cortex-M4 core peripheral this project models (MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG); the register tests, like every other test, are aggregated by `tests/unit/test_runner.c`.
 
 **Drivers** implemented so far, all holding 100% line and branch coverage under `make coverage`:
 
@@ -115,9 +115,9 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 - **BSP** (`bsp/`) — `bspClockInit(rcc, pwr, flash)`: HSE bypass (8 MHz from the ST-LINK) → PLL M=8, N=360, P=2 → 180 MHz SYSCLK with regulator scale 1 + over-drive, AHB /1, APB1 /4 (45 MHz), APB2 /2 (90 MHz), 5 flash wait states, prefetch and caches on; `BSP_*_HZ` constants name the resulting clocks. Under the same 100% coverage gate as `drivers/`.
 - **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking asynchronous transfer, 8 data bits with optional parity and 1 or 2 stop bits.
 
-`0.2.0` is reserved for `drivers/`' completion — see [docs/VERSIONING.md](docs/VERSIONING.md).
+`drivers/` is complete, which is the `0.2.0` milestone — see [docs/VERSIONING.md](docs/VERSIONING.md) for how releases are cut.
 
-**Known gap:** no driver has executed on hardware. Every one is fully covered by host tests, but `app/src/main.c` is an empty loop, so the linker garbage-collects all of `drivers/` out of the image. On-target verification is manual (`make flash`, `make debug`) and nothing currently asserts runtime behaviour — see [CONTRIBUTING.md](CONTRIBUTING.md)'s testing section for what that does and does not buy you.
+**Known gap:** no driver has executed on hardware. Every one is fully covered by host tests, but `app/src/main.c` is an empty loop, so the linker garbage-collects all of `drivers/` and `bspClockInit()` out of the image. On-target verification is manual (`make flash`, `make debug`) and nothing currently asserts runtime behaviour — see [CONTRIBUTING.md](CONTRIBUTING.md)'s testing section for what that does and does not buy you.
 
 ## License
 

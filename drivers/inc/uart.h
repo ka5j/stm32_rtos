@@ -1,10 +1,11 @@
 /**
  * @file uart.h
- * @brief USART/UART driver - 8N1 asynchronous configuration and blocking
- *        transmit/receive for the STM32F446xx (device/inc/uart_reg.h).
- *        No application-facing logic; consumed by api/.
+ * @brief USART/UART driver - asynchronous configuration (8 data bits,
+ *        optional parity, 1 or 2 stop bits) and blocking transmit/receive
+ *        for the STM32F446xx (device/inc/uart_reg.h).
+ *        No application-facing logic; consumed by bsp/ and, once it exists, api/.
  *
- * 8 data bits only, matching uart_reg.h's own documented "8N1" scope -
+ * 8 data bits only, matching uart_reg.h's own documented scope -
  * CR1.M is not a configurable parameter here. uartInit() derives it from
  * the parity setting: RM0390 counts the parity bit inside the frame length
  * M selects, so parity off leaves M clear (8 bits on the wire), and parity
@@ -32,14 +33,14 @@
  *
  * Every transmit/receive function here blocks by spin-polling TXE/RXNE
  * with a bounded iteration count - the only thing implementable before
- * an NVIC driver exists to configure an interrupt and an RTOS scheduler
- * exists to block/wake a task against one. A task that calls
+ * an RTOS scheduler exists to block/wake a task against an interrupt
+ * (drivers/inc/nvic.h now exists to configure the interrupt itself). A task that calls
  * uartTransmit()/uartReceive() once real tasks exist will monopolize the
  * CPU for the duration of the transfer, defeating preemption for
  * whatever else wanted to run - this is a known, deliberate limitation
  * of this revision, not the intended final form. Revisit with an
- * interrupt- or DMA-driven variant once drivers/inc/nvic.h and
- * rtos/kernel/ exist to build one against.
+ * interrupt- or DMA-driven variant once rtos/kernel/ exists to build
+ * one against.
  *
  * Takes UART's register block as a parameter (UartRegisters_t *) even
  * though every instance (USART1/2/3, UART4/5, USART6) shares this same

@@ -20,7 +20,8 @@ stm32_rtos/
 ├── api/             App-facing peripheral API (e.g. led_on(), debug_print())
 │   ├── inc/
 │   └── src/
-├── bsp/             Nucleo-F446RE board/pin mapping, consumed by api/
+├── bsp/             Nucleo-F446RE board support (180 MHz clock bring-up
+│   │                 today; pin mapping not started), consumed by api/
 │   ├── inc/
 │   └── src/
 ├── rtos/
@@ -48,10 +49,11 @@ stm32_rtos/
                      registration in test_runner.c), check_version.awk
                      (`make check-version`; Doxyfile vs CHANGELOG vs tag),
                      and changelog_section.awk (release notes, used by
-                     the release workflow)
+                     the release workflow); install_cppcheck.sh builds
+                     the cppcheck version CI pins, for `make lint`
 ```
 
-`api/` and `rtos/api/` are readily conflated: `api/` is the peripheral-facing layer (drives GPIO/UART directly, independent of the RTOS and board), while `rtos/api/` is the RTOS syscall-facing layer (tasks, semaphores, queues). Application code in `app/` calls into both but never reaches past them into `drivers/` or `rtos/kernel/` directly.
+`api/` and `rtos/api/` are readily conflated: `api/` is the peripheral-facing layer (drives GPIO/UART through bsp/'s board mapping, independent of the RTOS), while `rtos/api/` is the RTOS syscall-facing layer (tasks, semaphores, queues). Application code in `app/` calls into both but never reaches past them into `drivers/` or `rtos/kernel/` directly.
 
 ## Layer diagram
 
@@ -68,13 +70,14 @@ stm32_rtos/
                  │                │
         ┌────────▼────────┐ ┌─────▼───────────┐
         │      bsp/        │ │  rtos/kernel/   │
-        │  pin/peripheral   │ │  scheduler,     │
+        │  clock init, pin  │ │  scheduler,     │
         │  mapping          │ │  PendSV switch  │
         └────────┬─────────┘ └─────┬────────────┘
                  │                 │
         ┌────────▼─────────────────▼────────────┐
         │              drivers/                  │
-        │  GPIO, RCC, UART, NVIC, SysTick         │
+        │  GPIO, RCC, Flash, PWR,                 │
+        │  UART, NVIC, SysTick                    │
         └────────────────────┬────────────────────┘
                               │
         ┌─────────────────────▼───────────────────┐
