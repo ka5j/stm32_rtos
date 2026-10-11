@@ -14,25 +14,51 @@
  */
 
 /**
- * @brief Reject an IRQn that does not index the NVIC register arrays.
+ * @brief Reject an IRQn that does not name a real device interrupt.
  *
  * IRQn_e is a signed enum, so the system exceptions are negative, and C
  * does not constrain an enum-typed parameter to its enumerators. A
  * negative value would index ISER/IP below their start, and a value above
  * the last device interrupt would index past what this chip implements
- * (IP[] holds 240 bytes but the F446 has 97 lines).
+ * (IP[] holds 240 bytes but the F446 has 97 lines). The reserved
+ * positions inside the range are rejected too: they have no vector (the
+ * table holds a zero there), so enabling one and then pending it would
+ * take an exception through address 0.
  *
  * @param irqn Candidate interrupt number.
- * @return DRIVER_STATUS_OK if irqn is in 0 to ::FMPI2C1_Error_IRQn.
+ * @return DRIVER_STATUS_OK if irqn is in 0 to ::FMPI2C1_Error_IRQn and
+ *         not a reserved position.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM otherwise.
  */
 static DriverStatus_e nvicValidateIrq(IRQn_e irqn)
 {
+    /* Reserved vector-table positions inside 0 to FMPI2C1_Error_IRQn, one
+     * bit per position, indexed by ISER word (position / 32). They are the
+     * zero slots in startup's vector table (nvic_reg.h lists them): 61-62,
+     * 79-80, 82-83, 85-86 and 88-90. tools/check_vector_table.awk
+     * cross-checks IRQn_e against that table but cannot see this mask, so
+     * a change to the reserved set must be made in both places. */
+    static const uint32_t reserved_mask[4] = {
+        0x00000000U, /* 0-31: none */
+        0x60000000U, /* 32-63: 61, 62 */
+        0x076D8000U, /* 64-95: 79, 80, 82, 83, 85, 86, 88, 89, 90 */
+        0x00000000U, /* 96: none */
+    };
     DriverStatus_e status = DRIVER_STATUS_OK;
 
     if (((int32_t)irqn < 0) || ((int32_t)irqn > (int32_t)FMPI2C1_Error_IRQn))
     {
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
+    }
+    else
+    {
+        uint32_t word = (uint32_t)irqn >> 5U;
+
+        // cppcheck-suppress misra-c2012-12.2
+        if ((reserved_mask[word] & (1U << ((uint32_t)irqn & 0x1FU))) != 0U)
+        {
+            status = DRIVER_STATUS_ERR_INVALID_PARAM;
+        }
     }
 
     return status;
