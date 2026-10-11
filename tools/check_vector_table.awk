@@ -4,6 +4,10 @@
 #
 # Cross-checks core/inc/nvic_reg.h's IRQn_e enum against
 # startup/startup_stm32f446re.s's vector table, position by position.
+# (IRQn_e's negative system-exception entries - SVCall, PendSV, SysTick and
+# the fault handlers - are deliberately not matched: the regexp below takes
+# only `_IRQn = <digits>`, and those have no NVIC position.)
+#
 # Catches the two silently drifting apart - a wrong IRQn value would
 # route a driver's NVIC enable/priority call to the wrong interrupt
 # line without a compiler or linker ever noticing.

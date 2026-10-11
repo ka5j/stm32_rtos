@@ -18,7 +18,7 @@
  * this chip; the remainder of each 8-word bank reads as unimplemented.
  *
  * Only the top 4 bits of each IP[] priority byte are implemented on the
- * Cortex-M4 (PM0214: __NVIC_PRIO_BITS = 4), giving 16 priority levels
+ * Cortex-M4 (__NVIC_PRIO_BITS = 4 in CMSIS and ST's stm32f446xx.h), giving 16 priority levels
  * with values 0x00, 0x10, 0x20, ... 0xF0. Writing a priority value with
  * low-nibble bits set does not fault, but those bits are not stored in
  * hardware; a driver setting priorities should shift into the top

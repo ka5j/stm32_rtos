@@ -998,10 +998,11 @@ INCLUDE_GRAPH          = YES
 INCLUDED_BY_GRAPH      = YES
 
 # Per-function call/caller graph. Overridden to NO: almost nothing calls
-# anything yet above drivers/src/gpio.c (api/, bsp/, rtos/ are still
-# empty - see README.md's Status section), so every function's graph
-# today would be a single node with no edges. Revisit once api/ exists
-# and there's a real call chain worth drawing.
+# anything yet above the drivers (bsp/ has one function, bspClockInit(),
+# whose call fan-out is the only chain; api/ and rtos/ are still empty -
+# see README.md's Status section), so most functions' graphs would be a
+# single node with no edges. Revisit once api/ exists and there's a real
+# call chain worth drawing.
 CALL_GRAPH             = NO
 CALLER_GRAPH           = NO
 

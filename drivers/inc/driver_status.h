@@ -46,8 +46,8 @@
  * @brief Result of a driver operation.
  *
  * DRIVER_STATUS_OK is deliberately not 0; DRIVER_STATUS_UNINITIALIZED
- * occupies 0 instead. This project builds drivers at -O0 (see the
- * Makefile's CFLAGS), where the compiler's uninitialized-variable
+ * occupies 0 instead. The default build is -O0 (see the
+ * Makefile's CFLAGS; BUILD=release uses -O2), where the compiler's uninitialized-variable
  * analysis is weakest. If a DriverStatus_e variable is declared and a
  * code path fails to assign it, it must not read as success by
  * coincidence; naming 0 explicitly also gives a `switch` over this
@@ -82,9 +82,12 @@ typedef enum DriverStatus_e
      *  reported was a fault. */
     DRIVER_STATUS_ERR_HW_FAULT = 5,
 
-    /** The peripheral is mid-operation and cannot accept a new request
-     *  right now. Reserved for non-blocking/interrupt-driven drivers;
-     *  unused by a purely blocking/polled driver. */
+    /** A precondition state conflict: the block is already running or in
+     *  use in a way that makes the request unsafe right now (for example
+     *  enabling HSE or the PLL that is already on, reconfiguring a PLL
+     *  that is running, or disabling an oscillator that is feeding
+     *  SYSCLK). Also what a non-blocking/interrupt-driven driver would
+     *  return for a peripheral that is mid-operation. */
     DRIVER_STATUS_ERR_BUSY = 6,
 
     /** The requested configuration is not implemented by this driver,

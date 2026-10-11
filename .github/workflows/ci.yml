@@ -1,6 +1,7 @@
 name: CI
 
-# Public-facing gate: build + docs + format + lint, on a GitHub-hosted
+# Public-facing gate: build + test + coverage + docs + format + lint +
+# version-consistency, on a GitHub-hosted
 # runner. Runs on every push to main/develop and every PR - this is the
 # badge/status a reviewer sees, and (via branch protection on main/
 # develop) what actually gates a merge. Nothing here touches real
@@ -62,8 +63,8 @@ jobs:
         # means an archive update can only make this step fail loudly
         # (package no longer available at that version) instead of quietly
         # changing which MISRA ruleset or formatting rules CI enforces.
-        # Bump these pins deliberately, the same way the Doxygen and Arm
-        # toolchain versions above are bumped by hand.
+        # Bump these pins deliberately, the same way the Arm toolchain
+        # and Doxygen versions (the setup steps above and below) are bumped by hand.
         run: |
           sudo apt-get update
           sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2

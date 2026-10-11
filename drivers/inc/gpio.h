@@ -2,7 +2,7 @@
  * @file gpio.h
  * @brief GPIO peripheral driver - register-level configuration and digital
  *        I/O for the STM32F446xx GPIO peripheral (device/inc/gpio_reg.h).
- *        No application-facing logic; consumed by api/.
+ *        No application-facing logic; consumed by bsp/ and, once it exists, api/.
  */
 #ifndef GPIO_H
 #define GPIO_H

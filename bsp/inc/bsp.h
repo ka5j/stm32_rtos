@@ -50,7 +50,8 @@
 #define BSP_PLL_M (8U)        ///< PLLM: VCO input = HSE / M = 1 MHz
 #define BSP_PLL_N (360U)      ///< PLLN: VCO output = VCO input * N = 360 MHz
 #define BSP_PLL_P_DIV (2U) ///< PLLP divisor value (the register encoding is RCC_PLLCFGR_PLLP_DIV2)
-#define BSP_FLASH_LATENCY (5U) ///< Flash wait states at 180 MHz, scale 1 + over-drive
+#define BSP_FLASH_LATENCY                                                                          \
+    (5U) ///< Flash wait states at 180 MHz, scale 1 + over-drive, 2.7-3.6 V supply
 
 /** SYSCLK after bspClockInit(): HSE / M * N / P. */
 #define BSP_SYSCLK_HZ ((BSP_HSE_HZ / BSP_PLL_M) * BSP_PLL_N / BSP_PLL_P_DIV)
@@ -58,16 +59,39 @@
 #define BSP_PCLK1_HZ (BSP_HCLK_HZ / 4U) ///< APB1 clock (PPRE1 /4); USART2's bus
 #define BSP_PCLK2_HZ (BSP_HCLK_HZ / 2U) ///< APB2 clock (PPRE2 /2)
 
+/* The limits this one configuration must respect, enforced at compile time so a
+ * firmware build (not just `make test`) fails if a BSP_* constant is edited out of
+ * range: PLL VCO input 1-2 MHz and output 100-432 MHz, SYSCLK 180 MHz maximum, APB1
+ * 45 MHz and APB2 90 MHz maximum (rcc.h; RM0390). rccPllConfig() deliberately does
+ * not check them - it does not know its source frequency. */
+_Static_assert(((BSP_HSE_HZ / BSP_PLL_M) >= 1000000U) && ((BSP_HSE_HZ / BSP_PLL_M) <= 2000000U),
+               "PLL VCO input must be 1-2 MHz");
+_Static_assert((((BSP_HSE_HZ / BSP_PLL_M) * BSP_PLL_N) >= 100000000U)
+                   && (((BSP_HSE_HZ / BSP_PLL_M) * BSP_PLL_N) <= 432000000U),
+               "PLL VCO output must be 100-432 MHz");
+_Static_assert(BSP_SYSCLK_HZ <= 180000000U, "SYSCLK must not exceed 180 MHz");
+_Static_assert(BSP_PCLK1_HZ <= 45000000U, "APB1 must not exceed 45 MHz");
+_Static_assert(BSP_PCLK2_HZ <= 90000000U, "APB2 must not exceed 90 MHz");
+
 /**
  * @brief Bring the system clock from the HSI reset default to 180 MHz.
  *
  * Runs the ordered sequence documented in rcc.h's file-level comment:
- * PWR clock on, HSE (bypass) on, regulator scale 1 (steps 2 and 3
- * there are independent; HSE goes first so a missing clock fails before
- * the regulator is touched), PLL configured and enabled, regulator settled, over-drive on, bus
- * prescalers set, SYSCLK switched to the PLL with 5 wait states, and finally the flash prefetch and
- * caches enabled. Stops at the first step that fails and returns its status; nothing after that
- * step runs, so a failure leaves SYSCLK on HSI (the switch is the last step that can fail).
+ * PWR clock on, HSE (bypass) on, regulator scale 1 (steps 2 and 3 there
+ * are independent; HSE goes first so a missing clock fails before the
+ * regulator is touched), PLL configured and enabled, regulator settled,
+ * over-drive on, bus prescalers set, SYSCLK switched to the PLL with 5
+ * wait states, and finally the flash prefetch and caches enabled.
+ *
+ * Stops at the first step that fails and returns its status; nothing
+ * after that step runs. There is no unwind, so a failure leaves whatever
+ * earlier steps already did in place - HSE and its bypass bit, the
+ * regulator scale, a running PLL, over-drive, and (if the failure is the
+ * SYSCLK switch itself) the bus prescalers - while SYSCLK is still HSI,
+ * which is a safe state to continue from. After an SYSCLK-switch timeout
+ * CFGR.SW still requests the PLL, so the switch can complete later. The
+ * function cannot simply be called again: HSE and the PLL are left on,
+ * and the second call reports DRIVER_STATUS_ERR_BUSY.
  *
  * @param rcc   RCC register block (e.g. RCC).
  * @param pwr   PWR register block (e.g. PWR).
@@ -83,6 +107,11 @@
  * @return DRIVER_STATUS_ERR_BUSY if HSE or the PLL was already on.
  * @return DRIVER_STATUS_ERR_HW_FAULT if the flash latency did not read
  *         back as written.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM or
+ *         DRIVER_STATUS_ERR_NOT_INITIALIZED are not reachable with the
+ *         BSP_* constants as they are; they would be if a constant were
+ *         edited to an out-of-range PLL M/N or latency, or a clock source
+ *         were not ready when the switch ran.
  */
 DRIVER_MUST_CHECK DriverStatus_e bspClockInit(RccRegisters_t *rcc, PwrRegisters_t *pwr,
                                               FlashRegisters_t *flash);
