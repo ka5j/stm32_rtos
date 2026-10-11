@@ -10,6 +10,15 @@ specifically.
 
 ### Added
 
+- `drivers/inc/systick.h`, `drivers/src/systick.c`: the SysTick driver,
+  completing `drivers/` (7 of 7). `systickInit(systick, core_hz,
+  tick_hz)` programs LOAD = `core_hz / tick_hz - 1`, rejecting zero
+  arguments and any period outside 2 to 2^24 clocks (LOAD 0 never
+  reloads; LOAD is 24 bits) without touching a register, and starts the
+  timer last with CLKSOURCE|TICKINT|ENABLE; `systickDeinit` restores the
+  reset state. The `SysTick_Handler` and tick counter stay with the kernel.
+  Covered by `tests/unit/test_systick.c`.
+
 - `drivers/inc/nvic.h`, `drivers/src/nvic.c`: the NVIC driver
   (`nvicEnableIrq`/`DisableIrq`, `SetPending`/`ClearPending`,
   `SetPriority`/`GetPriority`, and `nvicSetSystemHandlerPriority` for the

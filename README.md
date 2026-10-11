@@ -95,7 +95,7 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 | Boot (`startup/`, `linker/`, `Makefile`) | **Complete** — builds and flashes |
 | Register layer (`core/inc/`, `device/inc/`) | **Complete** — 4 core + 9 device peripherals, one `test_<peripheral>_reg.c` each |
 | Development pipeline (build, format, lint, docs, tests, coverage, hook, CI) | **Complete** |
-| `drivers/` | **6 of 7** — GPIO, RCC, Flash, PWR, UART, NVIC done; SysTick not started |
+| `drivers/` | **7 of 7** — GPIO, RCC, Flash, PWR, UART, NVIC, SysTick done |
 | `api/`, `bsp/` | **Not started** — empty scaffolding |
 | `rtos/kernel/`, `rtos/api/` | **Not started** — empty scaffolding |
 | `app/` | **Not started** — `main.c` is an empty loop |
@@ -110,6 +110,7 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 - **Flash** — `flashSetLatency`, with the read-back verification RM0390 requires.
 - **PWR** — `pwrSetVoltageScale` and `pwrWaitVoltageScaleReady`, split because RM0390 permits `CR.VOS` to be written only while the PLL is off while `CSR.VOSRDY` only settles once it is on.
 - **NVIC** — `nvicEnableIrq`/`nvicDisableIrq`, `nvicSetPending`/`nvicClearPending`, `nvicSetPriority`/`nvicGetPriority` for device interrupts (IRQn 0-96, priorities 0-15), and `nvicSetSystemHandlerPriority` for MemManage/BusFault/UsageFault/SVCall/PendSV/SysTick via SCB SHPR1-3. Priority grouping is left to `Reset_Handler`, which sets PRIGROUP=3.
+- **SysTick** — `systickInit(systick, core_hz, tick_hz)` (reload = `core_hz / tick_hz - 1`, 24-bit, processor-clock source, interrupt on) and `systickDeinit`. The `SysTick_Handler` and tick counter belong to the kernel, not the driver.
 - **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking asynchronous transfer, 8 data bits with optional parity and 1 or 2 stop bits.
 
 `0.2.0` is reserved for `drivers/`' completion — see [docs/VERSIONING.md](docs/VERSIONING.md).
