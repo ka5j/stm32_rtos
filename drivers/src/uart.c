@@ -250,6 +250,11 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
+    if ((data == NULL) && (length > 0U))
+    {
+        status = DRIVER_STATUS_ERR_INVALID_PARAM;
+    }
+
     for (size_t i = 0U; (i < length) && (status == DRIVER_STATUS_OK); i++)
     {
         status = uartTransmitByte(uart, data[i]);
@@ -282,7 +287,16 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
  * this function is the worked example it cites. */
 DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte)
 {
-    DriverStatus_e status = uartWaitSrFlag(uart, USART_SR_RXNE);
+    DriverStatus_e status = DRIVER_STATUS_OK;
+
+    if (byte == NULL)
+    {
+        status = DRIVER_STATUS_ERR_INVALID_PARAM;
+    }
+    else
+    {
+        status = uartWaitSrFlag(uart, USART_SR_RXNE);
+    }
 
     if (status == DRIVER_STATUS_OK)
     {
@@ -302,6 +316,11 @@ DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte)
 DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
+
+    if ((data == NULL) && (length > 0U))
+    {
+        status = DRIVER_STATUS_ERR_INVALID_PARAM;
+    }
 
     for (size_t i = 0U; (i < length) && (status == DRIVER_STATUS_OK); i++)
     {

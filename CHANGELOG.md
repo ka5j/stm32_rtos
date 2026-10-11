@@ -91,6 +91,14 @@ specifically.
 
 ### Fixed
 
+- `drivers/src/uart.c`: `uartTransmit()`/`uartReceive()` with a NULL buffer
+  and a non-zero length, and `uartReceiveByte()` with a NULL output, now
+  return `DRIVER_STATUS_ERR_INVALID_PARAM` instead of dereferencing NULL,
+  as CONTRIBUTING.md's error-handling contract already requires of every
+  runtime parameter outside its domain (`nvicGetPriority()` already did).
+  A zero length with a NULL buffer is still a successful no-op. Documented
+  in `uart.h` and covered by three tests.
+
 - `drivers/src/nvic.c`: the NVIC functions now reject the reserved vector
   positions inside 0 to `FMPI2C1_Error_IRQn` (61-62, 79-80, 82-83, 85-86,
   88-90) with `DRIVER_STATUS_ERR_INVALID_PARAM`, where #99 accepted them
