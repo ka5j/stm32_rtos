@@ -91,6 +91,13 @@ specifically.
 
 ### Fixed
 
+- `device/inc/iwdg_reg.h`: removed `WINR` (0x10), `IWDG_SR_WVU` and
+  `IWDG_WINR_WIN_*`, which the F446's IWDG does not have; the struct is
+  0x10 bytes, not 0x14. ST's F446 SVD and `stm32f446xx.h` both define only
+  KR, PR, RLR and SR (the window option is a feature of other STM32
+  families). Nothing in the repo used them. RM0390 section 21 itself was
+  not available to check.
+
 - `uartInit()` accepted any computed BRR from 1 upward and rejected only 0.
   BRR holds USARTDIV x 16, and USARTDIV below 1 cannot be generated: with
   16x oversampling the highest baud rate is pclk / 16, which is BRR 16. A
