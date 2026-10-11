@@ -283,10 +283,15 @@ CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cp
 #
 # 1. Scoped to specific files, not disabled project-wide: misra-c2012-2.5
 #    (unused macro) on device/inc/gpio_reg.h, device/inc/rcc_reg.h,
-#    device/inc/flash_reg.h, device/inc/pwr_reg.h, and device/inc/
-#    uart_reg.h, and misra-c2012-8.7 (external linkage used in only one
-#    translation unit) on drivers/src/gpio.c, drivers/src/rcc.c,
-#    drivers/src/uart.c, and drivers/src/pwr.c. All are real findings
+#    device/inc/flash_reg.h, device/inc/pwr_reg.h, device/inc/uart_reg.h,
+#    core/inc/nvic_reg.h and core/inc/scb_reg.h (the latter also 2.3/2.4
+#    for FpuRegisters_t, whose first user is the kernel's context switch;
+#    the NVIC driver includes SCB for SHPR1-3 and NVIC for the IRQn
+#    numbers, so most of their other bits - CFSR/HFSR/FPCCR, STIR,
+#    IABR - are modeled for completeness with no consumer yet), and
+#    misra-c2012-8.7 (external linkage used in only one translation unit)
+#    on drivers/src/gpio.c, drivers/src/rcc.c, drivers/src/uart.c,
+#    drivers/src/pwr.c, and drivers/src/nvic.c. All are real findings
 #    today: nothing in api/bsp/app calls those files' own public
 #    functions yet. flash.c is the one driver that still does not need
 #    this suppression - rcc.c calls flashSetLatency() directly, so
@@ -351,9 +356,14 @@ lint:
 	  --suppress=misra-c2012-2.5:device/inc/flash_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/pwr_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/uart_reg.h \
+	  --suppress=misra-c2012-2.5:core/inc/nvic_reg.h \
+	  --suppress=misra-c2012-2.5:core/inc/scb_reg.h \
+	  --suppress=misra-c2012-2.3:core/inc/scb_reg.h \
+	  --suppress=misra-c2012-2.4:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  --suppress=misra-c2012-8.7:drivers/src/rcc.c \
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
+	  --suppress=misra-c2012-8.7:drivers/src/nvic.c \
 	  --suppress=misra-c2012-8.7:drivers/src/pwr.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
@@ -406,7 +416,7 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # SYSCLK bring-up; that was reconsidered once it was actually written and
 # tested, rather than left standing as-is.
 TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
-                       drivers/src/uart.c
+                       drivers/src/uart.c drivers/src/nvic.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
 TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
