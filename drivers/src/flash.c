@@ -55,4 +55,12 @@ DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency)
     return status;
 }
 
+void flashEnableCaches(FlashRegisters_t *flash)
+{
+    /* FLASH_ACR_PRFTEN/ICEN/DCEN are `1U << n` macros; see pwr.c's
+     * pwrSetVoltageScale() comment on cppcheck's misra-12.2 and macros. */
+    // cppcheck-suppress misra-c2012-12.2
+    flash->ACR |= FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN;
+}
+
 /** @} */

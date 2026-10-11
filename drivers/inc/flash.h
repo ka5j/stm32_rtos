@@ -1,9 +1,10 @@
 /**
  * @file flash.h
- * @brief Flash interface driver - access-latency (wait-state) configuration
- *        for the STM32F446xx embedded flash (device/inc/flash_reg.h). No
- *        application-facing logic; consumed by rcc.c as part of a SYSCLK
- *        frequency change.
+ * @brief Flash interface driver - access-latency (wait-state) and
+ *        prefetch/cache configuration for the STM32F446xx embedded flash
+ *        (device/inc/flash_reg.h). No application-facing logic; the
+ *        latency half is consumed by rcc.c as part of a SYSCLK frequency
+ *        change.
  *
  * Takes FLASH's register block as a parameter (FlashRegisters_t *) even
  * though the flash interface is a hardware singleton - see
@@ -58,6 +59,28 @@
  *         instruction fetch.
  */
 DRIVER_MUST_CHECK DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency);
+
+/**
+ * @brief Turn on the flash prefetch buffer and the instruction and data
+ *        caches (ACR.PRFTEN, ICEN, DCEN).
+ *
+ * A single read-modify-write that leaves ACR.LATENCY, and anything else
+ * in ACR, as it was. The caches come out of reset empty, so there is no
+ * reset step: ACR.ICRST/DCRST are deliberately not touched here. They
+ * are only meaningful to flush a cache that has been running, which
+ * would be a caller that had enabled it before; none exists in this
+ * project, and ST's own HAL_Init() also enables these three without a
+ * reset.
+ *
+ * Has no failure path (a deterministic register write, nothing to poll),
+ * so it returns void rather than DriverStatus_e. It is independent of
+ * the wait-state count - flashSetLatency() still decides correctness at
+ * a given SYSCLK; the caches only recover throughput lost to wait states
+ * - so it can be called at any point in bring-up.
+ *
+ * @param flash Flash interface register block (e.g. FLASH).
+ */
+void flashEnableCaches(FlashRegisters_t *flash);
 
 /** @} */
 

@@ -10,6 +10,13 @@ specifically.
 
 ### Added
 
+- `drivers/inc/flash.h`, `drivers/src/flash.c`: `flashEnableCaches()`
+  sets ACR.PRFTEN, ICEN and DCEN in one read-modify-write that keeps
+  LATENCY, and returns void (no failure path). No cache reset: the caches
+  come out of power-on reset empty, as ST's `HAL_Init()` also assumes, so
+  ICRST/DCRST stay unused. Covered by three tests in `test_flash.c`,
+  including that `flashSetLatency()` preserves the cache bits.
+
 - `drivers/inc/pwr.h`, `drivers/src/pwr.c`: `pwrEnableOverdrive()`
   (CR.ODEN, wait CSR.ODRDY, CR.ODSWEN, wait CSR.ODSWRDY) for the 180 MHz
   range, with bounded waits like `pwrWaitVoltageScaleReady()`; ODSWEN is
