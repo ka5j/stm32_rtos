@@ -80,6 +80,10 @@ DriverStatus_e rccGpioClockEnable(RccRegisters_t *rcc, const GpioRegisters_t *po
     if (status == DRIVER_STATUS_OK)
     {
         rcc->AHB1ENR |= bit;
+        /* Read back so the enable has taken effect before the caller's
+         * first access to the peripheral - see the clock-gating note in
+         * rcc.h's file comment. */
+        (void)rcc->AHB1ENR;
     }
 
     return status;
@@ -105,6 +109,7 @@ void rccUsart2ClockEnable(RccRegisters_t *rcc)
      * cppcheck's MISRA addon can't bound. */
     // cppcheck-suppress misra-c2012-12.2
     rcc->APB1ENR |= RCC_APB1ENR_USART2EN;
+    (void)rcc->APB1ENR; /* read-back delay: see rccGpioClockEnable() */
 }
 
 void rccUsart2ClockDisable(RccRegisters_t *rcc)
@@ -119,6 +124,7 @@ void rccSyscfgClockEnable(RccRegisters_t *rcc)
      * comment above. */
     // cppcheck-suppress misra-c2012-12.2
     rcc->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+    (void)rcc->APB2ENR; /* read-back delay: see rccGpioClockEnable() */
 }
 
 void rccSyscfgClockDisable(RccRegisters_t *rcc)
@@ -133,6 +139,7 @@ void rccPwrClockEnable(RccRegisters_t *rcc)
      * comment above. */
     // cppcheck-suppress misra-c2012-12.2
     rcc->APB1ENR |= RCC_APB1ENR_PWREN;
+    (void)rcc->APB1ENR; /* read-back delay: see rccGpioClockEnable() */
 }
 
 void rccPwrClockDisable(RccRegisters_t *rcc)

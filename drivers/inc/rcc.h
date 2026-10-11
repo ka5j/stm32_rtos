@@ -7,7 +7,13 @@
  * Two halves:
  *   - Clock gating: enabling/disabling the AHB1/APB1/APB2 peripheral
  *     clocks the GPIO, USART2, SYSCFG, and PWR blocks need before their
- *     own registers become accessible.
+ *     own registers become accessible. Each enable reads the enable
+ *     register back before returning: a peripheral's clock is not
+ *     guaranteed to be running on the very next access after the write,
+ *     and ST's own HAL (its __HAL_RCC_*_CLK_ENABLE macros) does the same
+ *     read-back, commented "Delay after an RCC peripheral clock
+ *     enabling". The read cannot be observed in a host test's in-memory
+ *     register block.
  *   - SYSCLK bring-up: enabling HSI/HSE, configuring and enabling the
  *     PLL, setting the AHB/APB1/APB2 bus prescalers, and switching SYSCLK
  *     to the configured source via rccSysclkSwitch() - which also applies
