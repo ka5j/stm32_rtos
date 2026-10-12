@@ -29,11 +29,21 @@ FILENAME ~ /test_runner\.c$/ {
         sub(/\(void\);.*/, "", name)
         declared[name] = 1
     }
-    if ($0 ~ /RUN_TEST\(test_[A-Za-z0-9_]+\)/) {
+    # Only a live statement counts as a registration: a commented-out
+    # `// RUN_TEST(test_x);` must not satisfy the check while the test
+    # silently never runs.
+    if ($0 ~ /^[ \t]*RUN_TEST\(test_[A-Za-z0-9_]+\);/) {
         name = $0
-        sub(/^.*RUN_TEST\(/, "", name)
+        sub(/^[ \t]*RUN_TEST\(/, "", name)
         sub(/\).*/, "", name)
+        if (name in run) {
+            printf "DUPLICATE RUN_TEST: %s is registered twice\n", name
+            duplicates++
+        }
         run[name] = 1
+    } else if ($0 ~ /RUN_TEST\(test_[A-Za-z0-9_]+\)/ && $0 !~ /^[ \t]*\*/) {
+        printf "RUN_TEST that is not a live statement (commented out?): %s\n", $0
+        duplicates++
     }
     next
 }
@@ -46,8 +56,16 @@ FILENAME ~ /test_runner\.c$/ {
     defined[name] = FILENAME
 }
 
+# A test function that does not match the strict `void test_x(void)` form
+# above would be invisible to this check: flag any other column-0 definition
+# whose name starts with test_.
+/^[A-Za-z_][A-Za-z0-9_ \*]* test_[A-Za-z0-9_]+\(/ && $0 !~ /^void test_[A-Za-z0-9_]+\(void\)/ && $0 !~ /^(static|extern) / && $0 !~ /;/ {
+    printf "UNRECOGNISED test signature (must be `void test_x(void)`): %s\n", $0
+    odd++
+}
+
 END {
-    failures = 0
+    failures = duplicates + odd
 
     for (name in defined) {
         if (!(name in declared)) {
@@ -75,5 +93,9 @@ END {
 
     n = 0
     for (name in defined) { n++ }
+    if (n == 0) {
+        print "check_test_registration: found no tests - parsing broke"
+        exit 1
+    }
     printf "OK: all %d tests in tests/unit/ are declared and run by test_runner.c\n", n
 }

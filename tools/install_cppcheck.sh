@@ -29,7 +29,18 @@ COMMIT=da29903ffcbde465b6c2b47e8dc38277743f47ec
 PREFIX=${1:-$HOME/.local/share/cppcheck-$VERSION}
 
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
+# The install is staged in $PREFIX.new and only moved into place once it
+# has passed a real check, so an interrupted or failed run can never leave
+# a half-populated $PREFIX that `make lint` would then pick up (the binary
+# is found by `make lint` before anything else is checked).
+staging="$PREFIX.new"
+cleanup() {
+    rm -rf "$tmp" "$staging"
+}
+trap cleanup EXIT
+# EXIT alone does not fire on a signal in every POSIX shell; turn a signal
+# into an exit so cleanup always runs.
+trap 'exit 1' INT TERM HUP
 
 echo "Cloning cppcheck $VERSION..."
 git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$VERSION" https://github.com/danmar/cppcheck.git "$tmp/src"
@@ -52,9 +63,32 @@ if ! make -C "$tmp/src" -j"$jobs" MATCHCOMPILER=yes FILESDIR="$PREFIX" CXXFLAGS=
     exit 1
 fi
 
-mkdir -p "$PREFIX/bin"
-cp "$tmp/src/cppcheck" "$PREFIX/bin/"
-cp -R "$tmp/src/cfg" "$tmp/src/addons" "$tmp/src/platforms" "$PREFIX/"
+rm -rf "$staging"
+mkdir -p "$staging/bin"
+cp -R "$tmp/src/cfg" "$tmp/src/addons" "$tmp/src/platforms" "$staging/"
+cp "$tmp/src/cppcheck" "$staging/bin/"
+
+# The binary has $PREFIX baked in as its FILESDIR, so it can only be
+# exercised from its final location: swap it in, check it, and put the
+# previous install back if the check fails.
+backup="$PREFIX.old"
+rm -rf "$backup"
+if [ -e "$PREFIX" ]; then
+    mv "$PREFIX" "$backup"
+fi
+mv "$staging" "$PREFIX"
+
+printf 'int main(void)\n{\n    return 0;\n}\n' >"$tmp/smoke.c"
+if ! "$PREFIX/bin/cppcheck" --addon=misra --error-exitcode=1 --quiet "$tmp/smoke.c" >"$tmp/smoke.log" 2>&1; then
+    echo "install_cppcheck: the installed cppcheck failed its smoke check (cppcheck + MISRA addon):" >&2
+    tail -n 20 "$tmp/smoke.log" >&2
+    rm -rf "$PREFIX"
+    if [ -e "$backup" ]; then
+        mv "$backup" "$PREFIX"
+    fi
+    exit 1
+fi
+rm -rf "$backup"
 
 echo "Installed: $("$PREFIX/bin/cppcheck" --version) at $PREFIX/bin/cppcheck"
 echo "make lint now uses it automatically (override with CPPCHECK=...)."
