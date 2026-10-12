@@ -16,7 +16,7 @@
  *
  * Field coverage is scoped to the clock bring-up path above, not flash
  * self-programming: FLASH_SR only defines EOP, WRPERR, and BSY (RM0390
- * also has OPERR/PGAERR/PGPERR/PGSERR), and FLASH_CR carries no bit
+ * also has OPERR/PGAERR/PGPERR/PGSERR/RDERR), and FLASH_CR carries no bit
  * macros at all (PG/SER/MER/STRT/LOCK/...), since this project does not
  * erase, program, or write option bytes to flash at runtime. Fill in
  * the remaining SR error bits and CR's programming bits if/when this

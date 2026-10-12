@@ -292,12 +292,13 @@ typedef struct FpuRegisters_t
  */
 
 /* --- FPU_FPCCR bit definitions --- */
-#define FPU_FPCCR_LSPACT_Pos (0U)                     ///< Bit position within FPU_FPCCR
-#define FPU_FPCCR_LSPACT (1U << FPU_FPCCR_LSPACT_Pos) ///< READ only - lazy save pending
-#define FPU_FPCCR_ASPEN_Pos (31U)                     ///< Bit position within FPU_FPCCR
-#define FPU_FPCCR_ASPEN (1U << FPU_FPCCR_ASPEN_Pos)   ///< WRITE - auto FP state save on exception
-#define FPU_FPCCR_LSPEN_Pos (30U)                     ///< Bit position within FPU_FPCCR
-#define FPU_FPCCR_LSPEN (1U << FPU_FPCCR_LSPEN_Pos)   ///< WRITE - enable lazy FP context stacking
+#define FPU_FPCCR_LSPACT_Pos (0U) ///< Bit position within FPU_FPCCR
+#define FPU_FPCCR_LSPACT                                                                           \
+    (1U << FPU_FPCCR_LSPACT_Pos)                    ///< READ only - lazy state preservation active
+#define FPU_FPCCR_ASPEN_Pos (31U)                   ///< Bit position within FPU_FPCCR
+#define FPU_FPCCR_ASPEN (1U << FPU_FPCCR_ASPEN_Pos) ///< WRITE - auto FP state save on exception
+#define FPU_FPCCR_LSPEN_Pos (30U)                   ///< Bit position within FPU_FPCCR
+#define FPU_FPCCR_LSPEN (1U << FPU_FPCCR_LSPEN_Pos) ///< WRITE - enable lazy FP context stacking
 
 /** @} */
 

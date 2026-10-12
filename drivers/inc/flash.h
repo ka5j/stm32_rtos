@@ -17,6 +17,8 @@
 #include "driver_status.h"
 #include "flash_reg.h"
 
+#include <stdint.h>
+
 /**
  * @addtogroup driver_layer
  * @{

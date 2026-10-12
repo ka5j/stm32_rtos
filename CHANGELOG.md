@@ -91,6 +91,20 @@ specifically.
 
 ### Changed
 
+- Header and comment hygiene, from the full review. Annotations and types:
+  `USART_SR_RXNE` is write-0-to-clear (rc_w0), not "READ only";
+  `NvicRegisters_t::IABR` is `volatile const` like every other read-only
+  register; `FPU_FPCCR_LSPACT` is "lazy state preservation active".
+  Includes: `gpio.h`, `flash.h`, `pwr.h`, `rcc.h` and `uart.h` include
+  `<stdint.h>` for the types they use instead of relying on their register
+  header, and `bsp.h` drops one it never used. Comments: `gpioSetAlternateFunction`'s
+  `@return` now lists the pin check, `I2SSCR` is `I2SSRC`, the GPIO value
+  macros all name their register, the SYSCFG EXTICR bit-position wording and
+  a stale "top-of-file note" cross-reference are fixed, the flash header
+  lists `RDERR` among the omitted SR bits, and `bsp.h` says its limits are
+  `_Static_assert`s. `Makefile`, `device/inc/rcc_reg.h` and
+  `tools/openocd.cfg` gained their missing final newline.
+
 - Release process and setup docs, from the full review. `docs/VERSIONING.md`
   now describes how releases were actually cut (a `release/vX.Y.Z` branch
   into `main`, the changelog link references, the UTC-date convention, the

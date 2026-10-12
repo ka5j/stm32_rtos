@@ -9,7 +9,7 @@
  * Bit-field coverage is scoped to a HSI/HSE-to-PLL SYSCLK bring-up and
  * GPIO/USART/SYSCFG/PWR clock gating - what this project's driver work
  * needs. PLLCFGR's PLLQ (bits 27:24, the USB OTG FS/SDIO 48 MHz output)
- * and CFGR's MCO1/MCO1PRE/MCO2/MCO2PRE/RTCPRE/I2SSCR fields are omitted,
+ * and CFGR's MCO1/MCO1PRE/MCO2/MCO2PRE/RTCPRE/I2SSRC fields are omitted,
  * since this project drives neither USB/SDIO nor a debug clock out on
  * an MCO pin. Add them if/when a driver needs to.
  */
@@ -53,7 +53,7 @@ typedef struct RccRegisters_t
     volatile uint32_t AHB3LPENR;    ///< 0x58: AHB3 peripheral clock enable in LP mode reg
     volatile uint32_t RESERVED4;    ///< 0x5C: reserved
     volatile uint32_t APB1LPENR;    ///< 0x60: APB1 peripheral clock enable in LP mode reg
-    volatile uint32_t APB2LPENR;    ///< 0x64: APB2 peripheral clock enabled in LP mode reg
+    volatile uint32_t APB2LPENR;    ///< 0x64: APB2 peripheral clock enable in LP mode reg
     volatile uint32_t RESERVED5[2]; ///< 0x68-0x6C: reserved
     volatile uint32_t BDCR;         ///< 0x70: Backup domain control register
     volatile uint32_t CSR;          ///< 0x74: clock control & status register

@@ -10,6 +10,8 @@
 #include "driver_status.h"
 #include "gpio_reg.h"
 
+#include <stdint.h>
+
 /**
  * @addtogroup driver_layer
  * @{
@@ -141,7 +143,8 @@ void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin);
  * @param pin  Pin number within the port.
  * @param af   Alternate function number, 0-GPIO_AF_MAX.
  * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if af > GPIO_AF_MAX.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p pin is outside
+ *         GpioPin_e's 0-15 domain, or if af > GPIO_AF_MAX.
  */
 DRIVER_MUST_CHECK DriverStatus_e gpioSetAlternateFunction(GpioRegisters_t *port, GpioPin_e pin,
                                                           uint32_t af);

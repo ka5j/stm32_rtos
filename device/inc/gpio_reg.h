@@ -56,12 +56,12 @@ typedef struct GpioRegisters_t
 /* --- MODER field values (2 bits per pin, shift = pin * 2) --- */
 #define GPIO_MODE_INPUT (0x0U)  ///< MODER field value: input mode
 #define GPIO_MODE_OUTPUT (0x1U) ///< MODER field value: output mode
-#define GPIO_MODE_AF (0x2U)     ///< MODER field value: af mode
+#define GPIO_MODE_AF (0x2U)     ///< MODER field value: alternate-function mode
 #define GPIO_MODE_ANALOG (0x3U) ///< MODER field value: analog mode
 
 /* --- OTYPER field values (1 bit per pin) --- */
-#define GPIO_OTYPE_PP (0x0U) ///< push-pull
-#define GPIO_OTYPE_OD (0x1U) ///< open-drain
+#define GPIO_OTYPE_PP (0x0U) ///< OTYPER field value: push-pull
+#define GPIO_OTYPE_OD (0x1U) ///< OTYPER field value: open-drain
 
 /* --- OSPEEDR field values (2 bits per pin, shift = pin * 2) --- */
 #define GPIO_OSPEED_LOW (0x0U)    ///< OSPEEDR field value: low speed
@@ -70,9 +70,9 @@ typedef struct GpioRegisters_t
 #define GPIO_OSPEED_HIGH (0x3U)   ///< OSPEEDR field value: high speed
 
 /* --- PUPDR field values (2 bits per pin, shift = pin * 2) --- */
-#define GPIO_PUPD_NONE (0x0U) ///< PUPDR field value: none
-#define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: up
-#define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: down
+#define GPIO_PUPD_NONE (0x0U) ///< PUPDR field value: no pull
+#define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: pull-up
+#define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: pull-down
 
 /* --- Power-on-reset values that differ from zero ---
  *
