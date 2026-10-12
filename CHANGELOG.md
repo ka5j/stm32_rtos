@@ -91,6 +91,25 @@ specifically.
 
 ### Changed
 
+- Tests only: every register header now has a test with literal values for
+  what the drivers rely on, taken from ST's SVD/HAL and ARM's CMSIS rather
+  than built from the header's own macros. Before, the field-value macros
+  were only tested for distinctness, so swapping `PWR_CR_VOS_SCALE1` and
+  `SCALE3` (which would under-volt the 180 MHz bring-up), or exchanging
+  `GPIO_MODE_AF` and `GPIO_PUPD_DOWN` (both 0x2), passed every test. Now
+  pinned: the VOS/SYSCLK/HPRE/PPRE/PLLP/PLLSRC/GPIO/EXTICR/STOP/AP encodings,
+  `Msk` values for the fields the drivers shift, the `CR`/`CSR`/`ACR`/`CTRL`
+  bits the drivers touch, every base address and pointer macro that was
+  unpinned (`GPIOA`..`GPIOH`, `USART1`..`UART5`, RCC, FLASH, PWR, EXTI,
+  SYSCFG, IWDG, WWDG, NVIC, SCB, FPU, MPU, SysTick), `sizeof(RccRegisters_t)`
+  and the offset of every member after a RESERVED gap in each struct. The
+  constants `startup_stm32f446re.s` hard-codes (CPACR address, FPU enable
+  mask, AIRCR address and the PRIGROUP=3 write) are now bound to `scb_reg.h`
+  by a test. Every literal agreed with the existing macros, so this found no
+  wrong value - it makes the next wrong one fail. The EXTI line numbers
+  16-22 are regression pins only: neither the SVD nor ST's headers define
+  them.
+
 - `drivers/{inc,src}/uart.{h,c}`: the TXE/TC/RXNE waits no longer use a
   fixed 100000-poll count; `uartFlush`, `uartTransmitByte`, `uartTransmit`,
   `uartReceiveByte` and `uartReceive` take a caller-supplied `timeout`

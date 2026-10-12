@@ -30,3 +30,21 @@ void test_syscfg_exticr_port_values_are_distinct_and_in_range(void)
         }
     }
 }
+
+/** Literal base, offsets (every member after the RESERVED gap) and EXTICR port codes (ST's SVD). */
+void test_syscfg_reg_literal_pins(void)
+{
+    TEST_ASSERT_EQUAL_HEX32(0x40013800UL, SYSCFG_BASE);
+    TEST_ASSERT_EQUAL_HEX32(SYSCFG_BASE, (uintptr_t)SYSCFG);
+    TEST_ASSERT_EQUAL_HEX32(0x04, offsetof(SyscfgRegisters_t, PMC));
+    TEST_ASSERT_EQUAL_HEX32(0x08, offsetof(SyscfgRegisters_t, EXTICR));
+    TEST_ASSERT_EQUAL_HEX32(0x20, offsetof(SyscfgRegisters_t, CMPCR));
+    TEST_ASSERT_EQUAL_HEX32(0x0U, SYSCFG_EXTICR_PA);
+    TEST_ASSERT_EQUAL_HEX32(0x1U, SYSCFG_EXTICR_PB);
+    TEST_ASSERT_EQUAL_HEX32(0x2U, SYSCFG_EXTICR_PC);
+    TEST_ASSERT_EQUAL_HEX32(0x3U, SYSCFG_EXTICR_PD);
+    TEST_ASSERT_EQUAL_HEX32(0x4U, SYSCFG_EXTICR_PE);
+    TEST_ASSERT_EQUAL_HEX32(0x5U, SYSCFG_EXTICR_PF);
+    TEST_ASSERT_EQUAL_HEX32(0x6U, SYSCFG_EXTICR_PG);
+    TEST_ASSERT_EQUAL_HEX32(0x7U, SYSCFG_EXTICR_PH);
+}
