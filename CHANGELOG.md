@@ -91,6 +91,20 @@ specifically.
 
 ### Changed
 
+- `drivers/{inc,src}/uart.{h,c}`: the TXE/TC/RXNE waits no longer use a
+  fixed 100000-poll count; `uartFlush`, `uartTransmitByte`, `uartTransmit`,
+  `uartReceiveByte` and `uartReceive` take a caller-supplied `timeout`
+  (SR polls; per byte for the buffer functions). A fixed count is about
+  5-9 ms at 180 MHz -O2 but 11x longer at 16 MHz and 2-3x longer at -O0, so
+  it timed out spuriously at low baud rates (a TC wait is two frame times:
+  8 ms at 2400 baud) and whenever a received byte arrived more than a few
+  milliseconds after the call - which made an echo loop unusable. A receive
+  wait depends on when the sender next speaks, not on the baud rate, so only
+  the caller can size it. `timeout == 0` polls once (a non-blocking check);
+  `UINT32_MAX` is an effectively unbounded wait. `uart.h` documents how to
+  size one. API change, but nothing in the repo calls these yet. Per-poll
+  cost figures are estimates, not measured on hardware.
+
 - Docs and comments brought in line with the code after the driver and BSP
   work: `docs/ARCHITECTURE.md` (the drivers box omitted Flash and PWR; bsp/
   is no longer only "pin mapping"; `tools/install_cppcheck.sh`),

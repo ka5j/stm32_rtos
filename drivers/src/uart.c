@@ -17,10 +17,6 @@
  *  configured a baud rate the peripheral cannot produce. */
 #define UART_BRR_MIN (16U)
 
-/** Bounded retry count for SR.TXE/RXNE, not a wall-clock timeout - see
- *  uart.h's file-level comment for why. */
-#define UART_READY_TIMEOUT_ITERATIONS (100000U)
-
 /**
  * @brief Compute BRR from a bus clock and target baud rate, standard 16x
  *        oversampling (uartInit() clears OVER8 to match).
@@ -193,8 +189,8 @@ void uartDeinit(UartRegisters_t *uart)
 }
 
 /**
- * @brief Spin until one of SR's ready flags reads set, or the bounded
- *        retry count is exhausted. Shared by every blocking transfer
+ * @brief Spin until one of SR's ready flags reads set, or the caller's
+ *        poll budget is exhausted. Shared by every blocking transfer
  *        function here, which differ only in which SR bit they watch.
  *
  * The outcome is decided by re-reading the flag after the loop, not by
@@ -206,18 +202,20 @@ void uartDeinit(UartRegisters_t *uart)
  * @param uart UART register block (e.g. USART2).
  * @param flag SR flag to wait on - ::USART_SR_TXE, ::USART_SR_TC, or
  *             ::USART_SR_RXNE.
+ * @param timeout Maximum number of SR polls to wait. 0 polls once and
+ *             does not wait.
  * @return DRIVER_STATUS_OK if flag is set on exit.
- * @return DRIVER_STATUS_ERR_TIMEOUT if it is still clear after
- *         UART_READY_TIMEOUT_ITERATIONS iterations.
+ * @return DRIVER_STATUS_ERR_TIMEOUT if it is still clear after the
+ *         poll budget.
  */
-static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag)
+static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag, uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
-    uint32_t timeout = UART_READY_TIMEOUT_ITERATIONS;
+    uint32_t remaining = timeout;
 
-    while (((uart->SR & flag) == 0U) && (timeout > 0U))
+    while (((uart->SR & flag) == 0U) && (remaining > 0U))
     {
-        timeout--;
+        remaining--;
     }
 
     if ((uart->SR & flag) == 0U)
@@ -228,15 +226,15 @@ static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag)
     return status;
 }
 
-DriverStatus_e uartFlush(const UartRegisters_t *uart)
+DriverStatus_e uartFlush(const UartRegisters_t *uart, uint32_t timeout)
 {
     // cppcheck-suppress misra-c2012-12.2
-    return uartWaitSrFlag(uart, USART_SR_TC);
+    return uartWaitSrFlag(uart, USART_SR_TC, timeout);
 }
 
-DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte)
+DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte, uint32_t timeout)
 {
-    DriverStatus_e status = uartWaitSrFlag(uart, USART_SR_TXE);
+    DriverStatus_e status = uartWaitSrFlag(uart, USART_SR_TXE, timeout);
 
     if (status == DRIVER_STATUS_OK)
     {
@@ -246,7 +244,8 @@ DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte)
     return status;
 }
 
-DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t length)
+DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t length,
+                            uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
@@ -257,7 +256,7 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
 
     for (size_t i = 0U; (i < length) && (status == DRIVER_STATUS_OK); i++)
     {
-        status = uartTransmitByte(uart, data[i]);
+        status = uartTransmitByte(uart, data[i], timeout);
     }
 
     /* Wait for the last byte to leave the shift register, not merely to
@@ -266,7 +265,7 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
      * previous transfer left behind. */
     if ((status == DRIVER_STATUS_OK) && (length > 0U))
     {
-        status = uartFlush(uart);
+        status = uartFlush(uart, timeout);
     }
 
     return status;
@@ -285,7 +284,7 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
  * reorderable observation and mislead every future reader and refactor.
  * See CONTRIBUTING.md's `const` on a register-block parameter section;
  * this function is the worked example it cites. */
-DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte)
+DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte, uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
@@ -295,7 +294,7 @@ DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte)
     }
     else
     {
-        status = uartWaitSrFlag(uart, USART_SR_RXNE);
+        status = uartWaitSrFlag(uart, USART_SR_RXNE, timeout);
     }
 
     if (status == DRIVER_STATUS_OK)
@@ -313,7 +312,7 @@ DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte)
     return status;
 }
 
-DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length)
+DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length, uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
@@ -324,7 +323,7 @@ DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length)
 
     for (size_t i = 0U; (i < length) && (status == DRIVER_STATUS_OK); i++)
     {
-        status = uartReceiveByte(uart, &data[i]);
+        status = uartReceiveByte(uart, &data[i], timeout);
     }
 
     return status;

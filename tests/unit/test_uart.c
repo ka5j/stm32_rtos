@@ -21,6 +21,9 @@
 
 #include <stddef.h>
 
+/** Poll budget for tests that expect a wait to time out: small, so they run instantly. */
+#define TEST_TIMEOUT (1000U)
+
 /* --- uartInit: BRR computation --- */
 
 /** 45 MHz APB1, 115200 baud (common USART2 config): pclk/baud =
@@ -410,7 +413,7 @@ void test_uart_driver_transmit_byte_writes_dr_when_txe_ready(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_TXE};
 
-    DriverStatus_e status = uartTransmitByte(&uart, 0x42U);
+    DriverStatus_e status = uartTransmitByte(&uart, 0x42U, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(0x42U, uart.DR);
@@ -422,7 +425,7 @@ void test_uart_driver_transmit_byte_times_out_when_txe_never_sets(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartTransmitByte(&uart, 0x42U);
+    DriverStatus_e status = uartTransmitByte(&uart, 0x42U, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX32(0U, uart.DR);
@@ -435,7 +438,7 @@ void test_uart_driver_transmit_sends_every_byte_in_order(void)
     UartRegisters_t uart = {.SR = USART_SR_TXE | USART_SR_TC};
     static const uint8_t data[] = {0x11U, 0x22U, 0x33U};
 
-    DriverStatus_e status = uartTransmit(&uart, data, sizeof(data));
+    DriverStatus_e status = uartTransmit(&uart, data, sizeof(data), TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     /* Only the last byte written is observable in this fake register -
@@ -453,7 +456,7 @@ void test_uart_driver_transmit_zero_length_reports_ok(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartTransmit(&uart, NULL, 0U);
+    DriverStatus_e status = uartTransmit(&uart, NULL, 0U, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
 }
@@ -468,7 +471,7 @@ void test_uart_driver_transmit_times_out_when_tc_never_sets(void)
     UartRegisters_t uart = {.SR = USART_SR_TXE};
     static const uint8_t data[] = {0x11U, 0x22U};
 
-    DriverStatus_e status = uartTransmit(&uart, data, sizeof(data));
+    DriverStatus_e status = uartTransmit(&uart, data, sizeof(data), TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX32(0x22U, uart.DR);
@@ -481,7 +484,7 @@ void test_uart_driver_transmit_propagates_timeout(void)
     UartRegisters_t uart = {0};
     static const uint8_t data[] = {0x11U, 0x22U};
 
-    DriverStatus_e status = uartTransmit(&uart, data, sizeof(data));
+    DriverStatus_e status = uartTransmit(&uart, data, sizeof(data), TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
 }
@@ -493,7 +496,7 @@ void test_uart_driver_flush_reports_ok_when_tc_set(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_TC};
 
-    DriverStatus_e status = uartFlush(&uart);
+    DriverStatus_e status = uartFlush(&uart, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
 }
@@ -503,7 +506,7 @@ void test_uart_driver_flush_times_out_when_tc_never_sets(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartFlush(&uart);
+    DriverStatus_e status = uartFlush(&uart, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
 }
@@ -514,7 +517,7 @@ void test_uart_driver_flush_does_not_write_dr(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_TC, .DR = 0x5AU};
 
-    DriverStatus_e status = uartFlush(&uart);
+    DriverStatus_e status = uartFlush(&uart, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(0x5AU, uart.DR);
@@ -529,7 +532,7 @@ void test_uart_driver_receive_byte_reads_dr_when_no_fault(void)
     UartRegisters_t uart = {.SR = USART_SR_RXNE, .DR = 0x7AU};
     uint8_t byte = 0U;
 
-    DriverStatus_e status = uartReceiveByte(&uart, &byte);
+    DriverStatus_e status = uartReceiveByte(&uart, &byte, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX8(0x7AU, byte);
@@ -542,7 +545,7 @@ void test_uart_driver_receive_byte_times_out_when_rxne_never_sets(void)
     UartRegisters_t uart = {0};
     uint8_t byte = 0xAAU;
 
-    DriverStatus_e status = uartReceiveByte(&uart, &byte);
+    DriverStatus_e status = uartReceiveByte(&uart, &byte, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX8(0xAAU, byte);
@@ -556,7 +559,7 @@ void test_uart_driver_receive_byte_reports_fault_but_still_reads_dr(void)
     UartRegisters_t uart = {.SR = USART_SR_RXNE | USART_SR_ORE, .DR = 0x55U};
     uint8_t byte = 0U;
 
-    DriverStatus_e status = uartReceiveByte(&uart, &byte);
+    DriverStatus_e status = uartReceiveByte(&uart, &byte, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_HW_FAULT, status);
     TEST_ASSERT_EQUAL_HEX8(0x55U, byte);
@@ -574,7 +577,7 @@ void test_uart_driver_receive_byte_reports_fault_for_ne_fe_pe(void)
         UartRegisters_t uart = {.SR = USART_SR_RXNE | fault_bits[i]};
         uint8_t byte = 0U;
 
-        DriverStatus_e status = uartReceiveByte(&uart, &byte);
+        DriverStatus_e status = uartReceiveByte(&uart, &byte, TEST_TIMEOUT);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_HW_FAULT, status);
     }
@@ -587,7 +590,7 @@ void test_uart_driver_receive_reads_every_byte_in_order(void)
     UartRegisters_t uart = {.SR = USART_SR_RXNE, .DR = 0x99U};
     uint8_t data[3] = {0};
 
-    DriverStatus_e status = uartReceive(&uart, data, sizeof(data));
+    DriverStatus_e status = uartReceive(&uart, data, sizeof(data), TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX8(0x99U, data[0]);
@@ -600,7 +603,7 @@ void test_uart_driver_receive_zero_length_reports_ok(void)
 {
     UartRegisters_t uart = {0};
 
-    DriverStatus_e status = uartReceive(&uart, NULL, 0U);
+    DriverStatus_e status = uartReceive(&uart, NULL, 0U, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
 }
@@ -611,7 +614,7 @@ void test_uart_driver_receive_propagates_timeout(void)
     UartRegisters_t uart = {0};
     uint8_t data[2] = {0};
 
-    DriverStatus_e status = uartReceive(&uart, data, sizeof(data));
+    DriverStatus_e status = uartReceive(&uart, data, sizeof(data), TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
 }
@@ -624,7 +627,7 @@ void test_uart_driver_transmit_rejects_null_buffer_with_length(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_TXE | USART_SR_TC, .DR = 0x5AU};
 
-    DriverStatus_e status = uartTransmit(&uart, NULL, 4U);
+    DriverStatus_e status = uartTransmit(&uart, NULL, 4U, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
     TEST_ASSERT_EQUAL_HEX32(0x5AU, uart.DR);
@@ -635,7 +638,7 @@ void test_uart_driver_receive_byte_rejects_null_output(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_RXNE, .DR = 0x42U};
 
-    DriverStatus_e status = uartReceiveByte(&uart, NULL);
+    DriverStatus_e status = uartReceiveByte(&uart, NULL, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
 }
@@ -645,7 +648,7 @@ void test_uart_driver_receive_rejects_null_buffer_with_length(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_RXNE, .DR = 0x42U};
 
-    DriverStatus_e status = uartReceive(&uart, NULL, 4U);
+    DriverStatus_e status = uartReceive(&uart, NULL, 4U, TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
 }
@@ -673,4 +676,39 @@ void test_uart_driver_init_brr_bounds_are_inclusive(void)
                       uartInit(&high, 65536U, 1U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
     TEST_ASSERT_EQUAL_HEX32(0U, low.BRR);
     TEST_ASSERT_EQUAL_HEX32(0U, high.BRR);
+}
+
+/* --- caller-supplied timeout --- */
+
+/** A timeout of 0 still polls once: a flag that is already set succeeds without waiting. */
+void test_uart_driver_zero_timeout_polls_once_and_succeeds_when_ready(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_TXE | USART_SR_TC | USART_SR_RXNE, .DR = 0x42U};
+    uint8_t byte = 0U;
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, uartTransmitByte(&uart, 0x11U, 0U));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, uartFlush(&uart, 0U));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, uartReceiveByte(&uart, &byte, 0U));
+}
+
+/** A timeout of 0 with the flag clear reports TIMEOUT immediately (a non-blocking check). */
+void test_uart_driver_zero_timeout_reports_timeout_when_not_ready(void)
+{
+    UartRegisters_t uart = {0};
+    uint8_t byte = 0xEEU;
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartTransmitByte(&uart, 0x11U, 0U));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartFlush(&uart, 0U));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartReceiveByte(&uart, &byte, 0U));
+    TEST_ASSERT_EQUAL_HEX8(0xEEU, byte);
+}
+
+/** The buffer functions hand the caller's timeout to their per-byte waits and the closing flush:
+ *  TXE ready but TC never set times out at the flush, however large the timeout. */
+void test_uart_driver_transmit_applies_timeout_to_closing_flush(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_TXE};
+    const uint8_t data[2] = {0x01U, 0x02U};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartTransmit(&uart, data, sizeof(data), 5U));
 }
