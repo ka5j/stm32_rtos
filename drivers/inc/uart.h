@@ -32,7 +32,7 @@
  * shipped accepting a value the rest of the driver cannot act on.
  *
  * Every transmit/receive function here blocks by spin-polling TXE/RXNE
- * with a bounded iteration count - the only thing implementable before
+ * with a bounded, caller-supplied poll count - the only thing implementable before
  * an RTOS scheduler exists to block/wake a task against an interrupt
  * (drivers/inc/nvic.h now exists to configure the interrupt itself). A task that calls
  * uartTransmit()/uartReceive() once real tasks exist will monopolize the
@@ -41,6 +41,25 @@
  * of this revision, not the intended final form. Revisit with an
  * interrupt- or DMA-driven variant once rtos/kernel/ exists to build
  * one against.
+ *
+ * Timeouts are supplied by the caller, as a count of SR polls (@c timeout
+ * on each function), not baked into the driver. A fixed count cannot be
+ * right: one SR poll costs roughly 10-30 core cycles depending on the
+ * build (-O0 is about 2-3x slower than -O2) and the core clock (16 MHz
+ * HSI to 180 MHz), so any constant is a different number of milliseconds
+ * in every configuration, and how long a wait should last is a property
+ * of the caller - a transmit is bounded by the frame time at the
+ * configured baud rate (10-12 bit times per byte, two frames for a wait
+ * on TC), while a receive waits for whenever the sender next speaks,
+ * which is not related to the baud rate at all. Size a timeout as
+ * milliseconds x core_hz / 1000 / 30 for a safe lower bound on polls (30
+ * cycles per poll is the slow end), or pass UINT32_MAX for an effectively
+ * unbounded wait (about 2^32 polls: tens of seconds to minutes). A
+ * @c timeout of 0 polls exactly once, so it turns a call into a
+ * non-blocking check that reports DRIVER_STATUS_ERR_TIMEOUT when the flag
+ * is not already set. These are bounded retry counts, not wall-clock
+ * timeouts, for the reason in rcc.h's file-level comment; revisit with a
+ * SysTick deadline once the kernel provides one.
  *
  * Takes UART's register block as a parameter (UartRegisters_t *) even
  * though every instance (USART1/2/3, UART4/5, USART6) shares this same
@@ -152,13 +171,15 @@ void uartDeinit(UartRegisters_t *uart);
  *             does not clear TC (RM0390 clears it via an SR read
  *             followed by a DR write, and this function never writes
  *             DR).
+ * @param timeout Maximum number of SR polls to wait for TC - see this
+ *             file's comment on timeouts.
  * @pre uartInit() has already enabled this instance with
  *      ::USART_CR1_TE set in its @c direction argument.
  * @return DRIVER_STATUS_OK once SR.TC is observed set.
  * @return DRIVER_STATUS_ERR_TIMEOUT if SR.TC never set within
- *         UART_READY_TIMEOUT_ITERATIONS iterations of this call.
+ *         @p timeout polls.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartFlush(const UartRegisters_t *uart);
+DRIVER_MUST_CHECK DriverStatus_e uartFlush(const UartRegisters_t *uart, uint32_t timeout);
 
 /**
  * @brief Send one byte, blocking until the transmit data register is
@@ -166,16 +187,17 @@ DRIVER_MUST_CHECK DriverStatus_e uartFlush(const UartRegisters_t *uart);
  *
  * @param uart UART register block (e.g. USART2).
  * @param byte Byte to send.
+ * @param timeout Maximum number of SR polls to wait for TXE - see this
+ *             file's comment on timeouts. A full frame time at the
+ *             configured baud rate is the longest legitimate wait.
  * @pre uartInit() has already enabled this instance with
  *      ::USART_CR1_TE set in its @c direction argument.
  * @return DRIVER_STATUS_OK once DR has been written.
  * @return DRIVER_STATUS_ERR_TIMEOUT if SR.TXE never set within
- *         UART_READY_TIMEOUT_ITERATIONS iterations of this call - a
- *         bounded retry count, not a wall-clock timeout, matching every
- *         other bounded hardware-ready wait in this project (see rcc.h's
- *         file-level comment for why).
+ *         @p timeout polls.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte);
+DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte,
+                                                  uint32_t timeout);
 
 /**
  * @brief Send a buffer of bytes, blocking until the last one has been
@@ -191,6 +213,9 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t
  * @param length Number of bytes in @p data. A @p length of `0U` sends
  *               nothing and returns DRIVER_STATUS_OK without waiting on
  *               TC, since no transmission was started.
+ * @param timeout Maximum number of SR polls to wait *per byte* for
+ *               TXE, and again for the closing TC wait - see this
+ *               file's comment on timeouts.
  * @return DRIVER_STATUS_OK once every byte has been sent and SR.TC
  *         confirms the transmitter is idle.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p data is NULL while
@@ -201,7 +226,7 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t
  *         further bytes are sent after the failure.
  */
 DRIVER_MUST_CHECK DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data,
-                                              size_t length);
+                                              size_t length, uint32_t timeout);
 
 /**
  * @brief Receive one byte, blocking until one is available.
@@ -224,6 +249,10 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8
  *             returns DRIVER_STATUS_ERR_HW_FAULT, since DR is always
  *             read; treat the byte as unreliable in that case. Must not
  *             be NULL.
+ * @param timeout Maximum number of SR polls to wait for RXNE - see this
+ *             file's comment on timeouts. An RXNE wait is bounded by
+ *             when the sender next transmits, not by the baud rate, so
+ *             this is usually the one to make large.
  * @pre uartInit() has already enabled this instance with
  *      ::USART_CR1_RE set in its @c direction argument.
  * @return DRIVER_STATUS_OK once a byte with no reported fault has been
@@ -233,9 +262,10 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8
  * @return DRIVER_STATUS_ERR_HW_FAULT if SR reports ORE, NE, FE, or PE
  *         for this byte.
  * @return DRIVER_STATUS_ERR_TIMEOUT if SR.RXNE never set within
- *         UART_READY_TIMEOUT_ITERATIONS iterations of this call.
+ *         @p timeout polls.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte);
+DRIVER_MUST_CHECK DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte,
+                                                 uint32_t timeout);
 
 /**
  * @brief Receive a buffer of bytes, blocking on each one in turn.
@@ -244,6 +274,8 @@ DRIVER_MUST_CHECK DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t 
  * @param data   Buffer to receive into. May be NULL only when
  *               @p length is `0U`.
  * @param length Number of bytes to receive into @p data.
+ * @param timeout Maximum number of SR polls to wait *per byte* for RXNE
+ *               - see this file's comment on timeouts.
  * @return DRIVER_STATUS_OK once every byte has been received with no
  *         fault.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p data is NULL while
@@ -253,7 +285,8 @@ DRIVER_MUST_CHECK DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t 
  *         bytes already received remain in @p data, and no further
  *         bytes are received after the failure.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length);
+DRIVER_MUST_CHECK DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length,
+                                             uint32_t timeout);
 
 /** @} */
 

@@ -113,7 +113,7 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 - **NVIC** — `nvicEnableIrq`/`nvicDisableIrq`, `nvicSetPending`/`nvicClearPending`, `nvicSetPriority`/`nvicGetPriority` for device interrupts (IRQn 0-96, priorities 0-15), and `nvicSetSystemHandlerPriority` for MemManage/BusFault/UsageFault/SVCall/PendSV/SysTick via SCB SHPR1-3. Priority grouping is left to `Reset_Handler`, which sets PRIGROUP=3.
 - **SysTick** — `systickInit(systick, core_hz, tick_hz)` (reload = `core_hz / tick_hz - 1`, 24-bit, processor-clock source, interrupt on) and `systickDeinit`. The `SysTick_Handler` and tick counter belong to the kernel, not the driver.
 - **BSP** (`bsp/`) — `bspClockInit(rcc, pwr, flash)`: HSE bypass (8 MHz from the ST-LINK) → PLL M=8, N=360, P=2 → 180 MHz SYSCLK with regulator scale 1 + over-drive, AHB /1, APB1 /4 (45 MHz), APB2 /2 (90 MHz), 5 flash wait states, prefetch and caches on; `BSP_*_HZ` constants name the resulting clocks. Under the same 100% coverage gate as `drivers/`.
-- **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking asynchronous transfer, 8 data bits with optional parity and 1 or 2 stop bits.
+- **UART** — `uartInit`/`uartDeinit`/`uartFlush`/`uartTransmitByte`/`uartTransmit`/`uartReceiveByte`/`uartReceive`, blocking asynchronous transfer with a caller-supplied poll-count timeout on every wait, 8 data bits with optional parity and 1 or 2 stop bits.
 
 `drivers/` is complete, which is the `0.2.0` milestone — see [docs/VERSIONING.md](docs/VERSIONING.md) for how releases are cut.
 
