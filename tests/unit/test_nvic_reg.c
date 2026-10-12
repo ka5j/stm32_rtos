@@ -46,3 +46,12 @@ void test_nvic_system_exception_numbers(void)
     TEST_ASSERT_EQUAL_INT(-1, SysTick_IRQn);
     TEST_ASSERT_LESS_THAN_INT(WWDG_IRQn, SysTick_IRQn);
 }
+
+/** Literal base, pointer macro and priority shift (ARM's CMSIS: __NVIC_PRIO_BITS 4 on the F446). */
+void test_nvic_reg_literal_pins(void)
+{
+    TEST_ASSERT_EQUAL_HEX32(0xE000E100UL, NVIC_BASE);
+    TEST_ASSERT_EQUAL_HEX32(NVIC_BASE, (uintptr_t)NVIC);
+    TEST_ASSERT_EQUAL_UINT(4U, NVIC_PRIO_BITS);
+    TEST_ASSERT_EQUAL_UINT(4U, NVIC_PRIO_Pos);
+}

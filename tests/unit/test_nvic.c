@@ -249,7 +249,7 @@ void test_nvic_driver_set_priority_rejects_invalid_irq(void)
     for (size_t i = 0; i < COUNT_OF(invalid_irqs); i++)
     {
         NvicRegisters_t nvic = {0};
-        NvicRegisters_t untouched = {{0}};
+        NvicRegisters_t untouched = {0};
 
         DriverStatus_e status = nvicSetPriority(&nvic, invalid_irqs[i], 1U);
 

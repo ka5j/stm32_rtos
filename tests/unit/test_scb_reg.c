@@ -97,3 +97,47 @@ void test_scb_exc_return_values(void)
     TEST_ASSERT_EQUAL_HEX32(EXC_RETURN_THREAD_MSP & ~(1UL << 4), EXC_RETURN_THREAD_MSP_FPU);
     TEST_ASSERT_EQUAL_HEX32(EXC_RETURN_THREAD_PSP & ~(1UL << 4), EXC_RETURN_THREAD_PSP_FPU);
 }
+
+/** Literal addresses, offsets and encodings (from ARM's CMSIS core_cm4.h), including the constants
+ *  startup_stm32f446re.s hard-codes (CPACR address, FPU enable mask, AIRCR address, PRIGROUP write)
+ *  so the assembly and the header cannot drift apart unnoticed. */
+void test_scb_reg_literal_pins(void)
+{
+    TEST_ASSERT_EQUAL_HEX32(0xE000ED00UL, SCB_BASE);
+    TEST_ASSERT_EQUAL_HEX32(SCB_BASE, (uintptr_t)SCB);
+    TEST_ASSERT_EQUAL_HEX32(0xE000EF34UL, FPU_BASE);
+    TEST_ASSERT_EQUAL_HEX32(FPU_BASE, (uintptr_t)FPU);
+    TEST_ASSERT_EQUAL_HEX32(0x04, offsetof(ScbRegisters_t, ICSR));
+    TEST_ASSERT_EQUAL_HEX32(0x08, offsetof(ScbRegisters_t, VTOR));
+    TEST_ASSERT_EQUAL_HEX32(0x0C, offsetof(ScbRegisters_t, AIRCR));
+    TEST_ASSERT_EQUAL_HEX32(0x10, offsetof(ScbRegisters_t, SCR));
+    TEST_ASSERT_EQUAL_HEX32(0x14, offsetof(ScbRegisters_t, CCR));
+    TEST_ASSERT_EQUAL_HEX32(0x18, offsetof(ScbRegisters_t, SHPR1));
+    TEST_ASSERT_EQUAL_HEX32(0x1C, offsetof(ScbRegisters_t, SHPR2));
+    TEST_ASSERT_EQUAL_HEX32(0x20, offsetof(ScbRegisters_t, SHPR3));
+    TEST_ASSERT_EQUAL_HEX32(0x24, offsetof(ScbRegisters_t, SHCSR));
+    TEST_ASSERT_EQUAL_HEX32(0x28, offsetof(ScbRegisters_t, CFSR));
+    TEST_ASSERT_EQUAL_HEX32(0x2C, offsetof(ScbRegisters_t, HFSR));
+    TEST_ASSERT_EQUAL_HEX32(0x30, offsetof(ScbRegisters_t, DFSR));
+    TEST_ASSERT_EQUAL_HEX32(0x34, offsetof(ScbRegisters_t, MMFAR));
+    TEST_ASSERT_EQUAL_HEX32(0x38, offsetof(ScbRegisters_t, BFAR));
+    TEST_ASSERT_EQUAL_HEX32(0x3C, offsetof(ScbRegisters_t, AFSR));
+    TEST_ASSERT_EQUAL_HEX32(0x04, offsetof(FpuRegisters_t, FPCAR));
+    TEST_ASSERT_EQUAL_HEX32(0x08, offsetof(FpuRegisters_t, FPDSCR));
+
+    /* startup_stm32f446re.s: ldr r0, =0xE000ED88 ; orr 0x00F00000 (CP10|CP11 full access) */
+    TEST_ASSERT_EQUAL_HEX32(0xE000ED88UL, SCB_BASE + offsetof(ScbRegisters_t, CPACR));
+    TEST_ASSERT_EQUAL_HEX32(0x00F00000U, SCB_CPACR_CP10_Msk | SCB_CPACR_CP11_Msk);
+    /* startup_stm32f446re.s: AIRCR at 0xE000ED0C, clear 0xFFFF0700, write 0x05FA0300 (PRIGROUP=3)
+     */
+    TEST_ASSERT_EQUAL_HEX32(0xE000ED0CUL, SCB_BASE + offsetof(ScbRegisters_t, AIRCR));
+    TEST_ASSERT_EQUAL_HEX32(0xFFFF0700U, SCB_AIRCR_VECTKEY_Msk | SCB_AIRCR_PRIGROUP_Msk);
+    TEST_ASSERT_EQUAL_HEX32(0x05FA0000U, SCB_AIRCR_VECTKEY_WRITE);
+    TEST_ASSERT_EQUAL_HEX32(0x05FA0300U, SCB_AIRCR_VECTKEY_WRITE | (3U << SCB_AIRCR_PRIGROUP_Pos));
+    TEST_ASSERT_EQUAL_HEX32(0x00000700U, SCB_AIRCR_PRIGROUP_Msk);
+
+    TEST_ASSERT_EQUAL_HEX32(0xFF000000U, SCB_SHPR2_PRI_11_Msk);
+    TEST_ASSERT_EQUAL_HEX32(0x00FF0000U, SCB_SHPR3_PRI_14_Msk);
+    TEST_ASSERT_EQUAL_HEX32(0x00300000U, SCB_CPACR_CP10_Msk);
+    TEST_ASSERT_EQUAL_HEX32(0x00C00000U, SCB_CPACR_CP11_Msk);
+}
