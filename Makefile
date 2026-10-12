@@ -33,8 +33,10 @@ MCU_FLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 # as the weak Default_Handler loop with no build error.
 ##########################################################################
 SRC_DIRS    := core device drivers api bsp rtos app startup
-C_SOURCES   := $(shell find $(SRC_DIRS) -name '*.c' 2>/dev/null)
-ASM_SOURCES := $(shell find $(SRC_DIRS) \( -name '*.s' -o -name '*.S' \) 2>/dev/null)
+# $(sort) makes the link order (and so the map file and the image) independent of
+# the filesystem's directory order.
+C_SOURCES   := $(sort $(shell find $(SRC_DIRS) -name '*.c' 2>/dev/null))
+ASM_SOURCES := $(sort $(shell find $(SRC_DIRS) \( -name '*.s' -o -name '*.S' \) 2>/dev/null))
 
 ##########################################################################
 # Include paths - one per inc/ directory in the project structure
@@ -53,9 +55,10 @@ INCLUDES := $(addprefix -I,$(INC_DIRS))
 # release: -O2, representative of what actually ships; needed before any
 # real timing characterization of the scheduler/context switch, since
 # -O0 code does not represent shipped instruction counts or cycle timing.
-# Switching BUILD without `make clean` first mixes object files built
-# under the other profile's flags into the same build/ dir - `make re`
-# (clean + all) is the safe way to switch.
+# Objects depend on a flags stamp (see FLAGS_STAMP below), so switching
+# BUILD - or anything else that changes the compiler/linker flags - rebuilds
+# everything instead of mixing objects built under different flags into one
+# image. It shares build/ with the other profile, so the last build wins.
 BUILD ?= debug
 
 ifeq ($(BUILD),debug)
@@ -105,7 +108,31 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version
+.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version FORCE
+
+# A failed recipe must not leave a truncated .bin/.hex/.elf that a later
+# make would treat as up to date.
+.DELETE_ON_ERROR:
+
+# ------------------------------------------------------------------------
+# Flags stamp
+# Make rebuilds an object only when its .c/.d prerequisites change, which
+# says nothing about the compiler flags: after a debug build,
+# `make BUILD=release` would report "nothing to be done" and present -O0
+# objects as the release image. This stamp holds the full compile and link
+# command lines; FORCE makes make re-evaluate it on every run, and the
+# recipe rewrites it only when the text actually changed, so its mtime -
+# and with it every object and the ELF that depend on it - moves only when
+# the flags do.
+# ------------------------------------------------------------------------
+FLAGS_STAMP := $(BUILD_DIR)/.flags
+
+$(FLAGS_STAMP): FORCE
+	@mkdir -p $(BUILD_DIR)
+	@printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' | cmp -s - $@ || \
+	  printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' > $@
+
+FORCE:
 
 # ------------------------------------------------------------------------
 # make / make all
@@ -116,21 +143,22 @@ DEPS    := $(OBJECTS:.o=.d)
 # ------------------------------------------------------------------------
 all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).bin $(BUILD_DIR)/$(TARGET).hex size
 
-$(BUILD_DIR)/%.o: %.c
+$(BUILD_DIR)/%.o: %.c $(FLAGS_STAMP)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/%.o: %.s
+$(BUILD_DIR)/%.o: %.s $(FLAGS_STAMP)
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -c $< -o $@
 
 # .S goes through the C preprocessor, so unlike .s it needs the include
 # paths.
-$(BUILD_DIR)/%.o: %.S
+$(BUILD_DIR)/%.o: %.S $(FLAGS_STAMP)
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS)
+# The linker script and the flags are inputs of the link too.
+$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) $(LDSCRIPT) $(FLAGS_STAMP)
 	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
 
 $(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
@@ -218,14 +246,17 @@ debug: $(BUILD_DIR)/$(TARGET).elf
 # script itself - and you want zero risk of a half-stale build rather
 # than trusting the incremental rebuild.
 # ------------------------------------------------------------------------
-re: clean all
+re:
+	$(MAKE) clean
+	$(MAKE) all
 
 # ------------------------------------------------------------------------
 # make clean
 # Deletes build/ and the generated docs/html/ entirely. No compiling happens.
 # tests/build and tests/coverage are not touched (both are gitignored); remove
-# tests/coverage by hand before `make coverage` so a stale .gcda from an earlier
-# run cannot skew the numbers.
+# tests/coverage by hand if you want a cold start (`make coverage` itself deletes
+# stale .gcda files before it runs, and the flags stamp keeps the firmware objects
+# consistent with the BUILD profile).
 # Use case: you suspect a stale object file (renamed a function but an
 # old .o still has the old symbol, or a .d file didn't catch a change)
 # and want to start completely fresh.
@@ -399,6 +430,9 @@ lint:
 # pre-commit hook and CI - it's the cheapest real check available.
 # ------------------------------------------------------------------------
 HOST_CC        := cc
+# -MMD -MP: write a .d file beside each host object so editing a header rebuilds the
+# test/coverage objects that include it, as the firmware build already does.
+HOST_CFLAGS    := -std=c11 -Wall -Wextra -Werror=unused-result -MMD -MP
 TEST_DIR       := tests
 TEST_BUILD_DIR := $(TEST_DIR)/build
 
@@ -443,7 +477,7 @@ TEST_OBJECTS   := $(TEST_SOURCES:%.c=$(TEST_BUILD_DIR)/%.o)
 
 $(TEST_BUILD_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -Wall -Wextra -Werror=unused-result $(TEST_INCLUDES) -c $< -o $@
+	$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) -c $< -o $@
 
 test: $(TEST_OBJECTS)
 	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
@@ -490,9 +524,13 @@ COVERAGE_OBJECTS    := $(TEST_SOURCES:%.c=$(COVERAGE_DIR)/%.o)
 
 $(COVERAGE_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(HOST_CC) -std=c11 -Wall -Wextra -Werror=unused-result $(TEST_INCLUDES) --coverage -O0 -c $< -o $@
+	$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0 -c $< -o $@
 
 coverage: $(COVERAGE_OBJECTS)
+	@# gcov counters accumulate across runs, so a leftover .gcda from an earlier run
+	@# (a deleted or broken test, say) could keep showing hits and let the gate pass
+	@# wrongly. Start every run from zero.
+	find $(COVERAGE_DIR) -name '*.gcda' -delete
 	$(HOST_CC) --coverage $(COVERAGE_OBJECTS) -o $(COVERAGE_DIR)/run_tests_cov
 	$(COVERAGE_DIR)/run_tests_cov
 	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' --filter 'bsp/src/.*' \
@@ -512,4 +550,4 @@ docs:
 
 # Auto-generated per-file header dependencies (from -MMD -MP above) -
 # lets Make recompile only the .o files whose included headers changed.
--include $(DEPS)
+-include $(DEPS) $(TEST_OBJECTS:.o=.d) $(COVERAGE_OBJECTS:.o=.d)

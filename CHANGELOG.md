@@ -188,6 +188,29 @@ specifically.
 
 ### Fixed
 
+- `Makefile`: the build now tracks what it was silently ignoring (found by
+  the full review). **Flags:** after a `BUILD=debug` build, `make
+  BUILD=release` printed "nothing to be done" and left the -O0 image to be
+  mistaken for a release one, and a partial edit linked a mix of -O0 and -O2
+  objects; the objects and the ELF now depend on a `build/.flags` stamp that
+  is rewritten only when the compile/link command lines change, and the ELF
+  also depends on the linker script (editing `STM32F446RE.ld` did not
+  relink). **Host builds:** `make test` and `make coverage` had no header
+  dependency tracking, so editing a driver or register header could leave
+  stale test objects and a green run; they now use `-MMD -MP` like the
+  firmware build. **Coverage:** `make coverage` deletes leftover `.gcda`
+  files before running (counters accumulate, so a removed or broken test
+  could keep showing hits and let the 100% gate pass; CI's fresh checkout
+  was never affected, local runs were). Also: `make re` no longer races
+  under `make -j` (`clean` and `all` are now sequenced), source discovery is
+  `$(sort)`ed so the link order does not depend on the filesystem,
+  `.DELETE_ON_ERROR` stops a failed `objcopy` leaving a truncated `.bin`
+  that looks up to date. The flags stamp compares mtimes, so macOS make
+  3.81's 1-second resolution can miss a profile switch made within a second
+  of the previous build - only reachable from a script. Verified by
+  switching profiles, touching the linker script and headers, and running
+  `make -j4 re`.
+
 - `drivers/src/nvic.c`: `nvicDisableIrq()` now issues `DSB`+`ISB` after the
   ICER write, and `nvicEnableIrq()` brackets the ISER write with compiler
   barriers, as CMSIS' `__NVIC_DisableIRQ()`/`__NVIC_EnableIRQ()` do. Without
