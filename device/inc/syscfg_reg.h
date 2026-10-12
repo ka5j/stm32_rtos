@@ -31,9 +31,9 @@
 /**
  * @brief SYSCFG register map (RM0390 section 9.2).
  *
- * RESERVED0 preserves the fixed offset to CMPCR (see the top-of-file
- * note above); this is an actual gap in the memory map, not a
- * struct-packing artifact.
+ * RESERVED0 preserves the fixed offset to CMPCR (0x20, after EXTICR);
+ * this is an actual gap in the memory map, not a struct-packing
+ * artifact.
  */
 typedef struct SyscfgRegisters_t
 {
@@ -52,7 +52,7 @@ typedef struct SyscfgRegisters_t
  * Each EXTICRx register packs four 4-bit fields, one per EXTI line,
  * with 4 lines per register: EXTICR[0] covers EXTI0-3, EXTICR[1]
  * covers EXTI4-7, and so on. A given line's field position is
- * (line % 4) * 4 bits wide, indexing EXTICR[line / 4]. Each field
+ * at bit (line % 4) * 4, 4 bits wide, in EXTICR[line / 4]. Each field
  * selects which GPIO port feeds that EXTI line; these values apply to
  * any of the 16 fields across all four registers, not to a single one.
  */

@@ -70,11 +70,12 @@ typedef struct UartRegisters_t
 #define USART_SR_IDLE_Pos (4U)                  ///< Bit position within USART_SR
 #define USART_SR_IDLE (1U << USART_SR_IDLE_Pos) ///< READ only - idle line detected
 #define USART_SR_RXNE_Pos (5U)                  ///< Bit position within USART_SR
-#define USART_SR_RXNE (1U << USART_SR_RXNE_Pos) ///< READ only, clears on DR read
-#define USART_SR_TC_Pos (6U)                    ///< Bit position within USART_SR
-#define USART_SR_TC (1U << USART_SR_TC_Pos)     ///< READ/WRITE 0 to clear - transmission complete
-#define USART_SR_TXE_Pos (7U)                   ///< Bit position within USART_SR
-#define USART_SR_TXE (1U << USART_SR_TXE_Pos)   ///< READ only, clears on DR write
+#define USART_SR_RXNE                                                                              \
+    (1U << USART_SR_RXNE_Pos) ///< READ/WRITE 0 to clear (RM0390: rc_w0); also cleared by a DR read
+#define USART_SR_TC_Pos (6U)  ///< Bit position within USART_SR
+#define USART_SR_TC (1U << USART_SR_TC_Pos)   ///< READ/WRITE 0 to clear - transmission complete
+#define USART_SR_TXE_Pos (7U)                 ///< Bit position within USART_SR
+#define USART_SR_TXE (1U << USART_SR_TXE_Pos) ///< READ only, clears on DR write
 
 /* --- USART_BRR bit definitions --- */
 #define USART_BRR_DIV_FRACTION_Pos (0U) ///< Bit position within USART_BRR

@@ -41,7 +41,7 @@ void test_bsp_clock_configuration_respects_pll_limits(void)
     TEST_ASSERT_LESS_OR_EQUAL_UINT32(2000000U, vco_in);
     TEST_ASSERT_GREATER_OR_EQUAL_UINT32(100000000U, vco_out);
     TEST_ASSERT_LESS_OR_EQUAL_UINT32(432000000U, vco_out);
-    TEST_ASSERT_EQUAL_UINT32(2U, BSP_PLL_P_DIV); /* matches RCC_PLLCFGR_PLLP_DIV2 */
+    TEST_ASSERT_EQUAL_UINT32(2U, BSP_PLL_P_DIV); /* divisor 2 is PLLP register encoding DIV2 (0) */
 }
 
 /* --- bspClockInit --- */

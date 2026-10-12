@@ -33,6 +33,8 @@
 #include "driver_status.h"
 #include "pwr_reg.h"
 
+#include <stdint.h>
+
 /**
  * @addtogroup driver_layer
  * @{

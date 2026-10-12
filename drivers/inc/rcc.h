@@ -83,6 +83,8 @@
 #include "gpio_reg.h"
 #include "rcc_reg.h"
 
+#include <stdint.h>
+
 /**
  * @addtogroup driver_layer
  * @{

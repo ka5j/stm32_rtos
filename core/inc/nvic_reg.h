@@ -53,7 +53,7 @@ typedef struct NvicRegisters_t
     volatile uint32_t RESERVED2[24]; ///< 0x120-0x17C: reserved
     volatile uint32_t ICPR[8];       ///< 0x180-0x19C: Interrupt Clear-Pending Registers
     volatile uint32_t RESERVED3[24]; ///< 0x1A0-0x1FC: reserved
-    volatile uint32_t IABR[8];       ///< 0x200-0x21C: Interrupt Active Bit Registers (READ only)
+    volatile const uint32_t IABR[8]; ///< 0x200-0x21C: Interrupt Active Bit Registers (READ only)
     volatile uint32_t RESERVED4[56]; ///< 0x220-0x2FC: reserved
     volatile uint8_t IP[240]; ///< 0x300-0x3EF: Interrupt Priority Registers, byte-addressable
     volatile uint32_t RESERVED5[644]; ///< 0x3F0-0xDFC: reserved

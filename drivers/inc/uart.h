@@ -76,6 +76,7 @@
 #include "uart_reg.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 /**
  * @addtogroup driver_layer

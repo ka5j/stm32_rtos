@@ -10,9 +10,10 @@
  * It is deliberately not a general clock framework - one caller, one
  * configuration - so there is no frequency solver and no VCO/APB limit
  * validation here or in rccPllConfig()/rccBusPrescalerConfig(). The
- * limits are instead documented against the one tested configuration
- * below, and tests/unit/test_bsp.c asserts that configuration respects
- * them. Anyone changing a BSP_* constant must re-check the limits.
+ * limits are instead documented against the one configuration below and
+ * enforced on it at compile time by the _Static_asserts after the BSP_*
+ * constants (tests/unit/test_bsp.c repeats them as runtime checks). Anyone
+ * changing a BSP_* constant must re-check the limits.
  *
  * The configuration, which follows ST's own 180 MHz example for this part
  * (SystemClock_Config in its Nucleo-F446 projects), driven from the
@@ -38,8 +39,6 @@
 #include "flash.h"
 #include "pwr.h"
 #include "rcc.h"
-
-#include <stdint.h>
 
 /**
  * @addtogroup board_support
