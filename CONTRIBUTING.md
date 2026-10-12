@@ -63,6 +63,16 @@ Module-specific failure detail (which check failed, on which peripheral) belongs
 
 Mark fallible functions `__attribute__((warn_unused_result))` so an ignored return value is a compiler error rather than a silent bug.
 
+## Concurrency
+
+There is no kernel yet, so nothing in `drivers/` is protected against being called from two tasks, or from a task and an interrupt handler, at once. When tasks and interrupts exist, the safe and unsafe sets are:
+
+- **Single store, safe to call concurrently on distinct bits:** `gpioWritePin()` (one BSRR write), `nvicEnableIrq()`, `nvicDisableIrq()`, `nvicSetPending()`, `nvicClearPending()` (write-1-to-act registers), `nvicSetPriority()` (one byte store), and the pure reads (`gpioReadPin()`, `nvicGetPriority()`, every `*Wait*`/`uartFlush()` poll).
+- **Read-modify-write on a shared register, needs the caller to serialise:** every `rcc*ClockEnable/Disable()` (the ENR registers are shared by every peripheral on the bus), the RCC CR/CFGR/PLLCFGR writers, `pwrSetVoltageScale()`, `pwrEnableOverdrive()`, `flashSetLatency()`, `flashEnableCaches()`, `gpioInit()`, `gpioDeinit()`, `gpioSetAlternateFunction()`, `uartInit()`, and `nvicSetSystemHandlerPriority()` (SHPR3 is shared by PendSV and SysTick).
+- **Single owner only:** `gpioTogglePin()` (read ODR then write BSRR), `uartReceiveByte()`/`uartReceive()` (the SR-then-DR sequence is what clears the error flags), `systickInit()`.
+
+The kernel's critical-section helpers (planned: PRIMASK/BASEPRI) are the intended way to serialise the second group; until they exist, configure peripherals from one context, before the scheduler starts.
+
 ## CI-enforced checks on new/modified files
 
 Two checks run in `ci.yml` that are not evident from running `make docs`/`make test` locally. Both diff the pull request against its base branch, so they run only on `pull_request` events (a plain push has no base to compare against), and both apply identically regardless of target branch — a feature branch's PR into `develop` and a `develop`→`main` PR are checked the same way. Both checks cover *modified* files, not only newly added ones, since several files in this repository began as empty scaffolding in the initial commit; populating one is a modification, not a new file.

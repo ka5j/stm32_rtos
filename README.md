@@ -121,6 +121,15 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 
 **Known gap:** no driver has executed on hardware. Every one is fully covered by host tests, but `app/src/main.c` is an empty loop, so the linker garbage-collects all of `drivers/` and `bspClockInit()` out of the image. On-target verification is manual (`make flash`, `make debug`) and nothing currently asserts runtime behaviour — see [CONTRIBUTING.md](CONTRIBUTING.md)'s testing section for what that does and does not buy you.
 
+**Known limitations** (none are bugs that affect the code that exists today; each is the first thing to check when bringing a feature up on hardware):
+
+- Nothing in `drivers/` is concurrency-safe yet - see [CONTRIBUTING.md](CONTRIBUTING.md)'s Concurrency section for which functions are single-store and which need serialising once tasks exist.
+- Peripheral waits are bounded poll counts, not times; UART takes the count from the caller. A SysTick-based deadline is the planned replacement once the kernel provides one.
+- Startup never sets `SCB->VTOR` (fine when booting from flash at 0x08000000, wrong from the system bootloader or SRAM), the linker script has no `.init_array`/`.fini_array` and `Reset_Handler` never calls `__libc_init_array` (C constructors would silently not run), and there is no stack/heap collision check beyond the link-time minimum.
+- `rccBusPrescalerConfig()` does no VCO/APB-limit validation (the one configuration, in `bsp.h`, is checked at compile time), and the SYSCLK-source decoder knows only HSI/HSE/PLL, not the F446's PLLR option (SW/SWS = 3).
+- `uartInit()` leaves CR2/CR3 bits other than STOP untouched, `uartDeinit()` writes GTPR (absent on UART4/5, ignored), and `systickInit()` does not clear a pending SysTick exception.
+- `bspClockInit()` has no unwind: after a late failure it leaves HSE/PLL running and cannot simply be retried (documented in `bsp.h`).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
