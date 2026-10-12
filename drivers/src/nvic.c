@@ -64,6 +64,40 @@ static DriverStatus_e nvicValidateIrq(IRQn_e irqn)
 }
 
 /**
+ * @brief Compiler-only barrier: nothing the caller wrote before this call
+ *        may be reordered after it, and nothing after before it.
+ *
+ * Costs no instruction. ISER is memory-mapped, but ordinary stores to
+ * variables an interrupt handler will read could otherwise be moved past
+ * the enable if this file were ever inlined or built with LTO, which
+ * CMSIS' __NVIC_EnableIRQ() guards against the same way.
+ */
+static inline void nvicCompilerBarrier(void)
+{
+    __asm__ volatile("" ::: "memory");
+}
+
+/**
+ * @brief Make a just-written NVIC change take effect before the next
+ *        instruction: DSB then ISB on the target, a compiler barrier on
+ *        the host (where there is no NVIC to synchronise).
+ *
+ * CMSIS' __NVIC_DisableIRQ() does exactly this. Without it the write to
+ * ICER can still be in the write buffer when the caller continues, so an
+ * interrupt that was pending can be taken *after* nvicDisableIrq()
+ * returned - breaking the usual "disable, then touch state the ISR also
+ * uses" pattern.
+ */
+static inline void nvicSyncBarrier(void)
+{
+#if defined(__arm__)
+    __asm__ volatile("dsb 0xF\n\tisb 0xF" ::: "memory");
+#else
+    nvicCompilerBarrier();
+#endif
+}
+
+/**
  * @brief Word index into ISER/ICER/ISPR/ICPR for a validated IRQn.
  * @param irqn Device interrupt number, already validated.
  * @return irqn / 32.
@@ -89,7 +123,9 @@ DriverStatus_e nvicEnableIrq(NvicRegisters_t *nvic, IRQn_e irqn)
 
     if (status == DRIVER_STATUS_OK)
     {
+        nvicCompilerBarrier();
         nvic->ISER[nvicIrqWord(irqn)] = nvicIrqBit(irqn);
+        nvicCompilerBarrier();
     }
 
     return status;
@@ -102,6 +138,7 @@ DriverStatus_e nvicDisableIrq(NvicRegisters_t *nvic, IRQn_e irqn)
     if (status == DRIVER_STATUS_OK)
     {
         nvic->ICER[nvicIrqWord(irqn)] = nvicIrqBit(irqn);
+        nvicSyncBarrier();
     }
 
     return status;

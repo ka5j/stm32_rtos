@@ -65,7 +65,10 @@
  *
  * @param nvic NVIC register block (e.g. NVIC).
  * @param irqn Device interrupt number, 0 to ::FMPI2C1_Error_IRQn.
- * @return DRIVER_STATUS_OK once the enable bit has been written.
+ * @return DRIVER_STATUS_OK once the enable bit has been written. The
+ *         write is bracketed by compiler barriers (CMSIS'
+ *         __NVIC_EnableIRQ() does the same), so state initialised before
+ *         the call is not reordered after the enable.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p irqn is negative (a
  *         system exception, which the NVIC does not control), above
  *         ::FMPI2C1_Error_IRQn, or one of the reserved positions inside
@@ -78,7 +81,10 @@ DRIVER_MUST_CHECK DriverStatus_e nvicEnableIrq(NvicRegisters_t *nvic, IRQn_e irq
  *
  * @param nvic NVIC register block (e.g. NVIC).
  * @param irqn Device interrupt number, 0 to ::FMPI2C1_Error_IRQn.
- * @return DRIVER_STATUS_OK once the disable bit has been written.
+ * @return DRIVER_STATUS_OK once the disable bit has been written and
+ *         synchronised (DSB then ISB on the target, as CMSIS'
+ *         __NVIC_DisableIRQ() does): after this returns, the interrupt
+ *         will not be taken, even if it was already pending.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p irqn is not a device
  *         interrupt in range, as for nvicEnableIrq().
  */
