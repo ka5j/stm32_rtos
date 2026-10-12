@@ -91,6 +91,29 @@ specifically.
 
 ### Changed
 
+- Tests only: closed the remaining gaps the review's contract matrix found
+  between each driver's documented contract and what the tests pin (29
+  tests; the mutations below each passed the old suite and fail now).
+  `gpioInit` places every field on every pin with distinct non-zero values
+  (including `GPIO_MODE_ANALOG`, never accepted by a test before), rejects
+  each bad argument without touching any of the four registers, and
+  `gpioWritePin` writes BSRR exactly (not OR-ed) and leaves ODR alone;
+  `gpioTogglePin` reads ODR, not IDR. AF selection is tested on all 16 pins
+  at AF 0 and 15 (pins 7/8 straddle AFRL/AFRH). RCC: `rccPllConfig` with an
+  HSI source clears PLLSRC, `rccHseEnable` in crystal mode clears a stale
+  HSEBYP, the enables preserve every other CR bit, each `rccSysclkSwitch`
+  source checks its own ready bit. UART: a rejected `uartInit` leaves a
+  running peripheral untouched, STOP 2 -> 1 clears the field, BRR rounds to
+  nearest (down and tie cases) without 32-bit overflow, non-fault SR bits
+  are not errors, a NULL output is rejected before waiting, `uartReceive`
+  stops at the first fault, waits are flag-specific. NVIC: `nvicSetPriority`
+  overwrites and leaves every neighbouring IP byte. PWR/flash/SysTick:
+  flag-specific waits, other ACR bits preserved, `systickInit` rejections
+  leave VAL untouched. `bspClockInit`: PLL enabled before the VOSRDY wait,
+  PWR clock first, the documented state after a switch timeout, and no
+  plain retry. Still not observable through a single-register fake: write
+  *ordering* inside a function and UART byte order.
+
 - Tests only: every register header now has a test with literal values for
   what the drivers rely on, taken from ST's SVD/HAL and ARM's CMSIS rather
   than built from the header's own macros. Before, the field-value macros

@@ -164,3 +164,23 @@ void test_pwr_driver_enable_overdrive_times_out_without_odswrdy(void)
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN | PWR_CR_ODSWEN, pwr.CR);
 }
+
+/* --- review follow-ups --- */
+
+/** pwrWaitVoltageScaleReady waits on VOSRDY specifically: ODRDY/ODSWRDY (and any other CSR bits)
+ *  being set must not satisfy it. */
+void test_pwr_driver_wait_voltage_scale_ready_ignores_other_csr_flags(void)
+{
+    PwrRegisters_t pwr = {.CSR = 0xFFFFFFFFU & ~PWR_CSR_VOSRDY};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, pwrWaitVoltageScaleReady(&pwr));
+}
+
+/** The over-drive waits are flag-specific too: ODSWRDY alone does not satisfy the ODRDY wait. */
+void test_pwr_driver_enable_overdrive_odrdy_wait_ignores_odswrdy(void)
+{
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_ODSWRDY | PWR_CSR_VOSRDY};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, pwrEnableOverdrive(&pwr));
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN, pwr.CR);
+}

@@ -712,3 +712,127 @@ void test_uart_driver_transmit_applies_timeout_to_closing_flush(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartTransmit(&uart, data, sizeof(data), 5U));
 }
+
+/* --- review follow-ups: untouched-on-reject, STOP overwrite, rounding, fault paths --- */
+
+/** A rejected uartInit leaves a *running* peripheral exactly as it was: UE still set, CR2 and BRR
+ *  unchanged - it must not disable the UART or write BRR before validating. */
+void test_uart_driver_init_rejection_leaves_running_peripheral_untouched(void)
+{
+    static const struct
+    {
+        uint32_t pclk;
+        uint32_t baud;
+        uint32_t stop;
+        uint32_t pen;
+        uint32_t psel;
+        uint32_t dir;
+    } bad[] = {
+        {0U, 115200U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE},
+        {45000000U, 0U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE},
+        {45000000U, 115200U, USART_CR2_STOP_0_5, 0U, 0U, USART_CR1_TE},
+        {45000000U, 115200U, USART_CR2_STOP_1, 0x1U, 0U, USART_CR1_TE},
+        {45000000U, 115200U, USART_CR2_STOP_1, 0U, 0x1U, USART_CR1_TE},
+        {45000000U, 115200U, USART_CR2_STOP_1, 0U, 0U, 0x1U},
+        {15U, 1U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE},
+    };
+
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+    {
+        UartRegisters_t uart = {.CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE,
+                                .CR2 = 0x00000ABCU & ~USART_CR2_STOP_Msk,
+                                .BRR = 0x1234U};
+        UartRegisters_t before = uart;
+
+        DriverStatus_e status = uartInit(&uart, bad[i].pclk, bad[i].baud, bad[i].stop, bad[i].pen,
+                                         bad[i].psel, bad[i].dir);
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, status);
+        TEST_ASSERT_EQUAL_MEMORY(&before, &uart, sizeof(uart));
+    }
+}
+
+/** Reconfiguring from 2 stop bits to 1 clears the STOP field (preloaded to STOP_2). */
+void test_uart_driver_init_stop_two_to_one_clears_the_field(void)
+{
+    UartRegisters_t uart = {.CR2 = (USART_CR2_STOP_2 << 12) | 0x0123U};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK,
+                      uartInit(&uart, 45000000U, 115200U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
+
+    TEST_ASSERT_EQUAL_HEX32(0U, uart.CR2 & USART_CR2_STOP_Msk);
+    TEST_ASSERT_EQUAL_HEX32(0x0123U, uart.CR2 & ~USART_CR2_STOP_Msk);
+}
+
+/** BRR rounds to nearest: 84 MHz / 115200 = 729.17 rounds *down* to 729 (a ceiling would give 730),
+ *  and an exact tie rounds up (201000 / 2000 = 100.5 -> 101). */
+void test_uart_driver_init_brr_rounds_to_nearest(void)
+{
+    UartRegisters_t down = {0};
+    UartRegisters_t tie = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK,
+                      uartInit(&down, 84000000U, 115200U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK,
+                      uartInit(&tie, 201000U, 2000U, USART_CR2_STOP_1, 0U, 0U, USART_CR1_TE));
+
+    TEST_ASSERT_EQUAL_HEX32(729U, down.BRR);
+    TEST_ASSERT_EQUAL_HEX32(101U, tie.BRR);
+}
+
+/** pclk + baud/2 would overflow 32 bits here; the 64-bit intermediate gives 16 (the minimum). */
+void test_uart_driver_init_brr_does_not_overflow_32_bits(void)
+{
+    UartRegisters_t uart = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, uartInit(&uart, 0xFFFFFFF0U, 0x10000000U, USART_CR2_STOP_1,
+                                                 0U, 0U, USART_CR1_TE));
+    TEST_ASSERT_EQUAL_HEX32(16U, uart.BRR);
+}
+
+/** Non-fault SR bits that are routinely set while receiving (TXE, TC, IDLE) must not be mistaken
+ *  for an error: the fault mask is exactly ORE|NE|FE|PE. */
+void test_uart_driver_receive_byte_ignores_non_fault_sr_bits(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_RXNE | USART_SR_TXE | USART_SR_TC | USART_SR_IDLE,
+                            .DR = 0x42U};
+    uint8_t byte = 0U;
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, uartReceiveByte(&uart, &byte, TEST_TIMEOUT));
+    TEST_ASSERT_EQUAL_HEX8(0x42U, byte);
+}
+
+/** A NULL output is rejected *before* waiting: with nothing pending (SR clear) the answer is
+ *  INVALID_PARAM, not TIMEOUT. */
+void test_uart_driver_receive_byte_null_output_is_rejected_before_waiting(void)
+{
+    UartRegisters_t uart = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, uartReceiveByte(&uart, NULL, TEST_TIMEOUT));
+}
+
+/** uartReceive stops at the first faulted byte: it reports HW_FAULT, the byte is stored, and the
+ *  rest of the buffer is left untouched. */
+void test_uart_driver_receive_stops_at_first_fault_and_leaves_the_rest(void)
+{
+    UartRegisters_t uart = {.SR = USART_SR_RXNE | USART_SR_FE, .DR = 0x77U};
+    uint8_t data[3] = {0xEEU, 0xEEU, 0xEEU};
+
+    DriverStatus_e status = uartReceive(&uart, data, sizeof(data), TEST_TIMEOUT);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_HW_FAULT, status);
+    TEST_ASSERT_EQUAL_HEX8(0x77U, data[0]);
+    TEST_ASSERT_EQUAL_HEX8(0xEEU, data[1]);
+    TEST_ASSERT_EQUAL_HEX8(0xEEU, data[2]);
+}
+
+/** Waiting on the wrong flag must not succeed: TC alone is not "TXE ready" and TXE alone is not
+ *  "transmission complete". */
+void test_uart_driver_waits_are_flag_specific(void)
+{
+    UartRegisters_t only_tc = {.SR = USART_SR_TC};
+    UartRegisters_t only_txe = {.SR = USART_SR_TXE};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartTransmitByte(&only_tc, 0x11U, TEST_TIMEOUT));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartFlush(&only_txe, TEST_TIMEOUT));
+}

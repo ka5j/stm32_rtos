@@ -13,6 +13,8 @@
 #include "systick.h"
 #include "unity.h"
 
+#include <stddef.h>
+
 #define SYSTICK_RUNNING (SYSTICK_CTRL_CLKSOURCE | SYSTICK_CTRL_TICKINT | SYSTICK_CTRL_ENABLE)
 
 /** 180 MHz / 1 kHz -> LOAD 179999, running from the processor clock with the interrupt on. */
@@ -118,4 +120,23 @@ void test_systick_driver_deinit_restores_reset_state(void)
     TEST_ASSERT_EQUAL_HEX32(0U, systick.CTRL);
     TEST_ASSERT_EQUAL_HEX32(0U, systick.LOAD);
     TEST_ASSERT_EQUAL_HEX32(0U, systick.VAL);
+}
+
+/* --- review follow-ups --- */
+
+/** Every rejected systickInit leaves CTRL, LOAD *and VAL* untouched. */
+void test_systick_driver_init_rejection_leaves_val_untouched(void)
+{
+    static const uint32_t core[] = {0U, 180000000U, 1000U, 0x1000001U};
+    static const uint32_t tick[] = {1000U, 0U, 2000U, 1U};
+
+    for (size_t i = 0; i < sizeof(core) / sizeof(core[0]); i++)
+    {
+        SysTickRegisters_t systick = {.CTRL = 0x5U, .LOAD = 0x6U, .VAL = 0x7U};
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_INVALID_PARAM, systickInit(&systick, core[i], tick[i]));
+        TEST_ASSERT_EQUAL_HEX32(0x5U, systick.CTRL);
+        TEST_ASSERT_EQUAL_HEX32(0x6U, systick.LOAD);
+        TEST_ASSERT_EQUAL_HEX32(0x7U, systick.VAL);
+    }
 }

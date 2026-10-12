@@ -386,3 +386,24 @@ void test_nvic_driver_set_system_handler_priority_rejects_non_configurable(void)
         TEST_ASSERT_EQUAL_HEX32(0U, scb.SHPR3);
     }
 }
+
+/* --- review follow-ups --- */
+
+/** nvicSetPriority overwrites the old value (IP preloaded to 0xA5, result 0x30 - an OR would give
+ *  0xB5) and leaves every neighbouring byte exactly as it was. */
+void test_nvic_driver_set_priority_overwrites_and_leaves_neighbour_bytes(void)
+{
+    NvicRegisters_t nvic = {0};
+
+    for (size_t i = 0; i < sizeof(nvic.IP); i++)
+    {
+        nvic.IP[i] = 0xA5U;
+    }
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, nvicSetPriority(&nvic, EXTI0_IRQn, 3U));
+
+    for (size_t i = 0; i < sizeof(nvic.IP); i++)
+    {
+        TEST_ASSERT_EQUAL_HEX8((i == (size_t)EXTI0_IRQn) ? 0x30U : 0xA5U, nvic.IP[i]);
+    }
+}
