@@ -21,8 +21,8 @@ specifically.
   and the latency are the values in ST's own Nucleo-F446 180 MHz example;
   there is no VCO/APB validation in `rccPllConfig`/`rccBusPrescalerConfig`,
   and `test_bsp.c` instead asserts this one configuration stays inside
-  the documented limits. Nine host tests (the whole sequence and one
-  timeout per step). Adds a `board_support` Doxygen group, and `make
+  the documented limits. Ten host tests (the whole sequence, the
+  limit checks, and one timeout or `BUSY` case per step). Adds a `board_support` Doxygen group, and `make
   coverage` now also gates `bsp/src` at 100%.
 
 - `drivers/inc/flash.h`, `drivers/src/flash.c`: `flashEnableCaches()`
@@ -90,6 +90,24 @@ specifically.
   Reproduced that exact failure with the pinned build before relying on it.
 
 ### Changed
+
+- Release process and setup docs, from the full review. `docs/VERSIONING.md`
+  now describes how releases were actually cut (a `release/vX.Y.Z` branch
+  into `main`, the changelog link references, the UTC-date convention, the
+  strict "up to date" branch protection, and the sync-back PR into
+  `develop`), where it described a `develop`->`main` PR and omitted the last
+  two; `CONTRIBUTING.md` agrees. The README lists `arm-none-eabi-gdb` and
+  `nc` (needed by `make debug`) and the CI tool versions (clang-format 18,
+  Doxygen 1.18.0, cppcheck 2.13.0, Arm 15.2.rel1) with the warning that other
+  versions can fail `make format-check`/`make docs`, and mentions the
+  `flash.c` coverage exclusion next to the "100% coverage" claim.
+  `SECURITY.md` no longer calls `bsp/` empty. `groups.dox`/`Doxyfile` order
+  the layers bottom-up (`drivers` -> `bsp` -> `api`) like ARCHITECTURE.
+  `release.yml`'s PR dry run now also triggers on `Doxyfile` and
+  `CHANGELOG.md` - the two files a release PR changes, which it previously
+  skipped. `ci.yml` runs on `ubuntu-24.04` (its apt pins are for that
+  release; `ubuntu-latest` would break them when the alias moves) and passes
+  the PR base ref through `env:` instead of interpolating it into the script.
 
 - Tests only: closed the remaining gaps the review's contract matrix found
   between each driver's documented contract and what the tests pin (29

@@ -318,8 +318,8 @@ SORT_BRIEF_DOCS        = NO
 SORT_MEMBERS_CTORS_1ST = NO
 
 # Sort the Topics/group hierarchy alphabetically. Left off: groups.dox
-# declares a deliberate architectural order (register layer -> drivers ->
-# api -> bsp -> rtos -> app, matching docs/ARCHITECTURE.md) that
+# declares a deliberate architectural order, bottom up (register layer ->
+# drivers -> bsp -> api -> rtos -> app, matching docs/ARCHITECTURE.md) that
 # alphabetical order would scramble.
 SORT_GROUP_NAMES       = NO
 

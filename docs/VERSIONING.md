@@ -24,13 +24,20 @@ Once `1.0.0` ships, standard SemVer rules apply:
 
 ## Cutting a release
 
-1. On the `develop`→`main` PR that constitutes the release, bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version as part of that PR, and move [CHANGELOG.md](../CHANGELOG.md)'s `[Unreleased]` section content under a new `## [X.Y.Z] - <date>` heading (leaving `[Unreleased]` empty for whatever comes next).
-   Run `make check-version` before opening the PR: it fails if the two disagree. CI runs it on every PR too.
-2. Once merged, tag the resulting commit on `main`:
+Every release so far (v0.1.4, v0.1.5) was cut this way; the numbered steps are the whole procedure.
+
+1. **Release branch.** From an up-to-date `develop` whose CI is green and whose `make coverage` is 100%, create `release/vX.Y.Z`. On it:
+   - bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version;
+   - move [CHANGELOG.md](../CHANGELOG.md)'s `[Unreleased]` content under a new `## [X.Y.Z] - <date>` heading, merged into one section per kind (Added / Changed / Fixed / Security) as the 0.1.5 release did, leaving `[Unreleased]` empty. Use the UTC date of the tag (the git tag's own date, not the local one, so the changelog and the GitHub Release agree);
+   - update the link references at the bottom of the changelog: `[Unreleased]` becomes `.../compare/vX.Y.Z...HEAD`, and a new `[X.Y.Z]: .../compare/vPREV...vX.Y.Z` line goes above the previous one.
+   Run `make check-version` before opening the PR: it fails if the Doxyfile and the newest changelog heading disagree. CI runs it on every PR too.
+2. **Release PR.** Open `release/vX.Y.Z` into `main` titled `Release vX.Y.Z`, and merge it with a merge commit once `build-and-check` and `Analyze (c-cpp)` pass. Both `main` and `develop` are protected with "require branches to be up to date", so if either moved, update the branch (`gh pr update-branch`) and let CI run again first.
+3. **Tag.** Once merged, tag the resulting commit on `main`:
    ```sh
    git checkout main && git pull
    git tag -a vX.Y.Z -m "vX.Y.Z: <one-line summary of what this release contains>"
    git push origin vX.Y.Z
    ```
-   Pushing the tag triggers `.github/workflows/release.yml`, which re-checks that the tag, Doxyfile and CHANGELOG agree and that the commit is on `main`, builds the firmware, and publishes the GitHub Release: the changelog section as the notes, with the `.elf`/`.bin`/`.hex`/`.map`, a size report and `SHA256SUMS` attached. If a check fails, nothing is published; fix the cause, delete the tag (`git push origin :refs/tags/vX.Y.Z`) and push it again.
-3. From that point forward, until the next release, `make docs` reports `PROJECT_NUMBER` as the currently released version rather than an in-progress one.
+   Pushing the tag triggers `.github/workflows/release.yml`, which re-checks that the tag, Doxyfile and CHANGELOG agree and that the commit is on `main`, builds the firmware, and publishes the GitHub Release: the changelog section as the notes, with the `.elf`/`.bin`/`.hex`/`.map`, a size report and `SHA256SUMS` attached. If a check fails, nothing is published; fix the cause, delete the tag (`git push origin :refs/tags/vX.Y.Z`) and push it again. The release notes should say plainly what has and has not been verified (for example, that no driver has yet run on hardware) - the README's "Known gap" paragraph is the source.
+4. **Sync back.** Open `chore/sync-develop-with-main-vX.Y.Z` into `develop` (merging `main` back, which carries the release commit and tag ancestry) and merge it after CI, so `develop` is never behind the release.
+5. From that point forward, until the next release, `make docs` reports `PROJECT_NUMBER` as the currently released version rather than an in-progress one.

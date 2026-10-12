@@ -5,10 +5,11 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
 ## Getting Started
 
 **Prerequisites:**
-- [GNU Arm Embedded Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-gcc`) on the `PATH`
-- [OpenOCD](https://openocd.org/) on the `PATH` — required for `flash`, `erase`, `debug`
+- [Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-gcc`, and `arm-none-eabi-gdb` for `make debug`) on the `PATH`. CI builds with 15.2.rel1
+- [OpenOCD](https://openocd.org/) on the `PATH` — required for `flash`, `erase`, `debug`; `make debug` also needs `nc` (netcat), which macOS and most Linux distributions already have
 - GNU Make
 - `clang-format`, `cppcheck`, `doxygen` on the `PATH` — required for `make format-check`, `make lint`, and `make docs`, and consequently for the pre-commit hook to execute
+  - CI pins clang-format 18, cppcheck 2.13.0 and Doxygen 1.18.0. A different clang-format can disagree with CI's `make format-check`, and a Doxygen older than the Doxyfile targets (Ubuntu's apt one is 1.9.x) silently ignores tags and can fail `make docs` - Doxygen is not an apt/brew package you should assume is new enough; CI downloads the pinned release from upstream (see `.github/actions/setup-doxygen`)
   - macOS: `brew install clang-format cppcheck doxygen graphviz`
   - Ubuntu/Debian: `sudo apt-get install clang-format cppcheck doxygen graphviz`
   - `cppcheck` version matters: CI pins 2.13.0 and newer versions report different MISRA findings, so code can pass `make lint` locally and still fail CI. `tools/install_cppcheck.sh` builds the pinned version into `~/.local/share/cppcheck-2.13.0` (no sudo), and `make lint` uses it automatically once it is there; otherwise `make lint` warns that its cppcheck differs from CI's.
@@ -104,7 +105,7 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 
 **Register layer** covers every Cortex-M4 core peripheral this project models (MPU, NVIC, SCB, SysTick) and every F446-specific peripheral it models (EXTI, Flash interface, GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG); the register tests, like every other test, are aggregated by `tests/unit/test_runner.c`.
 
-**Drivers** implemented so far, all holding 100% line and branch coverage under `make coverage`:
+**Drivers** implemented so far, all holding 100% line and branch coverage under `make coverage` (one deliberate exclusion, in `flash.c`, explained in [CONTRIBUTING.md](CONTRIBUTING.md)):
 
 - **`driver_status.h`** — the `DriverStatus_e` contract every driver returns, per [CONTRIBUTING.md](CONTRIBUTING.md)'s error-handling contract.
 - **GPIO** — `gpioInit`/`gpioDeinit`/`gpioSetAlternateFunction`/`gpioWritePin`/`gpioReadPin`/`gpioTogglePin`, plus `gpioPortResetValues`, which `gpioDeinit` uses to restore the non-zero reset state of the SWD/JTAG pins on GPIOA/GPIOB.

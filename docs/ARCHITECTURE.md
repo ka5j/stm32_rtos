@@ -95,7 +95,7 @@ Defined in [`linker/STM32F446RE.ld`](../linker/STM32F446RE.ld):
 | FLASH  | 0x08000000 | 512 KB |
 | RAM    | 0x20000000 | 128 KB |
 
-`.isr_vector` is placed first in FLASH and `KEEP()`'d so the linker cannot garbage-collect it. `.data` uses `AT>FLASH` to keep its load address in FLASH while its run address is in RAM, initialized by the `.data`/`.bss` copy loop in `Reset_Handler`. `._user_heap_stack` reserves space above `.bss` so the link fails at build time if there is not room for the requested heap and stack, rather than silently corrupting memory at runtime.
+`.isr_vector` is placed first in FLASH and `KEEP()`'d so the linker cannot garbage-collect it. `.data` uses `AT>FLASH` to keep its load address in FLASH while its run address is in RAM, initialized by the `.data` copy loop and `.bss` zero-fill in `Reset_Handler`. `._user_heap_stack` reserves space above `.bss` so the link fails at build time if there is not room for the requested heap and stack, rather than silently corrupting memory at runtime.
 
 ## Vector table entry points
 
