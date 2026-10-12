@@ -185,3 +185,66 @@ void test_bsp_driver_clock_init_reports_busy_when_pll_already_on(void)
     TEST_ASSERT_BITS_LOW(PWR_CR_ODEN, pwr.CR);
     TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & RCC_CFGR_SW_Msk);
 }
+
+/* --- review follow-ups: ordering and partial-failure state --- */
+
+/** The PLL is enabled *before* the voltage-scale wait: with VOSRDY never set the function times out
+ *  at that wait, but PLLON and the PLLCFGR dividers are already in place (the wait cannot complete
+ *  with the PLL off - the ordering bug CONTRIBUTING.md says shipped once). */
+void test_bsp_driver_clock_init_enables_pll_before_voltage_scale_wait(void)
+{
+    RccRegisters_t rcc = {.CR = ALL_RCC_READY, .CFGR = SWS_PLL};
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_ODRDY | PWR_CSR_ODSWRDY};
+    FlashRegisters_t flash = {0};
+
+    DriverStatus_e status = bspClockInit(&rcc, &pwr, &flash);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_BITS_HIGH(RCC_CR_PLLON, rcc.CR);
+    TEST_ASSERT_EQUAL_UINT32(BSP_PLL_M,
+                             (rcc.PLLCFGR & RCC_PLLCFGR_PLLM_Msk) >> RCC_PLLCFGR_PLLM_Pos);
+}
+
+/** The PWR clock is enabled first, even when HSE then fails (PWR registers would be unreachable
+ *  without it). */
+void test_bsp_driver_clock_init_enables_pwr_clock_first(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_PLLRDY};
+    PwrRegisters_t pwr = {.CSR = ALL_PWR_READY};
+    FlashRegisters_t flash = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, bspClockInit(&rcc, &pwr, &flash));
+    TEST_ASSERT_BITS_HIGH(RCC_APB1ENR_PWREN, rcc.APB1ENR);
+}
+
+/** A SYSCLK-switch timeout leaves what bsp.h documents: the bus prescalers set to their final
+ *  values, CFGR.SW still requesting the PLL, latency already raised to 5 - and the caches off. */
+void test_bsp_driver_clock_init_switch_timeout_leaves_documented_state(void)
+{
+    RccRegisters_t rcc = {.CR = ALL_RCC_READY, .CFGR = 0U};
+    PwrRegisters_t pwr = {.CSR = ALL_PWR_READY};
+    FlashRegisters_t flash = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, bspClockInit(&rcc, &pwr, &flash));
+
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_HPRE_DIV1,
+                            (rcc.CFGR & RCC_CFGR_HPRE_Msk) >> RCC_CFGR_HPRE_Pos);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_PPRE_DIV4,
+                            (rcc.CFGR & RCC_CFGR_PPRE1_Msk) >> RCC_CFGR_PPRE1_Pos);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_PPRE_DIV2,
+                            (rcc.CFGR & RCC_CFGR_PPRE2_Msk) >> RCC_CFGR_PPRE2_Pos);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_PLL, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
+    TEST_ASSERT_EQUAL_UINT32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
+}
+
+/** A second call after a timed-out first one cannot simply be retried: HSE is left on, so
+ *  rccHseEnable() reports BUSY (bsp.h documents this). */
+void test_bsp_driver_clock_init_cannot_be_retried_after_a_late_failure(void)
+{
+    RccRegisters_t rcc = {.CR = ALL_RCC_READY, .CFGR = 0U};
+    PwrRegisters_t pwr = {.CSR = ALL_PWR_READY};
+    FlashRegisters_t flash = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, bspClockInit(&rcc, &pwr, &flash));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_BUSY, bspClockInit(&rcc, &pwr, &flash));
+}
