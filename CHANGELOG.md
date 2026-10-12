@@ -146,6 +146,18 @@ specifically.
 
 ### Fixed
 
+- `drivers/src/nvic.c`: `nvicDisableIrq()` now issues `DSB`+`ISB` after the
+  ICER write, and `nvicEnableIrq()` brackets the ISER write with compiler
+  barriers, as CMSIS' `__NVIC_DisableIRQ()`/`__NVIC_EnableIRQ()` do. Without
+  the DSB the ICER write can still be in the write buffer when the caller
+  continues, so an interrupt that was already pending could be taken after
+  the function returned and break the usual "disable, then touch state the
+  ISR also uses" pattern; without the compiler barrier an inlined or LTO
+  build could move stores to ISR-shared state past the enable. Host builds
+  get a compiler barrier only (there is no NVIC to synchronise); the
+  `dsb`/`isb` instructions are confirmed in the target object. The
+  behaviour is not observable in the in-memory fake, so no new test.
+
 - `drivers/src/rcc.c`: `rccHsiDisable()`, `rccHseDisable()` and
   `rccPllDisable()` now wait (bounded, like the enables) for the ready flag
   to follow the ON bit down, and return `DRIVER_STATUS_ERR_TIMEOUT` if it
