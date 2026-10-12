@@ -184,7 +184,8 @@ void rccPwrClockDisable(RccRegisters_t *rcc);
  * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSIRDY never set within
  *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations - see this file's
  *         top comment on why this is a bounded retry, not a wall-clock
- *         timeout.
+ *         timeout. HSION stays set; to abandon the attempt, call
+ *         rccHsiDisable().
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHsiEnable(RccRegisters_t *rcc);
 
@@ -192,12 +193,17 @@ DRIVER_MUST_CHECK DriverStatus_e rccHsiEnable(RccRegisters_t *rcc);
  * @brief Disable the internal 16 MHz RC oscillator (HSI).
  *
  * @param rcc RCC register block (e.g. RCC).
- * @return DRIVER_STATUS_OK once CR.HSION is cleared.
+ * @return DRIVER_STATUS_OK once CR.HSION is cleared and CR.HSIRDY has
+ *         followed it down (the ready flag drops a few cycles after the
+ *         ON bit, and a quick re-enable would otherwise read it stale).
  * @return DRIVER_STATUS_ERR_BUSY if HSI is feeding SYSCLK: CFGR.SWS reports
  *         HSI directly, or reports the PLL while PLLCFGR.PLLSRC selects
  *         HSI as its input (RM0390 does not let HSION be cleared in
  *         either case). Switch SYSCLK to a different, already-ready
  *         source via rccSysclkSwitch() first.
+ * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSIRDY stayed set for
+ *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after HSION was
+ *         cleared. HSION stays cleared.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHsiDisable(RccRegisters_t *rcc);
 
@@ -220,7 +226,9 @@ DRIVER_MUST_CHECK DriverStatus_e rccHsiDisable(RccRegisters_t *rcc);
  *         cannot be safely reconfigured without disabling HSE first (see
  *         rccHseDisable()).
  * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSERDY never set within
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations.
+ *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations. HSEON stays
+ *         set, so calling this again reports BUSY; call rccHseDisable()
+ *         first to retry (or to abandon the attempt).
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass);
 
@@ -228,7 +236,8 @@ DRIVER_MUST_CHECK DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypa
  * @brief Disable the external oscillator (HSE).
  *
  * @param rcc RCC register block (e.g. RCC).
- * @return DRIVER_STATUS_OK once CR.HSEON is cleared.
+ * @return DRIVER_STATUS_OK once CR.HSEON is cleared and CR.HSERDY has
+ *         followed it down.
  * @return DRIVER_STATUS_ERR_BUSY if HSE is feeding SYSCLK: CFGR.SWS reports
  *         HSE directly, or reports the PLL while PLLCFGR.PLLSRC selects
  *         HSE as its input (RM0390 does not let HSEON be cleared in
@@ -237,6 +246,9 @@ DRIVER_MUST_CHECK DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypa
  *         Does not check an enabled PLL that is *not* the active SYSCLK
  *         source: that PLL loses its input, which is the caller's to
  *         sequence (rccPllDisable() first).
+ * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSERDY stayed set for
+ *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after HSEON was
+ *         cleared. HSEON stays cleared.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHseDisable(RccRegisters_t *rcc);
 
@@ -285,6 +297,8 @@ DRIVER_MUST_CHECK DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t sour
  * @return DRIVER_STATUS_ERR_TIMEOUT if CR.PLLRDY never set within
  *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations - typically means
  *         PLLCFGR's source was never actually made ready before this call.
+ *         PLLON stays set, so rccPllConfig() reports BUSY; call
+ *         rccPllDisable() first to reconfigure or retry.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccPllEnable(RccRegisters_t *rcc);
 
@@ -292,11 +306,18 @@ DRIVER_MUST_CHECK DriverStatus_e rccPllEnable(RccRegisters_t *rcc);
  * @brief Disable the main PLL.
  *
  * @param rcc RCC register block (e.g. RCC).
- * @return DRIVER_STATUS_OK once CR.PLLON is cleared.
+ * @return DRIVER_STATUS_OK once CR.PLLON is cleared and CR.PLLRDY has
+ *         followed it down. rccPllEnable() returns as soon as PLLRDY is
+ *         set, and rccPllConfig() is only permitted with PLLON clear, so
+ *         a stale PLLRDY after a disable would let a re-enable report a
+ *         lock that has not happened.
  * @return DRIVER_STATUS_ERR_BUSY if CFGR.SWS currently reports the PLL as
  *         the active SYSCLK source - disabling it would stop the running
  *         clock. Switch SYSCLK to a different, already-ready source via
  *         rccSysclkSwitch() first.
+ * @return DRIVER_STATUS_ERR_TIMEOUT if CR.PLLRDY stayed set for
+ *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after PLLON was
+ *         cleared. PLLON stays cleared.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccPllDisable(RccRegisters_t *rcc);
 

@@ -813,3 +813,84 @@ void test_rcc_driver_pll_config_accepts_range_edges(void)
                                  (rcc.PLLCFGR & RCC_PLLCFGR_PLLP_Msk) >> RCC_PLLCFGR_PLLP_Pos);
     }
 }
+
+/** HSI disable waits for its ready flag to follow the ON bit down: with the flag already
+ *  clear it succeeds, clears only its own ON bit and leaves every other CR bit as it was. */
+void test_rcc_driver_hsi_disable_succeeds_and_preserves_other_cr_bits(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU & ~RCC_CR_HSIRDY,
+                          .CFGR = RCC_CFGR_SYSCLK_HSE << RCC_CFGR_SWS_Pos};
+    uint32_t before = rcc.CR;
+
+    DriverStatus_e status = rccHsiDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(before & ~RCC_CR_HSION, rcc.CR);
+}
+
+/** HSI disable reports a timeout when the ready flag never drops, with the ON bit cleared
+ *  and every other CR bit untouched - a stale ready flag must not be mistaken for a stopped clock.
+ */
+void test_rcc_driver_hsi_disable_times_out_when_ready_never_clears(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU, .CFGR = RCC_CFGR_SYSCLK_HSE << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHsiDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_CR_HSION, rcc.CR);
+}
+
+/** HSE disable waits for its ready flag to follow the ON bit down: with the flag already
+ *  clear it succeeds, clears only its own ON bit and leaves every other CR bit as it was. */
+void test_rcc_driver_hse_disable_succeeds_and_preserves_other_cr_bits(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU & ~RCC_CR_HSERDY,
+                          .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+    uint32_t before = rcc.CR;
+
+    DriverStatus_e status = rccHseDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(before & ~RCC_CR_HSEON, rcc.CR);
+}
+
+/** HSE disable reports a timeout when the ready flag never drops, with the ON bit cleared
+ *  and every other CR bit untouched - a stale ready flag must not be mistaken for a stopped clock.
+ */
+void test_rcc_driver_hse_disable_times_out_when_ready_never_clears(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHseDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_CR_HSEON, rcc.CR);
+}
+
+/** PLL disable waits for its ready flag to follow the ON bit down: with the flag already
+ *  clear it succeeds, clears only its own ON bit and leaves every other CR bit as it was. */
+void test_rcc_driver_pll_disable_succeeds_and_preserves_other_cr_bits(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU & ~RCC_CR_PLLRDY,
+                          .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+    uint32_t before = rcc.CR;
+
+    DriverStatus_e status = rccPllDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(before & ~RCC_CR_PLLON, rcc.CR);
+}
+
+/** PLL disable reports a timeout when the ready flag never drops, with the ON bit cleared
+ *  and every other CR bit untouched - a stale ready flag must not be mistaken for a stopped clock.
+ */
+void test_rcc_driver_pll_disable_times_out_when_ready_never_clears(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccPllDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_CR_PLLON, rcc.CR);
+}

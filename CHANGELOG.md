@@ -146,6 +146,20 @@ specifically.
 
 ### Fixed
 
+- `drivers/src/rcc.c`: `rccHsiDisable()`, `rccHseDisable()` and
+  `rccPllDisable()` now wait (bounded, like the enables) for the ready flag
+  to follow the ON bit down, and return `DRIVER_STATUS_ERR_TIMEOUT` if it
+  does not. The flag drops a few cycles after the ON bit, so a quick
+  disable-then-enable read a stale `HSERDY`/`PLLRDY` and reported success
+  before the oscillator had restarted; with the PLL that also let
+  `rccSysclkSwitch()`'s ready check pass on a stale `PLLRDY`. ST's HAL waits
+  for the flag to clear in all three paths (`HAL_RCC_OscConfig`). Not on
+  the `bspClockInit()` path (it starts from reset), so this affects any
+  later reconfiguration. A timed-out `rccHseEnable()`/`rccPllEnable()`
+  still leaves its ON bit set (a retry reports `BUSY`); `rcc.h` now says
+  to call the matching disable first. Six tests (each oscillator: success
+  preserves every other CR bit; a ready flag that never clears times out).
+
 - `drivers/src/flash.c`: a comment containing the coverage-exclusion
   marker text made gcovr see a second, never-closed exclusion region and
   warn on every `make coverage`; the comment no longer spells the markers
