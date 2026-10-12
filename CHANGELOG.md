@@ -188,6 +188,28 @@ specifically.
 
 ### Fixed
 
+- `tools/`: the repo's own consistency checks are harder to fool (full
+  review). `check_test_registration.awk` counted a commented-out
+  `// RUN_TEST(test_x);` as registered, which is exactly the "test compiles,
+  passes, never runs" failure it exists to catch: only a live statement
+  counts now, a duplicate registration, a commented-out one, and a test
+  function with a signature other than `void test_x(void)` (invisible to
+  the strict pattern) are each reported, and finding no tests at all fails.
+  `check_vector_table.awk` only compared the 97 peripheral slots; it now
+  also checks the 16 architecturally fixed core words and that each
+  negative `IRQn_e` entry (SVCall, PendSV, SysTick, MemManage, BusFault,
+  UsageFault) names the vector word it claims - a swapped SVC/PendSV/SysTick
+  slot used to pass - and that the table has exactly 97 peripheral slots
+  and no duplicate IRQn. `install_cppcheck.sh` stages the install and swaps
+  it into place only after the binary passes a real cppcheck+MISRA run
+  (previously an interrupted run could leave a `bin/cppcheck` without its
+  `cfg/` that `make lint` then trusted), restoring the previous install on
+  failure, and cleans up on SIGINT/SIGTERM. New `make hooks` sets up the
+  pre-commit hook; README/CONTRIBUTING no longer say `chmod +x` (the file is
+  already executable), and now document that the hook checks the working
+  tree rather than the index and that `git commit --no-verify` skips it.
+  Each awk change was checked against a deliberately broken copy.
+
 - `Makefile`: the build now tracks what it was silently ignoring (found by
   the full review). **Flags:** after a `BUILD=debug` build, `make
   BUILD=release` printed "nothing to be done" and left the -O0 image to be

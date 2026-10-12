@@ -108,7 +108,7 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
-.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version FORCE
+.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version hooks FORCE
 
 # A failed recipe must not leave a truncated .bin/.hex/.elf that a later
 # make would treat as up to date.
@@ -536,6 +536,14 @@ coverage: $(COVERAGE_OBJECTS)
 	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' --filter 'bsp/src/.*' \
 	  --fail-under-line $(COVERAGE_MIN_LINE) --fail-under-branch $(COVERAGE_MIN_BRANCH) \
 	  --print-summary
+
+# ------------------------------------------------------------------------
+# make hooks
+# One-time per clone: point git at the tracked pre-commit hook in .githooks/
+# (see CONTRIBUTING.md). Does not touch the working tree.
+# ------------------------------------------------------------------------
+hooks:
+	git config core.hooksPath .githooks
 
 # ------------------------------------------------------------------------
 # make docs

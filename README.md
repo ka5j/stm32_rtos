@@ -30,11 +30,11 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
    cd stm32_rtos
    ```
 
-2. Enable the pre-commit hook (one-time setup; without it, commits bypass the format/lint/docs/build checks):
+2. Enable the pre-commit hook (one-time setup; without it, commits bypass the format/test/lint/docs/build checks):
    ```sh
-   git config core.hooksPath .githooks
-   chmod +x .githooks/pre-commit
+   make hooks
    ```
+   (That runs `git config core.hooksPath .githooks`; the hook file is already executable.) The hook checks your working tree, not just what is staged, and takes a while; `git commit --no-verify` skips it for a commit you know CI will check anyway.
 
 3. Build. Produces `.elf`/`.bin`/`.hex` in `build/` and prints a size report:
    ```sh
@@ -76,6 +76,7 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make flash`        | Build (if needed) and program the board over the onboard ST-LINK                                   |
 | `make erase`        | Full chip mass-erase                                                                               |
 | `make debug`        | Build (if needed), start OpenOCD as a GDB server, and attach GDB                                   |
+| `make hooks`        | One-time setup: point git at the tracked pre-commit hook (`git config core.hooksPath .githooks`) |
 | `make re`           | `clean` followed by `all` (safe with `make -j`; the build also rebuilds on its own when `BUILD` or the flags change) |
 | `make clean`        | Remove the `build/` directory and generated `docs/html/`                                          |
 | `make format`       | Apply `.clang-format` to every tracked `.c`/`.h` file in place                                     |
