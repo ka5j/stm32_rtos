@@ -24,6 +24,8 @@ on:
       - tools/check_version.awk
       - tools/changelog_section.awk
       - Makefile
+      - Doxyfile
+      - CHANGELOG.md
 
 # Read-only by default; only the publishing step needs more, and it is
 # skipped on pull_request, where the token is read-only regardless.
