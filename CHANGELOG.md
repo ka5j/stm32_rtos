@@ -92,6 +92,51 @@ specifically.
 
 ### Changed
 
+- Docs and comments only, from the full review: claims the code or the
+  manual did not back are corrected or removed. `rccBusPrescalerConfig()`
+  no longer says its fields "take effect immediately and synchronously"
+  (RM0390 has no ready flag, but a divider can apply a few AHB cycles after
+  the write); `uartInit()` no longer attributes its clear-UE-first order to
+  an RM0390 requirement (the order is the safe one either way) and now says
+  it rewrites only the fields it names, so a re-init of an instance that
+  used interrupts or CR3 features should `uartDeinit()` first; `bsp.h` says
+  what the `_Static_assert`s do and do not cover and that `test_bsp.c` ties
+  the programmed registers to the `BSP_*` constants; CONTRIBUTING.md no
+  longer says an unresolved bare include signals a layering violation (every
+  `inc/` directory is on every compile's path, so layering is a convention);
+  the changelog no longer says a test binds the startup file's literals to
+  `scb_reg.h` (it pins the header's side only); `iwdg_reg.h` names
+  `IWDG_KEY_ENABLE_ACCESS` correctly; the Makefile comments give the real
+  CI step order and explain the four libc "not implemented" link warnings.
+  Checked against RM0390 Rev 6 (March 2021) once the manual was available:
+  the "RM0390 Table 15" citations pointed at the *Low-power mode summary*;
+  the flash wait states are Table 5 (section 3.4.1), and the note beneath
+  it gives each voltage scale's maximum HCLK (scale 3 120 MHz, scale 2
+  144 MHz, scale 1 168 MHz, the last two extended by over-drive; an
+  earlier revision of this entry wrongly said the manual gives no such
+  figures). Section numbers now match Rev 6, including the chapter numbers
+  in each register header's file comment: GPIO 7.4 (was 8.4), SYSCFG 8.2
+  (9.2), EXTI 10.3 (12.3), Flash registers 3.8 (3.7), IWDG 20.4 (21.4),
+  WWDG 21.6 (20.6), USART 25.6 (19.6), and the voltage regulator and
+  over-drive text is 5.1.3, not 5.1.4. Also from checking the headers
+  against the manual: `iwdg_reg.h` said SR must be polled clear before a
+  PR/RLR write "takes effect", but RM0390 says the wait is needed only
+  before writing them again; `syscfg_reg.h` said PMC holds Ethernet
+  selection (only ADCxDC2 on the F446), now notes SYSCFG_CFGR (0x2C) is not
+  modeled and that PH exists only for EXTI0/1; `exti_reg.h` now says bit 19
+  is reserved in RTSR/FTSR; `gpio_reg.h` notes GPIOx_IDR has no fixed
+  reset value and calls OSPEEDR 0b11 "high speed" as the manual does;
+  `pwr.h` no longer says VOSRDY "cannot set" with the PLL off or that a
+  VOS write with the PLL on is "discarded" (RM0390 says neither);
+  `flash.c`'s read-back comment now quotes what 3.4.1 actually says;
+  `rcc.h` notes PLLSRC also needs PLLI2S off, which this driver never
+  enables; `flash_reg.h` says OPTCR1's offset comes from ST's CMSIS header.
+  GPIOA_OSPEEDR resetting to 0 is correct (RM0390 Table 26: `GPIOx_OSPEEDR`,
+  x = A..H, resets to 0 and only `GPIOB_OSPEEDR` is `0xC0`); the F401/F411
+  value `0x0C000000` does not apply to the F446. RM0390's over-drive text
+  also confirms what `pwr.h` had only from ST's HAL: no peripheral clocks
+  other than PWR's should be on during the over-drive switch.
+
 - `drivers/inc/gpio.h`, `drivers/src/gpio.c`: `gpioDeinitToReset(port, pin,
   reset)` is `gpioDeinit()`'s register work with the reset values passed
   in; `gpioDeinit()` is now `gpioDeinitToReset(port, pin,
@@ -220,9 +265,11 @@ specifically.
   SYSCFG, IWDG, WWDG, NVIC, SCB, FPU, MPU, SysTick), `sizeof(RccRegisters_t)`
   and the offset of every member after a RESERVED gap in each struct. The
   constants `startup_stm32f446re.s` hard-codes (CPACR address, FPU enable
-  mask, AIRCR address and the PRIGROUP=3 write) are now bound to `scb_reg.h`
-  by a test. Every literal agreed with the existing macros, so this found no
-  wrong value - it makes the next wrong one fail. The EXTI line numbers
+  mask, AIRCR address and the PRIGROUP=3 write) have `scb_reg.h`'s matching
+  macros pinned to the same literals by a test. Nothing reads the `.s` file,
+  so editing a literal there alone is not caught; the pins catch the header
+  drifting from the manual. Every literal agreed with the existing macros, so
+  this found no wrong value - it makes the next wrong header value fail. The EXTI line numbers
   16-22 are regression pins only: neither the SVD nor ST's headers define
   them.
 

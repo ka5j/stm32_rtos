@@ -3,16 +3,17 @@
  * @brief Flash interface register definitions for the STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 3.7: Embedded Flash memory interface
- * registers.
+ * reference manual), section 3.8: Flash interface registers
+ * (the Embedded Flash memory interface chapter is 3).
  *
  * ACR's LATENCY field becomes relevant once RCC's PLL raises SYSCLK
  * past the 16 MHz HSI reset default: flash access time does not scale
  * with clock frequency, so wait states must be set to match the new
  * SYSCLK (and VOS range from pwr_reg.h) before switching RCC_CFGR.SW to
- * the PLL. RM0390 Table 15 gives the required LATENCY value per
- * frequency range. Omitting this step does not fault visibly; it
- * corrupts instruction fetch at the new speed.
+ * the PLL. RM0390 Table 5 (section 3.4.1) gives the required LATENCY
+ * value per frequency range and supply voltage, and says LATENCY must
+ * be correctly programmed for the clock in use; getting it wrong does not
+ * raise a fault, the flash simply cannot be read reliably at that speed.
  *
  * Field coverage is scoped to the clock bring-up path above, not flash
  * self-programming: FLASH_SR only defines EOP, WRPERR, and BSY (RM0390
@@ -35,7 +36,7 @@
 #define FLASH_BASE (0x40023C00UL) ///< Flash interface peripheral base address
 
 /**
- * @brief Flash interface register map (RM0390 section 3.7).
+ * @brief Flash interface register map (RM0390 section 3.8).
  */
 typedef struct FlashRegisters_t
 {
@@ -45,7 +46,8 @@ typedef struct FlashRegisters_t
     volatile uint32_t SR;      ///< 0x0C: status register
     volatile uint32_t CR;      ///< 0x10: control register
     volatile uint32_t OPTCR;   ///< 0x14: option control register
-    volatile uint32_t OPTCR1;  ///< 0x18: option control register 1
+    volatile uint32_t OPTCR1;  ///< 0x18: option control register 1 (offset from ST's CMSIS header;
+                               ///< RM0390 Rev 6 names it but gives no offset)
 } FlashRegisters_t;
 
 #define FLASH ((FlashRegisters_t *)FLASH_BASE) ///< Pointer to the Flash interface register block

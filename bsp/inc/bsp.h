@@ -11,9 +11,12 @@
  * configuration - so there is no frequency solver and no VCO/APB limit
  * validation here or in rccPllConfig()/rccBusPrescalerConfig(). The
  * limits are instead documented against the one configuration below and
- * enforced on it at compile time by the _Static_asserts after the BSP_*
- * constants (tests/unit/test_bsp.c repeats them as runtime checks). Anyone
- * changing a BSP_* constant must re-check the limits.
+ * checked on it: the _Static_asserts after the BSP_* constants fail the
+ * build if a constant goes out of range, and tests/unit/test_bsp.c checks
+ * that the PLL and prescaler fields bspClockInit() actually writes work out
+ * to the same BSP_*_HZ values (bsp.c programs those from register-macro
+ * literals of its own, which the asserts cannot see). Anyone changing a
+ * BSP_* constant must change the matching register value in bsp.c too.
  *
  * The configuration, which follows ST's own 180 MHz example for this part
  * (SystemClock_Config in its Nucleo-F446 projects), driven from the

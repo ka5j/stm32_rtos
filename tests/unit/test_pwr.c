@@ -70,7 +70,7 @@ void test_pwr_driver_set_voltage_scale_touches_only_vos_field(void)
 }
 
 /** Selecting a scale does not poll, and in particular does not depend on
- *  CSR.VOSRDY - which cannot set until the PLL is enabled (RM0390 5.1.4),
+ *  CSR.VOSRDY - which cannot set until the PLL is enabled (RM0390 5.1.3),
  *  long after this call. A cleared CSR must still report OK, since an
  *  earlier revision of this driver polled here and would have timed out
  *  on every boot once the call was correctly ordered before the PLL. */

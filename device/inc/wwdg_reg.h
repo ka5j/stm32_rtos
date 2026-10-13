@@ -4,7 +4,7 @@
  *        STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 20: Window watchdog (WWDG).
+ * reference manual), section 21: Window watchdog (WWDG).
  *
  * Unlike IWDG (iwdg_reg.h), WWDG runs off PCLK1 (via RCC, see
  * rcc_reg.h) rather than an independent clock, and faults if refreshed
@@ -25,7 +25,7 @@
 #define WWDG_BASE (0x40002C00UL) ///< WWDG peripheral base address
 
 /**
- * @brief WWDG register map (RM0390 section 20.6).
+ * @brief WWDG register map (RM0390 section 21.6).
  */
 typedef struct WwdgRegisters_t
 {

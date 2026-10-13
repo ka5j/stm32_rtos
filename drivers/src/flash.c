@@ -23,13 +23,15 @@ DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency)
     {
         flash->ACR = (flash->ACR & ~FLASH_ACR_LATENCY_Msk) | (latency << FLASH_ACR_LATENCY_Pos);
 
-        /* RM0390 requires the programmed latency be read back and
-         * confirmed before the clock change it is preparing for goes
-         * ahead: the write is not guaranteed to have been taken into
-         * account when the store retires. Proceeding on an unaccepted
-         * latency is exactly the case that corrupts instruction fetch
-         * silently once SYSCLK rises, so it is reported as a hardware
-         * fault rather than assumed to have worked.
+        /* RM0390 (3.4.1, "Increasing the CPU frequency") says to check
+         * that the new number of wait states is taken into account by
+         * reading FLASH_ACR, and notes a wait-state change "may not be
+         * effective straight away". So the programmed latency is read back
+         * and confirmed before the clock change it is preparing for goes
+         * ahead. Proceeding on an unaccepted latency is the case that
+         * makes flash reads unreliable once SYSCLK rises, with no fault
+         * raised, so it is reported as a hardware fault rather than
+         * assumed to have worked.
          *
          * The coverage-exclusion region below is deliberate, and is the
          * only one in this project - not a gap being papered over. (Its

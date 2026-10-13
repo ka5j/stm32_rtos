@@ -149,7 +149,7 @@ void test_bsp_driver_clock_init_stops_when_pll_never_locks(void)
     DriverStatus_e status = bspClockInit(&rcc, &pwr, &flash);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
-    /* The scale was written before the PLL was enabled (the ordering RM0390 5.1.4 requires:
+    /* The scale was written before the PLL was enabled (the ordering RM0390 5.1.3 requires:
      * CR.VOS can only be written with the PLL off) - a regulator write after rccPllEnable()
      * would leave CR.VOS untouched here. */
     TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1, (pwr.CR & PWR_CR_VOS_Msk) >> PWR_CR_VOS_Pos);

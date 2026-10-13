@@ -18,13 +18,14 @@
  *     PLL, setting the AHB/APB1/APB2 bus prescalers, and switching SYSCLK
  *     to the configured source via rccSysclkSwitch() - which also applies
  *     the flash access latency (flash.h) the new frequency requires, per
- *     RM0390 Table 15, on whichever side of the switch is actually safe -
+ *     RM0390 Table 5 (section 3.4.1), on whichever side of the switch is
+ *     actually safe -
  *     see rccSysclkSwitch()'s own doc comment for why that side depends
  *     on the switch's direction.
  *
- * The PWR voltage scale that same table pairs with each frequency range
- * is *not* sequenced from inside this driver, because the hardware
- * forbids it: RM0390 section 5.1.4 allows PWR_CR.VOS to be written only
+ * The PWR voltage scale the target frequency needs is *not* sequenced
+ * from inside this driver, because the hardware forbids it: RM0390
+ * section 5.1.3 allows PWR_CR.VOS to be written only
  * while the PLL is off, and CSR.VOSRDY only reports the regulator
  * settled after the PLL has been switched on. Both of those fall outside
  * the window rccSysclkSwitch() runs in - by the time it is called the
@@ -54,7 +55,10 @@
  * frequencies above the selected scale's normal maximum. Its position
  * follows ST's own 180 MHz example for this part (PLL on, then
  * over-drive, then the prescalers and the SYSCLK switch with 5 flash wait
- * states); RM0390 5.1.4 was not available to check it against directly.
+ * states), and matches RM0390 section 5.1.3's "Entering Over-drive mode"
+ * steps except that the manual overlaps the over-drive switch with the PLL
+ * lock phase "to optimize the configuration time"; waiting for the lock
+ * first, as here, is the same sequence without that optimisation.
  *
  * Every hardware-ready wait here (HSIRDY/HSERDY/PLLRDY/SWS/VOSRDY/ODRDY/ODSWRDY) is a
  * bounded iteration-count retry, not a wall-clock timeout: SysTick is not
@@ -262,7 +266,9 @@ DRIVER_MUST_CHECK DriverStatus_e rccHseDisable(RccRegisters_t *rcc);
  * @brief Configure the main PLL's input source and M/N/P dividers.
  *
  * RM0390 forbids writing PLLCFGR while the PLL is enabled - this
- * function's own BUSY guard enforces that. Does not configure PLLQ
+ * function's own BUSY guard enforces that. RM0390 also says PLLSRC can be
+ * written only while PLLI2S is disabled too; this driver has no PLLI2S
+ * support and never enables it, so that is not checked here. Does not configure PLLQ
  * (USB OTG FS/SDIO 48 MHz output) - see rcc_reg.h's file-level comment
  * on why this project omits it.
  *
@@ -330,11 +336,13 @@ DRIVER_MUST_CHECK DriverStatus_e rccPllDisable(RccRegisters_t *rcc);
 /**
  * @brief Configure the AHB, APB1, and APB2 bus prescalers.
  *
- * Takes effect immediately and synchronously - RM0390 documents no
- * ready/busy flag for these fields, so there is nothing to poll. Get this
- * right before switching to a fast SYSCLK source: APB1's peripherals are
- * rated to 45 MHz max and APB2's to 90 MHz max on the F446, regardless of
- * SYSCLK.
+ * RM0390 documents no ready/busy flag for these fields, so there is
+ * nothing to poll, and (RCC_CFGR, HPRE/PPRE) the clocks are divided with
+ * the new prescaler "from 1 to 16 AHB cycles after" the write rather than
+ * on it: do not rely on the new bus clock in the very next instruction. (bspClockInit() does not:
+ * it programs the prescalers while SYSCLK is still the slow HSI, with several register accesses
+ * before the switch to the PLL.) Get this right before switching to a fast SYSCLK source: APB1's
+ * peripherals are rated to 45 MHz max and APB2's to 90 MHz max on the F446, regardless of SYSCLK.
  *
  * @param rcc   RCC register block (e.g. RCC).
  * @param hpre  CFGR.HPRE field value - one of the 9 ::RCC_CFGR_HPRE_DIV1

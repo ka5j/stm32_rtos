@@ -157,10 +157,10 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
             frame_length = USART_CR1_M;
         }
 
-        /* Disable before touching BRR or the framing fields: RM0390
-         * requires them programmed with the USART off, which matters
-         * when this is a reconfiguration of an already-running instance
-         * rather than a first call - see uartInit()'s doc comment. */
+        /* Disable before touching BRR or the framing fields, so a
+         * reconfiguration of an already-running instance does not change
+         * them underneath an in-flight frame - see uartInit()'s doc
+         * comment. */
         // cppcheck-suppress misra-c2012-12.2
         uart->CR1 &= ~USART_CR1_UE;
 

@@ -21,7 +21,7 @@ void test_gpio_base_addresses_are_evenly_spaced(void)
     TEST_ASSERT_EQUAL_HEX32(0x400, GPIOH_BASE - GPIOG_BASE);
 }
 
-/** GpioRegisters_t must be exactly 0x28 bytes (MODER..AFRH, RM0390 8.4). */
+/** GpioRegisters_t must be exactly 0x28 bytes (MODER..AFRH, RM0390 7.4). */
 void test_gpio_register_block_size(void)
 {
     TEST_ASSERT_EQUAL_UINT(0x28, sizeof(GpioRegisters_t));
