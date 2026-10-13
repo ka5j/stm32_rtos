@@ -31,19 +31,6 @@ void test_bsp_clock_configuration_frequencies(void)
     TEST_ASSERT_EQUAL_UINT32(90000000U, BSP_PCLK2_HZ);
 }
 
-/** The PLL constants keep the VCO in range: 1-2 MHz in, 100-432 MHz out. */
-void test_bsp_clock_configuration_respects_pll_limits(void)
-{
-    uint32_t vco_in = BSP_HSE_HZ / BSP_PLL_M;
-    uint32_t vco_out = vco_in * BSP_PLL_N;
-
-    TEST_ASSERT_GREATER_OR_EQUAL_UINT32(1000000U, vco_in);
-    TEST_ASSERT_LESS_OR_EQUAL_UINT32(2000000U, vco_in);
-    TEST_ASSERT_GREATER_OR_EQUAL_UINT32(100000000U, vco_out);
-    TEST_ASSERT_LESS_OR_EQUAL_UINT32(432000000U, vco_out);
-    TEST_ASSERT_EQUAL_UINT32(2U, BSP_PLL_P_DIV); /* divisor 2 is PLLP register encoding DIV2 (0) */
-}
-
 /* --- bspClockInit --- */
 
 /** With every ready flag raised, the whole sequence runs and leaves the documented register state.
@@ -81,6 +68,46 @@ void test_bsp_driver_clock_init_configures_180mhz(void)
 
     TEST_ASSERT_EQUAL_UINT32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
     TEST_ASSERT_BITS_HIGH(FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN, flash.ACR);
+}
+
+/** PLLP divisor and APB prescaler of a CFGR/PLLCFGR value, as the hardware
+ *  reads the field: PLLP encodes 2/4/6/8 as 0..3; PPRE below 0b100 is /1 and
+ *  0b100..0b111 is /2../16. */
+static uint32_t pllp_divisor(uint32_t pllcfgr)
+{
+    return (((pllcfgr & RCC_PLLCFGR_PLLP_Msk) >> RCC_PLLCFGR_PLLP_Pos) + 1U) * 2U;
+}
+
+static uint32_t ppre_divisor(uint32_t field)
+{
+    return (field < RCC_CFGR_PPRE_DIV2) ? 1U : (2U << (field - RCC_CFGR_PPRE_DIV2));
+}
+
+/** The clocks the registers bspClockInit() actually programmed work out to the
+ *  BSP_*_HZ constants. The _Static_asserts in bsp.h check the limits against
+ *  the BSP_* constants only; the register values are separate literals in
+ *  bsp.c, so this ties the two together - editing one PPRE or PLLP literal
+ *  without its constant now fails here. */
+void test_bsp_driver_clock_init_programs_the_documented_frequencies(void)
+{
+    RccRegisters_t rcc = {.CR = ALL_RCC_READY, .CFGR = SWS_PLL};
+    PwrRegisters_t pwr = {.CSR = ALL_PWR_READY};
+    FlashRegisters_t flash = {0};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, bspClockInit(&rcc, &pwr, &flash));
+
+    uint32_t m = (rcc.PLLCFGR & RCC_PLLCFGR_PLLM_Msk) >> RCC_PLLCFGR_PLLM_Pos;
+    uint32_t n = (rcc.PLLCFGR & RCC_PLLCFGR_PLLN_Msk) >> RCC_PLLCFGR_PLLN_Pos;
+    uint32_t sysclk = (BSP_HSE_HZ / m) * n / pllp_divisor(rcc.PLLCFGR);
+    uint32_t ppre1 = ppre_divisor((rcc.CFGR & RCC_CFGR_PPRE1_Msk) >> RCC_CFGR_PPRE1_Pos);
+    uint32_t ppre2 = ppre_divisor((rcc.CFGR & RCC_CFGR_PPRE2_Msk) >> RCC_CFGR_PPRE2_Pos);
+
+    TEST_ASSERT_EQUAL_UINT32(BSP_SYSCLK_HZ, sysclk);
+    /* AHB /1, so HCLK == SYSCLK == BSP_HCLK_HZ */
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_HPRE_DIV1,
+                            (rcc.CFGR & RCC_CFGR_HPRE_Msk) >> RCC_CFGR_HPRE_Pos);
+    TEST_ASSERT_EQUAL_UINT32(BSP_PCLK1_HZ, sysclk / ppre1);
+    TEST_ASSERT_EQUAL_UINT32(BSP_PCLK2_HZ, sysclk / ppre2);
 }
 
 /** HSE never ready: reports a timeout and the PLL is never configured or enabled. */

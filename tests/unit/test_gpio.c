@@ -283,6 +283,81 @@ void test_gpio_driver_deinit_clears_afrh_for_high_pins(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU, port.AFRL);
 }
 
+/* --- gpioDeinitToReset: the reset-value restore gpioDeinit() cannot show on the host --- */
+
+/** Deinitialising PA13 (SWDIO) with GPIOA's reset values puts it back into
+ *  alternate-function mode with the pull-up the debug port needs, rather
+ *  than clearing it to input/no-pull - the restore that keeps the debugger
+ *  connected. Only PA13's own fields change; AFR and OTYPER are cleared as
+ *  for any pin. */
+void test_gpio_driver_deinit_to_reset_restores_swdio_on_gpioa(void)
+{
+    GpioRegisters_t port = {.MODER = 0xFFFFFFFFU,
+                            .OTYPER = 0xFFFFFFFFU,
+                            .OSPEEDR = 0xFFFFFFFFU,
+                            .PUPDR = 0xFFFFFFFFU,
+                            .AFRL = 0xFFFFFFFFU,
+                            .AFRH = 0xFFFFFFFFU};
+
+    gpioDeinitToReset(&port, GPIO_PIN_13, gpioPortResetValues(GPIOA));
+
+    TEST_ASSERT_EQUAL_HEX32(GPIO_MODE_AF, (port.MODER >> 26) & 0x3U);
+    TEST_ASSERT_EQUAL_HEX32(GPIO_PUPD_UP, (port.PUPDR >> 26) & 0x3U);
+    TEST_ASSERT_EQUAL_HEX32(0U, (port.OSPEEDR >> 26) & 0x3U);
+    TEST_ASSERT_EQUAL_HEX32(0U, (port.OTYPER >> 13) & 0x1U);
+    TEST_ASSERT_EQUAL_HEX32(0U, (port.AFRH >> 20) & 0xFU);
+
+    /* Every other pin's bits (still all-1s from setup) are intact. */
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~(0x3U << 26), port.OSPEEDR);
+    TEST_ASSERT_EQUAL_HEX32((0xFFFFFFFFU & ~(0x3U << 26)) | (GPIO_MODE_AF << 26), port.MODER);
+    TEST_ASSERT_EQUAL_HEX32((0xFFFFFFFFU & ~(0x3U << 26)) | (GPIO_PUPD_UP << 26), port.PUPDR);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~(0xFU << 20), port.AFRH);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU, port.AFRL);
+}
+
+/** PB3 (SWO) resets to alternate-function mode at very high speed with no
+ *  pull - the one SWD-related pin whose OSPEEDR is not zero. */
+void test_gpio_driver_deinit_to_reset_restores_pb3_speed_and_mode(void)
+{
+    GpioRegisters_t port = {.MODER = 0xFFFFFFFFU, .OSPEEDR = 0xFFFFFFFFU, .PUPDR = 0xFFFFFFFFU};
+
+    gpioDeinitToReset(&port, GPIO_PIN_3, gpioPortResetValues(GPIOB));
+
+    TEST_ASSERT_EQUAL_HEX32((0xFFFFFFFFU & ~(0x3U << 6)) | (GPIO_MODE_AF << 6), port.MODER);
+    TEST_ASSERT_EQUAL_HEX32((0xFFFFFFFFU & ~(0x3U << 6)) | (GPIO_OSPEED_HIGH << 6), port.OSPEEDR);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~(0x3U << 6), port.PUPDR);
+}
+
+/** Each register takes its own reset value: MODER, OSPEEDR and PUPDR are
+ *  given three different values for the pin, so a restore that pulled a
+ *  field from the wrong reset register would show. */
+void test_gpio_driver_deinit_to_reset_takes_each_field_from_its_own_register(void)
+{
+    GpioResetValues_t reset = {.MODER = 0x1U << 10, .OSPEEDR = 0x2U << 10, .PUPDR = 0x3U << 10};
+    GpioRegisters_t port = {.MODER = 0xFFFFFFFFU, .OSPEEDR = 0xFFFFFFFFU, .PUPDR = 0xFFFFFFFFU};
+
+    gpioDeinitToReset(&port, GPIO_PIN_5, reset);
+
+    TEST_ASSERT_EQUAL_HEX32((0xFFFFFFFFU & ~(0x3U << 10)) | (0x1U << 10), port.MODER);
+    TEST_ASSERT_EQUAL_HEX32((0xFFFFFFFFU & ~(0x3U << 10)) | (0x2U << 10), port.OSPEEDR);
+    TEST_ASSERT_EQUAL_HEX32((0xFFFFFFFFU & ~(0x3U << 10)) | (0x3U << 10), port.PUPDR);
+}
+
+/** Reset values that belong to other pins are not applied to this one:
+ *  restoring pin 5 with a reset word that is non-zero only at pin 13
+ *  must leave pin 5 at zero. */
+void test_gpio_driver_deinit_to_reset_ignores_reset_bits_of_other_pins(void)
+{
+    GpioResetValues_t reset = {.MODER = 0x2U << 26, .OSPEEDR = 0x3U << 26, .PUPDR = 0x1U << 26};
+    GpioRegisters_t port = {.MODER = 0xFFFFFFFFU, .OSPEEDR = 0xFFFFFFFFU, .PUPDR = 0xFFFFFFFFU};
+
+    gpioDeinitToReset(&port, GPIO_PIN_5, reset);
+
+    TEST_ASSERT_EQUAL_HEX32(0U, (port.MODER >> 10) & 0x3U);
+    TEST_ASSERT_EQUAL_HEX32(0U, (port.OSPEEDR >> 10) & 0x3U);
+    TEST_ASSERT_EQUAL_HEX32(0U, (port.PUPDR >> 10) & 0x3U);
+}
+
 /* --- gpioSetAlternateFunction --- */
 
 /** af outside AFRL/AFRH's 4-bit field (> GPIO_AF_MAX) must be rejected

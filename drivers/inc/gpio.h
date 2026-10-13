@@ -135,6 +135,26 @@ DRIVER_MUST_CHECK DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, 
 void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin);
 
 /**
+ * @brief gpioDeinit()'s register work, with the port's reset values passed
+ *        in instead of looked up from the port's address.
+ *
+ * Public for the same reason as gpioPortResetValues(): gpioDeinit() finds
+ * the reset values by comparing @p port with GPIOA and GPIOB, and a host
+ * test cannot place a fake register block at those addresses, so through
+ * gpioDeinit() alone every host test sees all-zero reset values and the
+ * SWD pins' restore - the part that keeps the debugger connected - is never
+ * exercised. Firmware calls gpioDeinit(); this exists so a test can supply
+ * GPIOA's or GPIOB's values to a plain struct.
+ *
+ * @param port  GPIO port register block (e.g. GPIOA).
+ * @param pin   Pin number within the port.
+ * @param reset The port's reset values, as gpioPortResetValues() reports.
+ * @pre @p pin is one of the ::GpioPin_e enumerators (0-15), as for
+ *      gpioDeinit().
+ */
+void gpioDeinitToReset(GpioRegisters_t *port, GpioPin_e pin, GpioResetValues_t reset);
+
+/**
  * @brief Select which alternate function a pin routes to via AFRL/AFRH.
  *        Has no electrical effect until the pin's MODER field is also
  *        set to ::GPIO_MODE_AF (see gpioInit()).

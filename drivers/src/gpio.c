@@ -93,11 +93,15 @@ GpioResetValues_t gpioPortResetValues(const GpioRegisters_t *port)
 
 void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin)
 {
+    gpioDeinitToReset(port, pin, gpioPortResetValues(port));
+}
+
+void gpioDeinitToReset(GpioRegisters_t *port, GpioPin_e pin, GpioResetValues_t reset)
+{
     uint32_t pin_pos = (uint32_t)pin;
     uint32_t field_shift = pin_pos * 2U;
     uint32_t afr_shift = (pin_pos & 0x7U) * 4U;
     uint32_t pin_field = 0x3U << field_shift;
-    GpioResetValues_t reset = gpioPortResetValues(port);
 
     port->MODER = (port->MODER & ~pin_field) | (reset.MODER & pin_field);
     port->OTYPER &= ~(0x1U << pin_pos);
