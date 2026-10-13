@@ -21,6 +21,23 @@ void test_rcc_ahb1enr_gpio_enable_bits_do_not_overlap(void)
     TEST_ASSERT_EQUAL_UINT32(7U, RCC_AHB1ENR_GPIOHEN_Pos);
 }
 
+/** Each GPIO port's clock-enable bit at its own documented position
+ *  (RM0390 RCC_AHB1ENR: GPIOAEN bit 0 ... GPIOHEN bit 7). The no-overlap
+ *  test above only proves the eight bits fill 0-7 in some order, and the
+ *  port-to-bit mapping test in test_rcc.c builds both sides from these same
+ *  macros, so a swap of two ports would pass both. */
+void test_rcc_ahb1enr_gpio_enable_masks_are_pinned_individually(void)
+{
+    TEST_ASSERT_EQUAL_HEX32(0x01U, RCC_AHB1ENR_GPIOAEN);
+    TEST_ASSERT_EQUAL_HEX32(0x02U, RCC_AHB1ENR_GPIOBEN);
+    TEST_ASSERT_EQUAL_HEX32(0x04U, RCC_AHB1ENR_GPIOCEN);
+    TEST_ASSERT_EQUAL_HEX32(0x08U, RCC_AHB1ENR_GPIODEN);
+    TEST_ASSERT_EQUAL_HEX32(0x10U, RCC_AHB1ENR_GPIOEEN);
+    TEST_ASSERT_EQUAL_HEX32(0x20U, RCC_AHB1ENR_GPIOFEN);
+    TEST_ASSERT_EQUAL_HEX32(0x40U, RCC_AHB1ENR_GPIOGEN);
+    TEST_ASSERT_EQUAL_HEX32(0x80U, RCC_AHB1ENR_GPIOHEN);
+}
+
 /** PWREN (APB1) and SYSCFGEN (APB2) must sit at their documented bit
  *  positions - both gate registers (PWR, SYSCFG) other drivers depend on. */
 void test_rcc_pwren_and_syscfgen_bit_positions(void)

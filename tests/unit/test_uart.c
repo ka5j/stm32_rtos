@@ -368,10 +368,9 @@ void test_uart_driver_init_defaults_clear_parity_and_re(void)
 
 /** Reconfiguring an instance that is already enabled still ends with UE
  *  set and every field at its new value. The driver clears UE before
- *  touching BRR and the framing fields, as RM0390 requires them to be
- *  programmed with the USART disabled, then sets it again last - so a
- *  baud-rate change on a running port is a legal sequence rather than a
- *  write into a live peripheral. */
+ *  touching BRR and the framing fields and sets it again last (see
+ *  uartInit()); that ordering is not observable through a plain-struct
+ *  register, so this checks the end state only. */
 void test_uart_driver_init_reconfigures_an_already_enabled_instance(void)
 {
     UartRegisters_t uart = {.CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE, .BRR = 0xFFFFU};
@@ -431,9 +430,9 @@ void test_uart_driver_transmit_byte_times_out_when_txe_never_sets(void)
     TEST_ASSERT_EQUAL_HEX32(0U, uart.DR);
 }
 
-/** Every byte in the buffer is written to DR in order, when TXE and TC
- *  are always ready. */
-void test_uart_driver_transmit_sends_every_byte_in_order(void)
+/** A multi-byte buffer is sent to completion when TXE and TC are always
+ *  ready. */
+void test_uart_driver_transmit_completes_a_multi_byte_buffer(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_TXE | USART_SR_TC};
     static const uint8_t data[] = {0x11U, 0x22U, 0x33U};
@@ -441,9 +440,10 @@ void test_uart_driver_transmit_sends_every_byte_in_order(void)
     DriverStatus_e status = uartTransmit(&uart, data, sizeof(data), TEST_TIMEOUT);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-    /* Only the last byte written is observable in this fake register -
-     *  DR overwrites each call, matching real hardware. Confirms the
-     *  loop reached the final element without an early failure. */
+    /* DR is a single word that each write overwrites, so only the last byte
+     * is observable here: this confirms the loop reached the final element
+     * without an early failure, not the order or count of the earlier
+     * bytes, which a plain-struct fake cannot show. */
     TEST_ASSERT_EQUAL_HEX32(0x33U, uart.DR);
 }
 
@@ -583,9 +583,11 @@ void test_uart_driver_receive_byte_reports_fault_for_ne_fe_pe(void)
     }
 }
 
-/** Every byte in the buffer is read from DR in order, when RXNE is
- *  always ready with no fault. */
-void test_uart_driver_receive_reads_every_byte_in_order(void)
+/** Every element of the buffer is filled from DR when RXNE is always ready
+ *  with no fault. DR is one word, so all three elements hold the same
+ *  value: this shows each element was written, not the order they arrived
+ *  in. */
+void test_uart_driver_receive_fills_every_element(void)
 {
     UartRegisters_t uart = {.SR = USART_SR_RXNE, .DR = 0x99U};
     uint8_t data[3] = {0};
@@ -701,16 +703,6 @@ void test_uart_driver_zero_timeout_reports_timeout_when_not_ready(void)
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartFlush(&uart, 0U));
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartReceiveByte(&uart, &byte, 0U));
     TEST_ASSERT_EQUAL_HEX8(0xEEU, byte);
-}
-
-/** The buffer functions hand the caller's timeout to their per-byte waits and the closing flush:
- *  TXE ready but TC never set times out at the flush, however large the timeout. */
-void test_uart_driver_transmit_applies_timeout_to_closing_flush(void)
-{
-    UartRegisters_t uart = {.SR = USART_SR_TXE};
-    const uint8_t data[2] = {0x01U, 0x02U};
-
-    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, uartTransmit(&uart, data, sizeof(data), 5U));
 }
 
 /* --- review follow-ups: untouched-on-reject, STOP overwrite, rounding, fault paths --- */

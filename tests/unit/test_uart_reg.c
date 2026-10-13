@@ -24,6 +24,22 @@ void test_usart_sr_flag_bits_do_not_overlap(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFU, bits);
 }
 
+/** Each USART_SR flag at its own documented bit (RM0390 USART_SR). The
+ *  no-overlap test above only proves the eight flags fill bits 0-7 in some
+ *  order, which would also pass with ORE and IDLE swapped - and
+ *  uartReceiveByte() decides what counts as a receive fault from these. */
+void test_usart_sr_flag_masks_are_pinned_individually(void)
+{
+    TEST_ASSERT_EQUAL_HEX32(0x01U, USART_SR_PE);
+    TEST_ASSERT_EQUAL_HEX32(0x02U, USART_SR_FE);
+    TEST_ASSERT_EQUAL_HEX32(0x04U, USART_SR_NE);
+    TEST_ASSERT_EQUAL_HEX32(0x08U, USART_SR_ORE);
+    TEST_ASSERT_EQUAL_HEX32(0x10U, USART_SR_IDLE);
+    TEST_ASSERT_EQUAL_HEX32(0x20U, USART_SR_RXNE);
+    TEST_ASSERT_EQUAL_HEX32(0x40U, USART_SR_TC);
+    TEST_ASSERT_EQUAL_HEX32(0x80U, USART_SR_TXE);
+}
+
 /** USART2 (Nucleo ST-LINK VCP) sits on APB1, 0x400 below USART3. */
 void test_usart2_base_address(void)
 {

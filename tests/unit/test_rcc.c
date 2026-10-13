@@ -560,6 +560,29 @@ void test_rcc_driver_bus_prescaler_config_writes_all_three_fields(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~owned_mask, rcc.CFGR & ~owned_mask);
 }
 
+/** A reconfiguration replaces the previous prescalers rather than OR-ing
+ *  the new ones into them: HPRE, PPRE1 and PPRE2 start at all-1s (the
+ *  largest dividers, as left by an earlier call) and must end at exactly the
+ *  requested values - HPRE /1 (0b0000), APB1 /4 (0b101), APB2 /2 (0b100). An
+ *  OR would leave all three at all-1s. */
+void test_rcc_driver_bus_prescaler_config_replaces_previous_prescalers(void)
+{
+    uint32_t owned_mask = RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk;
+    RccRegisters_t rcc = {.CFGR = 0xFFFFFFFFU};
+
+    DriverStatus_e status =
+        rccBusPrescalerConfig(&rcc, RCC_CFGR_HPRE_DIV1, RCC_CFGR_PPRE_DIV4, RCC_CFGR_PPRE_DIV2);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_HPRE_DIV1,
+                            (rcc.CFGR & RCC_CFGR_HPRE_Msk) >> RCC_CFGR_HPRE_Pos);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_PPRE_DIV4,
+                            (rcc.CFGR & RCC_CFGR_PPRE1_Msk) >> RCC_CFGR_PPRE1_Pos);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_PPRE_DIV2,
+                            (rcc.CFGR & RCC_CFGR_PPRE2_Msk) >> RCC_CFGR_PPRE2_Pos);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~owned_mask, rcc.CFGR & ~owned_mask);
+}
+
 /** Every one of HPRE's 9 documented values must independently report OK
  *  and land in CFGR.HPRE - rccValidateHpre()'s chained != comparisons
  *  short-circuit at a different clause for each value, so a single
@@ -720,18 +743,20 @@ void test_rcc_driver_sysclk_switch_times_out_when_sws_never_matches(void)
     TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_PLL, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
 }
 
-/** A valid call touches CFGR.SW only, leaving every other CFGR bit
- *  (SWS and any HPRE/PPRE/MCO configuration a caller already applied via
- *  rccBusPrescalerConfig()) untouched. Unlike the 0xFFFFFFFFU-preload
- *  idiom used elsewhere (flashSetLatency()/pwrSetVoltageScale()), SWS
- *  cannot simply be preloaded to all-1s here: the switch only reports OK
- *  once SWS reads back as the requested source, so SWS is preset to that
- *  value specifically and every other bit (including SW, which the call
- *  is expected to overwrite) is preset to all-1s instead. */
+/** A valid call replaces CFGR.SW and touches nothing else, leaving every
+ *  other CFGR bit (SWS and any HPRE/PPRE/MCO configuration a caller already
+ *  applied via rccBusPrescalerConfig()) untouched. SW starts at all-1s - a
+ *  stale previous source - so the call has to clear the old value, not just
+ *  OR the new one in: SW ending at exactly PLL (0b10) rules out an OR
+ *  (0b11 | 0b10 would stay 0b11). Unlike the 0xFFFFFFFFU-preload idiom used
+ *  elsewhere (flashSetLatency()/pwrSetVoltageScale()), SWS cannot simply be
+ *  preloaded to all-1s: the switch only reports OK once SWS reads back as
+ *  the requested source, so SWS is preset to that value specifically and
+ *  every other bit, SW included, is preset to all-1s. */
 void test_rcc_driver_sysclk_switch_touches_only_sw_field(void)
 {
-    uint32_t initial_cfgr = (0xFFFFFFFFU & ~RCC_CFGR_SW_Msk & ~RCC_CFGR_SWS_Msk)
-                            | (RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos);
+    uint32_t initial_cfgr =
+        (0xFFFFFFFFU & ~RCC_CFGR_SWS_Msk) | (RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos);
     RccRegisters_t rcc = {.CR = RCC_CR_PLLRDY, .CFGR = initial_cfgr};
     FlashRegisters_t flash = {0};
 
@@ -748,15 +773,19 @@ void test_rcc_driver_sysclk_switch_touches_only_sw_field(void)
  *  simulating a prior switch to a faster source) is deferred until after
  *  CFGR.SWS confirms the switch (preset here to match the target
  *  immediately) - OK, and ACR.LATENCY ends at the new, lower value only
- *  because the switch actually completed. */
+ *  because the switch actually completed. CFGR.SW starts at PLL, the source
+ *  being left (the BSP's switch-back case), and must end at HSI. */
 void test_rcc_driver_sysclk_switch_lowers_latency_only_after_switch_confirms(void)
 {
-    RccRegisters_t rcc = {.CR = RCC_CR_HSIRDY, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+    RccRegisters_t rcc = {.CR = RCC_CR_HSIRDY,
+                          .CFGR = (RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SW_Pos)
+                                  | (RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos)};
     FlashRegisters_t flash = {.ACR = 5U};
 
     DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_HSI, 0U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_HSI, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
     TEST_ASSERT_EQUAL_HEX32(0U, flash.ACR & FLASH_ACR_LATENCY_Msk);
 }
 

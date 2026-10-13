@@ -19,9 +19,10 @@ specifically.
   its status. `BSP_SYSCLK_HZ`/`BSP_HCLK_HZ`/`BSP_PCLK1_HZ`/`BSP_PCLK2_HZ`
   name the result for SysTick and UART setup. PLL M/N/P, the prescalers
   and the latency are the values in ST's own Nucleo-F446 180 MHz example;
-  there is no VCO/APB validation in `rccPllConfig`/`rccBusPrescalerConfig`,
-  and `test_bsp.c` instead asserts this one configuration stays inside
-  the documented limits. Ten host tests (the whole sequence, the
+  there is no VCO/APB validation in `rccPllConfig`/`rccBusPrescalerConfig`;
+  the limits are `_Static_assert`s in `bsp.h` on this one configuration,
+  and `test_bsp.c` checks that the registers `bspClockInit()` programs
+  work out to the `BSP_*` frequencies. Ten host tests (the whole sequence, the
   limit checks, and one timeout or `BUSY` case per step). Adds a `board_support` Doxygen group, and `make
   coverage` now also gates `bsp/src` at 100%.
 
@@ -90,6 +91,43 @@ specifically.
   Reproduced that exact failure with the pinned build before relying on it.
 
 ### Changed
+
+- `drivers/inc/gpio.h`, `drivers/src/gpio.c`: `gpioDeinitToReset(port, pin,
+  reset)` is `gpioDeinit()`'s register work with the reset values passed
+  in; `gpioDeinit()` is now `gpioDeinitToReset(port, pin,
+  gpioPortResetValues(port))`, with no change in behaviour. `gpioDeinit()`
+  finds those values by comparing `port` with `GPIOA`/`GPIOB`, so on the
+  host (a fake register block at no real address) it always restored
+  zeros and the part that keeps the debugger connected, putting PA13-15
+  and PB3/PB4 back into alternate-function mode with their pulls and speed,
+  was never exercised: a mistake there would have left 100% line and branch
+  coverage intact. Public for the same reason as `gpioPortResetValues()`.
+  This is the seam the earlier "not justified yet" note was waiting for: a
+  wrong SWD restore costs the debugger connection.
+
+- Tests only, from the full review: tests that could not catch the
+  regression they were written for now can. `rccSysclkSwitch` is tested
+  with `CFGR.SW` starting at a stale value (its test preloaded SW to 0
+  despite a comment saying all-1s, so an OR in place of a replace passed),
+  including the PLL-to-HSI switch-back; `rccBusPrescalerConfig` with
+  HPRE/PPRE1/PPRE2 starting at all-1s; `gpioDeinitToReset` with GPIOA's and
+  GPIOB's real reset values and with three distinct values to catch fields
+  taken from the wrong register; each `USART_SR` flag and each
+  `RCC_AHB1ENR` GPIO enable bit is pinned to its own literal (the existing
+  tests only showed they filled a range, so a swap passed). Each of these
+  was checked by introducing the bug and watching the new test fail.
+  `test_bsp_clock_configuration_respects_pll_limits` is removed: it
+  repeated the `_Static_assert`s in `bsp.h` and could not fail separately.
+  A new BSP test derives the frequencies from the PLL and prescaler fields
+  `bspClockInit()` wrote and compares them to `BSP_SYSCLK_HZ`/`BSP_PCLK1_HZ`/
+  `BSP_PCLK2_HZ`, which the `_Static_assert`s could not see because bsp.c
+  programs its register values from separate literals.
+  `test_uart_driver_transmit_sends_every_byte_in_order` and
+  `..._receive_reads_every_byte_in_order` are renamed
+  `..._completes_a_multi_byte_buffer` and `..._fills_every_element`, and
+  their comments say what a one-word fake DR can show; the init test no
+  longer claims it observes UE being cleared first; the duplicate
+  `test_uart_driver_transmit_applies_timeout_to_closing_flush` is removed.
 
 - `Makefile`, `.github/workflows/ci.yml`: warnings are enforced. The
   firmware and the host test builds used `-Wall -Wextra` with only
@@ -236,10 +274,10 @@ specifically.
   and PLLP DIV8; `uartInit`'s BRR bounds are tested at exactly 16, 65535
   and one past each; a tautological assertion in `test_pwr.c` was removed.
   Not closed: `uartTransmit`/`uartReceive` byte *order* is not observable
-  through a single-register fake DR, and `gpioDeinit`'s SWD reset-value
-  restore cannot be reached on the host (`gpioPortResetValues()` identifies
-  a port by its real address); both are noted in the review but need a
-  production-API seam to test, which is not justified yet.
+  through a single-register fake DR (the tests that claimed it are renamed
+  below). `gpioDeinit`'s SWD reset-value restore was also out of reach here
+  because `gpioPortResetValues()` identifies a port by its real address; it
+  is tested now through `gpioDeinitToReset()` (see below).
 
 ### Fixed
 
