@@ -131,6 +131,7 @@ MainReturned:
  * (PC stuck here means an unexpected/unimplemented interrupt fired).
  * ==================================================================== */
 .section .text.Default_Handler,"ax",%progbits
+.type Default_Handler, %function
 Default_Handler:
 Infinite_Loop:
     b Infinite_Loop

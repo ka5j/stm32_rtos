@@ -108,6 +108,11 @@ DEPS    := $(OBJECTS:.o=.d)
 ##########################################################################
 # Targets
 ##########################################################################
+# Plain `make` must build the firmware. Without this, the first target in the
+# file is the default goal, and that is the flags stamp rule below (which
+# only writes build/.flags), not `all`.
+.DEFAULT_GOAL := all
+
 .PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version hooks FORCE
 
 # A failed recipe must not leave a truncated .bin/.hex/.elf that a later
@@ -222,6 +227,11 @@ erase:
 # attempt could land before anything was listening and fail with
 # "Connection refused". The wait gives up after ~10 s, or at once if
 # OpenOCD itself exits (no board, ST-LINK busy), instead of hanging.
+#
+# GDB then halts the core, loads the freshly built ELF into flash and halts
+# again at the reset vector. Attaching alone would leave whatever image is
+# already on the board running against the symbols of the one just built,
+# and the core could not be stepped from Reset_Handler.
 # ------------------------------------------------------------------------
 DEBUG_GDB_PORT := 3333
 
@@ -236,7 +246,8 @@ debug: $(BUILD_DIR)/$(TARGET).elf
 	  [ $$tries -le 50 ] || { echo "make debug: timed out waiting for OpenOCD on :$(DEBUG_GDB_PORT)" >&2; exit 1; }; \
 	  sleep 0.2; \
 	done; \
-	$(GDB) $< -ex "target extended-remote :$(DEBUG_GDB_PORT)"
+	$(GDB) $< -ex "target extended-remote :$(DEBUG_GDB_PORT)" \
+	  -ex "monitor reset halt" -ex "load" -ex "monitor reset halt"
 
 # ------------------------------------------------------------------------
 # make re

@@ -76,7 +76,7 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make size`         | Print flash/RAM usage of the current `.elf`                                                        |
 | `make flash`        | Build (if needed) and program the board over the onboard ST-LINK                                   |
 | `make erase`        | Full chip mass-erase                                                                               |
-| `make debug`        | Build (if needed), start OpenOCD as a GDB server, and attach GDB                                   |
+| `make debug`        | Build (if needed), start OpenOCD as a GDB server, attach GDB, load the built ELF and halt at reset  |
 | `make hooks`        | One-time setup: point git at the tracked pre-commit hook (`git config core.hooksPath .githooks`) |
 | `make re`           | `clean` followed by `all` (safe with `make -j`; the build also rebuilds on its own when `BUILD` or the flags change) |
 | `make clean`        | Remove the `build/` directory and generated `docs/html/`                                          |
