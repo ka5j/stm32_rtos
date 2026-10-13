@@ -91,6 +91,17 @@ specifically.
 
 ### Changed
 
+- `Makefile`, `.github/workflows/ci.yml`: warnings are enforced. The
+  firmware and the host test builds used `-Wall -Wextra` with only
+  `-Werror=unused-result` fatal, so a new warning of any other kind passed
+  CI; the `-Wshadow -Wconversion -Wundef` claim in the `test_nvic.c` entry
+  below was likewise checked by nothing. Both builds now share one
+  `WARN_FLAGS` set, `-Wall -Wextra -Wshadow -Wconversion -Wundef -Werror`;
+  the tree already built clean under it at -O0 and -O2 (arm-none-eabi-gcc
+  15.2 and Apple clang). CI also builds `BUILD=release` (-O2) on every
+  run, so an optimiser-only warning shows up on the pull request and not
+  for the first time in the release workflow.
+
 - Docs only, from the full review: `CONTRIBUTING.md` gains a Concurrency
   section classifying every driver function as single-store (safe on
   distinct bits), read-modify-write on a shared register (caller must
