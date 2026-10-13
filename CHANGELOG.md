@@ -281,6 +281,20 @@ specifically.
 
 ### Fixed
 
+- `tools/check_test_registration.awk`: two more ways to get "test compiles,
+  never runs" past it, found by trying them. A `RUN_TEST(test_x);` inside a
+  `/* ... */` block or an `#if 0` region still counted as a live registration
+  (only a `//` comment or a line starting with `*` was excluded), and a
+  definition written as `void` on one line and `test_x(void)` on the next was
+  invisible to both the defined-test and the odd-signature patterns. Every
+  rule now sees the line with line comments, block comments (one line or
+  many) and `#if 0` regions removed, so a commented-out registration is
+  reported as `MISSING RUN_TEST` and a test defined inside one as a
+  `RUN_TEST` for a test nothing defines, and a column-0 `test_x(` is
+  reported as an unrecognised signature. Checked against ten hand-made
+  variants of the real test tree (BWK awk; not run under mawk, which CI's
+  Ubuntu image uses). The file mode is now 644 like the other awk scripts.
+
 - `Makefile`: plain `make` built nothing. The flags-stamp rule is the first
   target in the file, so it was the default goal and `all` was never
   reached; the README's "`make` / `make all`" was wrong, and CI, the
