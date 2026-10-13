@@ -10,10 +10,9 @@
  * selecting the voltage scale (and polling CSR.VOSRDY) before or
  * alongside the flash latency change, matching whatever range the
  * target SYSCLK falls into: the latency per RM0390 Table 5 (section
- * 3.4.1), and the frequency each voltage scale supports from the
- * datasheet (RM0390 section 5.1.3 gives none). Both depend on the
- * supply voltage and are not a single fixed constant suitable for
- * hardcoding here.
+ * 3.4.1, by supply voltage range), and the maximum HCLK for each voltage
+ * scale from the note beneath it. Neither is a single fixed constant
+ * suitable for hardcoding here.
  */
 #ifndef PWR_REG_H
 #define PWR_REG_H
@@ -60,8 +59,8 @@ typedef struct PwrRegisters_t
 #define PWR_CR_ODSWEN_Pos (17U)                 ///< Bit position within PWR_CR
 #define PWR_CR_ODSWEN (1U << PWR_CR_ODSWEN_Pos) ///< WRITE - switch regulator to over-drive
 
-/* --- PWR_CR.VOS field values (RM0390 section 5.4.1; the datasheet gives each scale's frequency
- * range) --- */
+/* --- PWR_CR.VOS field values (RM0390 section 5.4.1; section 3.4.1's note gives each scale's
+ * maximum HCLK) --- */
 #define PWR_CR_VOS_SCALE3 (0x1U) ///< VOS field value: scale 3 - lowest power, lowest max SYSCLK
 #define PWR_CR_VOS_SCALE2 (0x2U) ///< VOS field value: scale 2 - mid range
 #define PWR_CR_VOS_SCALE1 (0x3U) ///< VOS field value: scale 1 - highest max SYSCLK

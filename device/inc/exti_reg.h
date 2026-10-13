@@ -4,15 +4,16 @@
  *        for the STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 12: External interrupt/event controller
+ * reference manual), section 10: Interrupts and events (EXTI is 10.2)
  * (EXTI).
  *
  * Lines 0-15 map directly to GPIO pin number N (the mux selecting which
  * port feeds line N is configured via SYSCFG and is not modeled here);
  * lines 16-22 are fixed internal sources (see the EXTI_LINE_* constants
  * below). Each register here is a flat 23-bit-wide bitmask; bit N
- * always represents line N in every one of IMR/EMR/RTSR/FTSR/SWIER/PR,
- * so there are no packed sub-fields to define beyond the line number
+ * represents line N in every one of IMR/EMR/RTSR/FTSR/SWIER/PR (bit 19,
+ * which has no source on this part, is reserved in RTSR and FTSR), so
+ * there are no packed sub-fields to define beyond the line number
  * itself, unlike the other register headers in this project.
  */
 #ifndef EXTI_REG_H
@@ -46,9 +47,9 @@ typedef struct ExtiRegisters_t
  * @brief Fixed internal EXTI line numbers (RM0390 10.2.5) - lines 0-15 are
  *        GPIO pins 0-15 instead and need no such constant.
  *
- * Line 19 (Ethernet Wakeup) is architecturally present in the register
- * width but has no source on the F446, which has no Ethernet MAC, and
- * is therefore intentionally omitted here.
+ * Line 19 (Ethernet wakeup on parts that have an Ethernet MAC) has no
+ * source on the F446, and RM0390 10.2.5 lists none, so it is
+ * intentionally omitted here.
  */
 #define EXTI_LINE_PVD (16U)         ///< PVD output
 #define EXTI_LINE_RTC_ALARM (17U)   ///< RTC alarm

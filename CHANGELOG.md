@@ -110,11 +110,27 @@ specifically.
   CI step order and explain the four libc "not implemented" link warnings.
   Checked against RM0390 Rev 6 (March 2021) once the manual was available:
   the "RM0390 Table 15" citations pointed at the *Low-power mode summary*;
-  the flash wait states are Table 5 (section 3.4.1), and the manual gives no
-  per-scale frequency figures (they are in the datasheet). Section numbers
-  now match Rev 6: GPIO 7.4 (was 8.4), SYSCFG 8.2 (9.2), EXTI 10.3 (12.3),
-  Flash registers 3.8 (3.7), IWDG 20.4 (21.4), WWDG 21.6 (20.6), USART 25.6
-  (19.6), and the voltage regulator and over-drive text is 5.1.3, not 5.1.4.
+  the flash wait states are Table 5 (section 3.4.1), and the note beneath
+  it gives each voltage scale's maximum HCLK (scale 3 120 MHz, scale 2
+  144 MHz, scale 1 168 MHz, the last two extended by over-drive; an
+  earlier revision of this entry wrongly said the manual gives no such
+  figures). Section numbers now match Rev 6, including the chapter numbers
+  in each register header's file comment: GPIO 7.4 (was 8.4), SYSCFG 8.2
+  (9.2), EXTI 10.3 (12.3), Flash registers 3.8 (3.7), IWDG 20.4 (21.4),
+  WWDG 21.6 (20.6), USART 25.6 (19.6), and the voltage regulator and
+  over-drive text is 5.1.3, not 5.1.4. Also from checking the headers
+  against the manual: `iwdg_reg.h` said SR must be polled clear before a
+  PR/RLR write "takes effect", but RM0390 says the wait is needed only
+  before writing them again; `syscfg_reg.h` said PMC holds Ethernet
+  selection (only ADCxDC2 on the F446), now notes SYSCFG_CFGR (0x2C) is not
+  modeled and that PH exists only for EXTI0/1; `exti_reg.h` now says bit 19
+  is reserved in RTSR/FTSR; `gpio_reg.h` notes GPIOx_IDR has no fixed
+  reset value and calls OSPEEDR 0b11 "high speed" as the manual does;
+  `pwr.h` no longer says VOSRDY "cannot set" with the PLL off or that a
+  VOS write with the PLL on is "discarded" (RM0390 says neither);
+  `flash.c`'s read-back comment now quotes what 3.4.1 actually says;
+  `rcc.h` notes PLLSRC also needs PLLI2S off, which this driver never
+  enables; `flash_reg.h` says OPTCR1's offset comes from ST's CMSIS header.
   GPIOA_OSPEEDR resetting to 0 is correct (RM0390 Table 26: `GPIOx_OSPEEDR`,
   x = A..H, resets to 0 and only `GPIOB_OSPEEDR` is `0xC0`); the F401/F411
   value `0x0C000000` does not apply to the F446. RM0390's over-drive text

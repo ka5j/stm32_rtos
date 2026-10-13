@@ -4,7 +4,7 @@
  *        STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 20: Window watchdog (WWDG).
+ * reference manual), section 21: Window watchdog (WWDG).
  *
  * Unlike IWDG (iwdg_reg.h), WWDG runs off PCLK1 (via RCC, see
  * rcc_reg.h) rather than an independent clock, and faults if refreshed

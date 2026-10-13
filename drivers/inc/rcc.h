@@ -266,7 +266,9 @@ DRIVER_MUST_CHECK DriverStatus_e rccHseDisable(RccRegisters_t *rcc);
  * @brief Configure the main PLL's input source and M/N/P dividers.
  *
  * RM0390 forbids writing PLLCFGR while the PLL is enabled - this
- * function's own BUSY guard enforces that. Does not configure PLLQ
+ * function's own BUSY guard enforces that. RM0390 also says PLLSRC can be
+ * written only while PLLI2S is disabled too; this driver has no PLLI2S
+ * support and never enables it, so that is not checked here. Does not configure PLLQ
  * (USB OTG FS/SDIO 48 MHz output) - see rcc_reg.h's file-level comment
  * on why this project omits it.
  *

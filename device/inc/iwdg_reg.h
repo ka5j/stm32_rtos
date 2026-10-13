@@ -4,7 +4,7 @@
  *        the STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 21: Independent watchdog (IWDG). Cross-checked
+ * reference manual), section 20: Independent watchdog (IWDG). Cross-checked
  * against ST's F446 SVD and stm32f446xx.h, which both define exactly
  * four registers (KR, PR, RLR, SR).
  *
@@ -12,9 +12,10 @@
  * clock tree in rcc_reg.h; it continues counting, and can still reset
  * the chip, even if a clock-configuration bug hangs SYSCLK entirely,
  * which is its purpose as a safety mechanism. All writes to PR/RLR
- * require KR unlocked with IWDG_KEY_ENABLE_ACCESS first (RM0390 20.4.1), and SR
- * must be polled clear of PVU/RVU before a value written to PR/RLR can
- * be relied upon to have taken effect.
+ * require KR unlocked with IWDG_KEY_ENABLE_ACCESS first (RM0390 20.4.1).
+ * SR.PVU/RVU must be clear before PR/RLR is written *again* (and before
+ * reading them back); code need not wait for them after a write before
+ * carrying on, as the update completes on its own (RM0390 20.4.5).
  *
  * There is no window register (WINR) or SR.WVU: the windowed watchdog
  * option exists on other STM32 families but not on the F446's IWDG. An

@@ -4,7 +4,7 @@
  *        family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 19: Universal synchronous asynchronous
+ * reference manual), section 25: Universal synchronous asynchronous
  * receiver transmitter (USART). One register layout is shared by all
  * six instances (USART1/2/3, UART4/5, USART6); UART4/5 simply leave the
  * synchronous-mode and smartcard-only bits unimplemented in hardware.
@@ -59,13 +59,14 @@ typedef struct UartRegisters_t
 #define USART6 ((UartRegisters_t *)USART6_BASE) ///< Pointer to the USART6 register block
 
 /* --- USART_SR bit definitions --- */
-#define USART_SR_PE_Pos (0U)                    ///< Bit position within USART_SR
-#define USART_SR_PE (1U << USART_SR_PE_Pos)     ///< READ only - parity error
-#define USART_SR_FE_Pos (1U)                    ///< Bit position within USART_SR
-#define USART_SR_FE (1U << USART_SR_FE_Pos)     ///< READ only - framing error
-#define USART_SR_NE_Pos (2U)                    ///< Bit position within USART_SR
-#define USART_SR_NE (1U << USART_SR_NE_Pos)     ///< READ only - noise detected flag
-#define USART_SR_ORE_Pos (3U)                   ///< Bit position within USART_SR
+#define USART_SR_PE_Pos (0U)                ///< Bit position within USART_SR
+#define USART_SR_PE (1U << USART_SR_PE_Pos) ///< READ only - parity error
+#define USART_SR_FE_Pos (1U)                ///< Bit position within USART_SR
+#define USART_SR_FE (1U << USART_SR_FE_Pos) ///< READ only - framing error
+#define USART_SR_NE_Pos (2U)                ///< Bit position within USART_SR
+#define USART_SR_NE                                                                                \
+    (1U << USART_SR_NE_Pos)   ///< READ only - noise detected flag (RM0390 calls this bit NF)
+#define USART_SR_ORE_Pos (3U) ///< Bit position within USART_SR
 #define USART_SR_ORE (1U << USART_SR_ORE_Pos)   ///< READ only - overrun error
 #define USART_SR_IDLE_Pos (4U)                  ///< Bit position within USART_SR
 #define USART_SR_IDLE (1U << USART_SR_IDLE_Pos) ///< READ only - idle line detected

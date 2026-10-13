@@ -4,17 +4,18 @@
  *        the STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 9: System configuration controller (SYSCFG).
+ * reference manual), section 8: System configuration controller (SYSCFG).
  * Requires RCC_APB2ENR_SYSCFGEN (rcc_reg.h) enabled before any register
  * here is accessible.
  *
  * Field coverage is scoped to what is required to route a GPIO pin to
  * an EXTI line (EXTICR1-4) plus the I/O compensation cell
  * control/status (CMPCR). MEMRMP (boot memory remap) and PMC
- * (peripheral mode configuration, including Ethernet PHY interface
- * selection, not applicable to the F446, which has no Ethernet MAC) are
- * modeled as bare registers for correct struct layout and offsets but
- * have no bit-level macros, since this project does not use them.
+ * (peripheral mode configuration; on the F446 only the ADCxDC2 bits
+ * 18:16) are modeled as bare registers for correct struct layout and
+ * offsets but have no bit-level macros, since this project does not use
+ * them. SYSCFG_CFGR (0x2C, the FMPI2C1 SDA/SCL pin controls, RM0390
+ * 8.2.8) is not modeled: the struct ends at CMPCR (0x20).
  */
 #ifndef SYSCFG_REG_H
 #define SYSCFG_REG_H
@@ -55,6 +56,8 @@ typedef struct SyscfgRegisters_t
  * at bit (line % 4) * 4, 4 bits wide, in EXTICR[line / 4]. Each field
  * selects which GPIO port feeds that EXTI line; these values apply to
  * any of the 16 fields across all four registers, not to a single one.
+ * PH is the exception: GPIOH has only pins 0 and 1 on this part, so
+ * SYSCFG_EXTICR_PH is meaningful only for EXTI0 and EXTI1.
  */
 #define SYSCFG_EXTICR_PA (0x0U) ///< EXTICRx field value: GPIOA feeds this EXTI line
 #define SYSCFG_EXTICR_PB (0x1U) ///< EXTICRx field value: GPIOB feeds this EXTI line
