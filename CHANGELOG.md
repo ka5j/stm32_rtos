@@ -232,6 +232,25 @@ specifically.
 
 ### Fixed
 
+- `Makefile`: plain `make` built nothing. The flags-stamp rule is the first
+  target in the file, so it was the default goal and `all` was never
+  reached; the README's "`make` / `make all`" was wrong, and CI, the
+  pre-commit hook and the release workflow all hid it by calling `make all`.
+  `.DEFAULT_GOAL := all` is now set explicitly.
+
+- `Makefile`: `make debug` attached GDB to whatever image was already on the
+  board, so the symbols of the ELF just built could silently disagree with
+  the running code, and `Reset_Handler` could not be stepped. After
+  attaching it now runs `monitor reset halt`, `load`, `monitor reset halt`.
+
+- `startup/startup_stm32f446re.s`: `Default_Handler` was a `NOTYPE` symbol
+  with an even address (`0x0800024c`). The vector table only ever used the
+  `.thumb_set` aliases, which do carry the Thumb bit, so nothing was broken,
+  but any direct reference to the global symbol (a fallback handler pointer
+  in the kernel, say) would have loaded an even address and taken an
+  INVSTATE UsageFault. It is now `.type Default_Handler, %function` (address
+  `0x0800024d`); the vector table words are unchanged.
+
 - Tests only: `test_nvic.c` passed `1UL << n` (64-bit on a 64-bit host) to
   32-bit parameters, a `-Wconversion` warning; every test file now compiles
   with `-Wall -Wextra -Wshadow -Wconversion -Wundef` and no warnings.
