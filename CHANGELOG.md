@@ -91,6 +91,18 @@ specifically.
 
 ### Changed
 
+- Docs only, from the full review: `CONTRIBUTING.md` gains a Concurrency
+  section classifying every driver function as single-store (safe on
+  distinct bits), read-modify-write on a shared register (caller must
+  serialise) or single-owner, since the drivers had no stated contract and
+  most of them read-modify-write registers shared across peripherals;
+  `pwrEnableOverdrive()`'s precondition now states ST's HAL note that no
+  other peripheral clock should be enabled during the over-drive switch
+  (which `bspClockInit()` satisfies); and the README lists the known
+  limitations the review found and left alone (no `VTOR`/`.init_array` in
+  startup, the PLLR SYSCLK source, `uartInit()`/`uartDeinit()`/
+  `systickInit()` edge behaviour, no unwind in `bspClockInit()`).
+
 - Header and comment hygiene, from the full review. Annotations and types:
   `USART_SR_RXNE` is write-0-to-clear (rc_w0), not "READ only";
   `NvicRegisters_t::IABR` is `volatile const` like every other read-only

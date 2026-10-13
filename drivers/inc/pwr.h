@@ -110,7 +110,12 @@ DRIVER_MUST_CHECK DriverStatus_e pwrWaitVoltageScaleReady(const PwrRegisters_t *
  * read-modify-writes, so CR.VOS is preserved.
  *
  * @param pwr PWR register block (e.g. PWR).
- * @pre RCC_APB1ENR_PWREN is already enabled (rcc.h's rccPwrClockEnable()).
+ * @pre RCC_APB1ENR_PWREN is already enabled (rcc.h's rccPwrClockEnable()),
+ *      and no other peripheral clock is: ST's HAL notes that no
+ *      peripheral clocks should be enabled during the over-drive switch
+ *      and that they should be enabled once it is active. bspClockInit()
+ *      satisfies this by enabling only PWR before it. (From the HAL's
+ *      comment; RM0390 was not available to check it.)
  * @pre SYSCLK is still HSI or HSE, not the PLL: ST's HAL documents
  *      over-drive as entered with an HSI/HSE system clock, and its 180
  *      MHz example enables it after the PLL has locked and before
