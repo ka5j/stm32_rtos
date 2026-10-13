@@ -72,15 +72,19 @@ endif
 ##########################################################################
 # Compile / assemble / link flags
 ##########################################################################
-CFLAGS  := $(MCU_FLAGS) $(INCLUDES) -std=c11 -Wall -Wextra \
-           -Werror=unused-result \
-           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP
-# -Werror=unused-result: promotes __attribute__((warn_unused_result))
-# (see drivers/inc/driver_status.h's DRIVER_MUST_CHECK) from a warning
-# that scrolls by unnoticed to a build failure. Scoped to this one
-# warning class rather than a blanket -Werror, so an unrelated -Wall/
-# -Wextra finding doesn't block the build on its own.
+# Every warning is an error, so a new one fails the build instead of scrolling
+# by. That includes the __attribute__((warn_unused_result)) check behind
+# drivers/inc/driver_status.h's DRIVER_MUST_CHECK, which used to be the only
+# warning promoted. -Wshadow, -Wconversion and -Wundef are on top of -Wall
+# -Wextra because the register code is full of mask and shift arithmetic
+# (-Wconversion) and of macros that could silently be undefined (-Wundef).
+# The firmware, the drivers and the host tests all build clean under this set,
+# at -O0 and -O2; the host test build (HOST_CFLAGS) shares it.
+WARN_FLAGS := -Wall -Wextra -Wshadow -Wconversion -Wundef -Werror
 
+CFLAGS  := $(MCU_FLAGS) $(INCLUDES) -std=c11 \
+           $(WARN_FLAGS) \
+           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP
 ASFLAGS := $(MCU_FLAGS) -g3 -MMD -MP
 
 LDSCRIPT := linker/STM32F446RE.ld
@@ -443,7 +447,7 @@ lint:
 HOST_CC        := cc
 # -MMD -MP: write a .d file beside each host object so editing a header rebuilds the
 # test/coverage objects that include it, as the firmware build already does.
-HOST_CFLAGS    := -std=c11 -Wall -Wextra -Werror=unused-result -MMD -MP
+HOST_CFLAGS    := -std=c11 $(WARN_FLAGS) -MMD -MP
 TEST_DIR       := tests
 TEST_BUILD_DIR := $(TEST_DIR)/build
 

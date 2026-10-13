@@ -84,6 +84,12 @@ jobs:
       - name: make all
         run: make all
 
+      # The release workflow builds -O2; some warnings (-Wmaybe-uninitialized,
+      # for one) only appear with optimisation, so build it here as well and
+      # not for the first time at release.
+      - name: make all BUILD=release
+        run: make all BUILD=release
+
       - name: make format-check
         run: make format-check
 
