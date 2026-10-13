@@ -85,7 +85,7 @@ void test_nvic_driver_enable_irq_writes_single_iser_bit(void)
         DriverStatus_e status = nvicEnableIrq(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        assert_only_one_bank_word_written(&nvic, nvic.ISER, irq / 32U, 1UL << (irq % 32U));
+        assert_only_one_bank_word_written(&nvic, nvic.ISER, irq / 32U, 1U << (irq % 32U));
     }
 }
 
@@ -101,7 +101,7 @@ void test_nvic_driver_disable_irq_writes_single_icer_bit(void)
         DriverStatus_e status = nvicDisableIrq(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        assert_only_one_bank_word_written(&nvic, nvic.ICER, irq / 32U, 1UL << (irq % 32U));
+        assert_only_one_bank_word_written(&nvic, nvic.ICER, irq / 32U, 1U << (irq % 32U));
     }
 }
 
@@ -117,7 +117,7 @@ void test_nvic_driver_set_pending_writes_single_ispr_bit(void)
         DriverStatus_e status = nvicSetPending(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        assert_only_one_bank_word_written(&nvic, nvic.ISPR, irq / 32U, 1UL << (irq % 32U));
+        assert_only_one_bank_word_written(&nvic, nvic.ISPR, irq / 32U, 1U << (irq % 32U));
     }
 }
 
@@ -133,7 +133,7 @@ void test_nvic_driver_clear_pending_writes_single_icpr_bit(void)
         DriverStatus_e status = nvicClearPending(&nvic, valid_irqs[i]);
 
         TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-        assert_only_one_bank_word_written(&nvic, nvic.ICPR, irq / 32U, 1UL << (irq % 32U));
+        assert_only_one_bank_word_written(&nvic, nvic.ICPR, irq / 32U, 1U << (irq % 32U));
     }
 }
 

@@ -232,6 +232,10 @@ specifically.
 
 ### Fixed
 
+- Tests only: `test_nvic.c` passed `1UL << n` (64-bit on a 64-bit host) to
+  32-bit parameters, a `-Wconversion` warning; every test file now compiles
+  with `-Wall -Wextra -Wshadow -Wconversion -Wundef` and no warnings.
+
 - `tools/`: the repo's own consistency checks are harder to fool (full
   review). `check_test_registration.awk` counted a commented-out
   `// RUN_TEST(test_x);` as registered, which is exactly the "test compiles,
