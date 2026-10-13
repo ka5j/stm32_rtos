@@ -9,7 +9,7 @@
 #include "wwdg_reg.h"
 #include <stddef.h>
 
-/** WwdgRegisters_t must be exactly 0x0C bytes (CR, CFR, SR, RM0390 20.6). */
+/** WwdgRegisters_t must be exactly 0x0C bytes (CR, CFR, SR, RM0390 21.6). */
 void test_wwdg_register_block_size(void)
 {
     TEST_ASSERT_EQUAL_UINT(0x0C, sizeof(WwdgRegisters_t));

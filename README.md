@@ -21,7 +21,7 @@ A preemptive RTOS for the STM32F446RE, built from scratch on direct register-lev
     export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
     ```
     Put that in your shell profile so the pre-commit hook inherits it. This is deliberately not baked into the Makefile — an `-isysroot` hardcoded to a macOS path would break Linux CI and every other machine.
-- Reference documentation (useful, not required to build): RM0390 (F446 reference manual), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
+- Reference documentation (useful, not required to build): RM0390 (F446 reference manual; the section and table numbers cited in code comments are from Rev 6, March 2021), PM0214 (Cortex-M4 programming manual), UM1724 (Nucleo-64 user manual)
 
 **Setup:**
 

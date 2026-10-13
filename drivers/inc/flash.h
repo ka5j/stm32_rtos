@@ -28,7 +28,7 @@
  * @brief Set the flash access latency (ACR.LATENCY) for the current SYSCLK
  *        frequency range.
  *
- * Must be raised to at least RM0390 Table 15's minimum for the target
+ * Must be raised to at least RM0390 Table 5's (section 3.4.1) minimum for the target
  * SYSCLK/voltage-scale combination *before* rcc.c switches RCC_CFGR.SW to
  * a faster source - reading flash at too few wait states for the new
  * speed corrupts instruction fetch without a visible fault (see

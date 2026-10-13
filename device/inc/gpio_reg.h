@@ -25,7 +25,7 @@
 #define GPIOH_BASE (0x40021C00UL) ///< GPIOH peripheral base address
 
 /**
- * @brief GPIO peripheral register map (RM0390 section 8.4).
+ * @brief GPIO peripheral register map (RM0390 section 7.4).
  *
  * One instance per port, overlaid on the port's base address (see the
  * GPIOx_BASE defines above and the GPIOx pointer macros below).

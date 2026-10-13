@@ -25,7 +25,7 @@
 #define WWDG_BASE (0x40002C00UL) ///< WWDG peripheral base address
 
 /**
- * @brief WWDG register map (RM0390 section 20.6).
+ * @brief WWDG register map (RM0390 section 21.6).
  */
 typedef struct WwdgRegisters_t
 {

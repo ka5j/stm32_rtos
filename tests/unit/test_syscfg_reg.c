@@ -9,7 +9,7 @@
 
 #include <stddef.h>
 
-/** SyscfgRegisters_t must be exactly 0x24 bytes (MEMRMP..CMPCR, RM0390 9.2). */
+/** SyscfgRegisters_t must be exactly 0x24 bytes (MEMRMP..CMPCR, RM0390 8.2). */
 void test_syscfg_register_block_size(void)
 {
     TEST_ASSERT_EQUAL_UINT(0x24, sizeof(SyscfgRegisters_t));

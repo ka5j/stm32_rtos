@@ -28,7 +28,7 @@
 #define EXTI_BASE (0x40013C00UL) ///< EXTI peripheral base address
 
 /**
- * @brief EXTI register map (RM0390 section 12.3).
+ * @brief EXTI register map (RM0390 section 10.3).
  */
 typedef struct ExtiRegisters_t
 {
@@ -43,7 +43,7 @@ typedef struct ExtiRegisters_t
 #define EXTI ((ExtiRegisters_t *)EXTI_BASE) ///< Pointer to the EXTI register block
 
 /**
- * @brief Fixed internal EXTI line numbers (RM0390 12.2) - lines 0-15 are
+ * @brief Fixed internal EXTI line numbers (RM0390 10.2.5) - lines 0-15 are
  *        GPIO pins 0-15 instead and need no such constant.
  *
  * Line 19 (Ethernet Wakeup) is architecturally present in the register

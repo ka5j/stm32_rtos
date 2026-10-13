@@ -35,7 +35,7 @@
 #define USART6_BASE (0x40011400UL) ///< USART6 peripheral base address (APB2)
 
 /**
- * @brief USART/UART peripheral register map (RM0390 section 19.6).
+ * @brief USART/UART peripheral register map (RM0390 section 25.6).
  *
  * One instance per peripheral, overlaid on its base address (see the
  * USARTx_BASE/UARTx_BASE defines above and the pointer macros below).

@@ -9,7 +9,7 @@
 
 #include <stddef.h>
 
-/** ExtiRegisters_t must be exactly 0x18 bytes (IMR..PR, RM0390 12.3). */
+/** ExtiRegisters_t must be exactly 0x18 bytes (IMR..PR, RM0390 10.3). */
 void test_exti_register_block_size(void)
 {
     TEST_ASSERT_EQUAL_UINT(0x18, sizeof(ExtiRegisters_t));

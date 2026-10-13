@@ -10,8 +10,8 @@
  * past the 16 MHz HSI reset default: flash access time does not scale
  * with clock frequency, so wait states must be set to match the new
  * SYSCLK (and VOS range from pwr_reg.h) before switching RCC_CFGR.SW to
- * the PLL. RM0390 Table 15 gives the required LATENCY value per
- * frequency range. Omitting this step does not fault visibly; it
+ * the PLL. RM0390 Table 5 (section 3.4.1) gives the required LATENCY
+ * value per frequency range and supply voltage. Omitting this step does not fault visibly; it
  * corrupts instruction fetch at the new speed.
  *
  * Field coverage is scoped to the clock bring-up path above, not flash
@@ -35,7 +35,7 @@
 #define FLASH_BASE (0x40023C00UL) ///< Flash interface peripheral base address
 
 /**
- * @brief Flash interface register map (RM0390 section 3.7).
+ * @brief Flash interface register map (RM0390 section 3.8).
  */
 typedef struct FlashRegisters_t
 {

@@ -108,9 +108,18 @@ specifically.
   `scb_reg.h` (it pins the header's side only); `iwdg_reg.h` names
   `IWDG_KEY_ENABLE_ACCESS` correctly; the Makefile comments give the real
   CI step order and explain the four libc "not implemented" link warnings.
-  Not changed because it could not be checked here without the manual: the
-  "RM0390 Table 15" citations (used for both the flash wait-state table and
-  the voltage-scale table) and GPIOA_OSPEEDR's reset value.
+  Checked against RM0390 Rev 6 (March 2021) once the manual was available:
+  the "RM0390 Table 15" citations pointed at the *Low-power mode summary*;
+  the flash wait states are Table 5 (section 3.4.1), and the manual gives no
+  per-scale frequency figures (they are in the datasheet). Section numbers
+  now match Rev 6: GPIO 7.4 (was 8.4), SYSCFG 8.2 (9.2), EXTI 10.3 (12.3),
+  Flash registers 3.8 (3.7), IWDG 20.4 (21.4), WWDG 21.6 (20.6), USART 25.6
+  (19.6), and the voltage regulator and over-drive text is 5.1.3, not 5.1.4.
+  GPIOA_OSPEEDR resetting to 0 is correct (RM0390 Table 26: `GPIOx_OSPEEDR`,
+  x = A..H, resets to 0 and only `GPIOB_OSPEEDR` is `0xC0`); the F401/F411
+  value `0x0C000000` does not apply to the F446. RM0390's over-drive text
+  also confirms what `pwr.h` had only from ST's HAL: no peripheral clocks
+  other than PWR's should be on during the over-drive switch.
 
 - `drivers/inc/gpio.h`, `drivers/src/gpio.c`: `gpioDeinitToReset(port, pin,
   reset)` is `gpioDeinit()`'s register work with the reset values passed

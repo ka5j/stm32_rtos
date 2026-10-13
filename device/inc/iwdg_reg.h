@@ -12,7 +12,7 @@
  * clock tree in rcc_reg.h; it continues counting, and can still reset
  * the chip, even if a clock-configuration bug hangs SYSCLK entirely,
  * which is its purpose as a safety mechanism. All writes to PR/RLR
- * require KR unlocked with IWDG_KEY_ENABLE_ACCESS first (RM0390 21.4.1), and SR
+ * require KR unlocked with IWDG_KEY_ENABLE_ACCESS first (RM0390 20.4.1), and SR
  * must be polled clear of PVU/RVU before a value written to PR/RLR can
  * be relied upon to have taken effect.
  *
@@ -35,7 +35,7 @@
 #define IWDG_BASE (0x40003000UL) ///< IWDG peripheral base address
 
 /**
- * @brief IWDG register map (RM0390 section 21.4).
+ * @brief IWDG register map (RM0390 section 20.4).
  */
 typedef struct IwdgRegisters_t
 {
@@ -47,7 +47,7 @@ typedef struct IwdgRegisters_t
 
 #define IWDG ((IwdgRegisters_t *)IWDG_BASE) ///< Pointer to the IWDG register block
 
-/* --- IWDG_KR key values (RM0390 21.4.1) --- */
+/* --- IWDG_KR key values (RM0390 20.4.1) --- */
 #define IWDG_KEY_RELOAD (0xAAAAU)        ///< WRITE to KR - reload the counter from RLR
 #define IWDG_KEY_ENABLE_ACCESS (0x5555U) ///< WRITE to KR - unlock PR/RLR for writing
 #define IWDG_KEY_START (0xCCCCU)         ///< WRITE to KR - start the watchdog counting

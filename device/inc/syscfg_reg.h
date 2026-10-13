@@ -29,7 +29,7 @@
 #define SYSCFG_BASE (0x40013800UL) ///< SYSCFG peripheral base address
 
 /**
- * @brief SYSCFG register map (RM0390 section 9.2).
+ * @brief SYSCFG register map (RM0390 section 8.2).
  *
  * RESERVED0 preserves the fixed offset to CMPCR (0x20, after EXTICR);
  * this is an actual gap in the memory map, not a struct-packing
@@ -47,7 +47,7 @@ typedef struct SyscfgRegisters_t
 #define SYSCFG ((SyscfgRegisters_t *)SYSCFG_BASE) ///< Pointer to the SYSCFG register block
 
 /**
- * @brief SYSCFG_EXTICRx port-selector field values (RM0390 9.2.3-9.2.6).
+ * @brief SYSCFG_EXTICRx port-selector field values (RM0390 8.2.3-8.2.6).
  *
  * Each EXTICRx register packs four 4-bit fields, one per EXTI line,
  * with 4 lines per register: EXTICR[0] covers EXTI0-3, EXTICR[1]

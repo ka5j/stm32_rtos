@@ -98,8 +98,10 @@
  * Disabling the peripheral up front matters on a *re*-configuration, not
  * a first call: calling this on an already-running instance (e.g. to
  * change baud rate) would otherwise change BRR and the framing fields
- * underneath an in-flight frame. On a first call after reset UE is
- * already clear and the write is a no-op.
+ * underneath an in-flight frame (RM0390's USART_BRR note: the baud rate
+ * register value should not be changed during communication; its own
+ * enable procedure sets UE first, so it does not require UE to be clear). On a first call after
+ * reset UE is already clear and the write is a no-op.
  *
  * Only the fields named above are rewritten. CR1's interrupt-enable and
  * other bits and all of CR3 keep whatever they held, so when re-initialising

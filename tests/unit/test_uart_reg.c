@@ -9,7 +9,7 @@
 
 #include <stddef.h>
 
-/** UartRegisters_t must be exactly 0x1C bytes (SR..GTPR, RM0390 19.6). */
+/** UartRegisters_t must be exactly 0x1C bytes (SR..GTPR, RM0390 25.6). */
 void test_uart_register_block_size(void)
 {
     TEST_ASSERT_EQUAL_UINT(0x1C, sizeof(UartRegisters_t));
