@@ -92,6 +92,26 @@ specifically.
 
 ### Changed
 
+- Docs and comments only, from the full review: claims the code or the
+  manual did not back are corrected or removed. `rccBusPrescalerConfig()`
+  no longer says its fields "take effect immediately and synchronously"
+  (RM0390 has no ready flag, but a divider can apply a few AHB cycles after
+  the write); `uartInit()` no longer attributes its clear-UE-first order to
+  an RM0390 requirement (the order is the safe one either way) and now says
+  it rewrites only the fields it names, so a re-init of an instance that
+  used interrupts or CR3 features should `uartDeinit()` first; `bsp.h` says
+  what the `_Static_assert`s do and do not cover and that `test_bsp.c` ties
+  the programmed registers to the `BSP_*` constants; CONTRIBUTING.md no
+  longer says an unresolved bare include signals a layering violation (every
+  `inc/` directory is on every compile's path, so layering is a convention);
+  the changelog no longer says a test binds the startup file's literals to
+  `scb_reg.h` (it pins the header's side only); `iwdg_reg.h` names
+  `IWDG_KEY_ENABLE_ACCESS` correctly; the Makefile comments give the real
+  CI step order and explain the four libc "not implemented" link warnings.
+  Not changed because it could not be checked here without the manual: the
+  "RM0390 Table 15" citations (used for both the flash wait-state table and
+  the voltage-scale table) and GPIOA_OSPEEDR's reset value.
+
 - `drivers/inc/gpio.h`, `drivers/src/gpio.c`: `gpioDeinitToReset(port, pin,
   reset)` is `gpioDeinit()`'s register work with the reset values passed
   in; `gpioDeinit()` is now `gpioDeinitToReset(port, pin,
@@ -220,9 +240,11 @@ specifically.
   SYSCFG, IWDG, WWDG, NVIC, SCB, FPU, MPU, SysTick), `sizeof(RccRegisters_t)`
   and the offset of every member after a RESERVED gap in each struct. The
   constants `startup_stm32f446re.s` hard-codes (CPACR address, FPU enable
-  mask, AIRCR address and the PRIGROUP=3 write) are now bound to `scb_reg.h`
-  by a test. Every literal agreed with the existing macros, so this found no
-  wrong value - it makes the next wrong one fail. The EXTI line numbers
+  mask, AIRCR address and the PRIGROUP=3 write) have `scb_reg.h`'s matching
+  macros pinned to the same literals by a test. Nothing reads the `.s` file,
+  so editing a literal there alone is not caught; the pins catch the header
+  drifting from the manual. Every literal agreed with the existing macros, so
+  this found no wrong value - it makes the next wrong header value fail. The EXTI line numbers
   16-22 are regression pins only: neither the SVD nor ST's headers define
   them.
 

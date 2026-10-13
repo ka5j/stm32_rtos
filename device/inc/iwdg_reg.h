@@ -12,7 +12,7 @@
  * clock tree in rcc_reg.h; it continues counting, and can still reset
  * the chip, even if a clock-configuration bug hangs SYSCLK entirely,
  * which is its purpose as a safety mechanism. All writes to PR/RLR
- * require KR unlocked with KEY_ENABLE first (RM0390 21.4.1), and SR
+ * require KR unlocked with IWDG_KEY_ENABLE_ACCESS first (RM0390 21.4.1), and SR
  * must be polled clear of PVU/RVU before a value written to PR/RLR can
  * be relied upon to have taken effect.
  *

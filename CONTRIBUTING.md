@@ -34,7 +34,7 @@ core/, device/  (register structs)
 
 ## Include-path convention
 
-Use bare filenames resolved via the Makefile's `-I` search paths (e.g. `#include "rcc_reg.h"`), **not** root-relative paths (`#include "device/inc/rcc_reg.h"`). Every `inc/` directory in the project is already on the include path; a root-relative include is redundant and was the reason an earlier commit had to add `.` to `INC_DIRS` unnecessarily. If a bare include fails to resolve, this indicates a violation of the layering rule above (a header two layers away is being referenced directly), not a reason to fully qualify the path.
+Use bare filenames resolved via the Makefile's `-I` search paths (e.g. `#include "rcc_reg.h"`), **not** root-relative paths (`#include "device/inc/rcc_reg.h"`). Every `inc/` directory in the project is already on the include path; a root-relative include is redundant and was the reason an earlier commit had to add `.` to `INC_DIRS` unnecessarily. Because every `inc/` directory is on every compile's include path, a bare include of a header from the wrong layer (say `app/` including a `device/` register header) resolves without complaint: the layering rule above is a convention checked in review, not something the build or CI enforces. If a bare include fails to resolve, the header is simply not in an `inc/` directory; do not fully qualify the path to work around it.
 
 ## Documentation (Doxygen)
 

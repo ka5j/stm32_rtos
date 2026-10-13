@@ -99,7 +99,10 @@ LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections \
 # into the image today (the linker script has no .init_array, startup never
 # calls __libc_init_array, and nothing uses printf/malloc), so nano would
 # change nothing; revisit when something does. nosys.specs (syscall stubs)
-# is unaffected.
+# is unaffected. The image really does contain no libc code, but the link
+# still pulls newlib's syscall stubs in before --gc-sections drops them, so
+# it prints a "_close/_lseek/_read/_write is not implemented" warning for
+# each; they are harmless and not a sign of anything wrong.
 
 ##########################################################################
 # Object files - mirrors the source tree under build/, e.g.
@@ -441,8 +444,9 @@ lint:
 #     is drivers/src and bsp/src only, so for the test_<peripheral>_reg.c files a
 #     forgotten registration is otherwise entirely silent.
 # Use case: fast feedback on register/driver logic correctness, no board
-# or cross-toolchain required. Run this before make docs/make all in the
-# pre-commit hook and CI - it's the cheapest real check available.
+# or cross-toolchain required. The pre-commit hook runs it before make
+# lint/docs/all; CI runs it after make all and make format-check. It's the
+# cheapest real check available.
 # ------------------------------------------------------------------------
 HOST_CC        := cc
 # -MMD -MP: write a .d file beside each host object so editing a header rebuilds the
