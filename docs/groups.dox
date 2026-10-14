@@ -1,7 +1,7 @@
-/**
- * @file groups.dox
- * @brief Declares the Topics hierarchy: one group per layer, one subgroup
- *        per peripheral.
+/*
+ * Declares the Topics hierarchy: one group per layer, one subgroup per
+ * peripheral. A plain comment, not an @file block: this file has no code,
+ * and a file page for it would link to a source page Doxygen never writes.
  *
  * Source files join a group with `@addtogroup <id>` / `@{` ... `@}` around
  * their definitions. Groups follow the layers in docs/ARCHITECTURE.md and
