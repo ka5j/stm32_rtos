@@ -1,33 +1,62 @@
-# Security Policy
+# Security
 
 ## Reporting a vulnerability
 
-Open a [GitHub Security Advisory](https://github.com/ka5j/stm32_rtos/security/advisories/new) for this repository rather than a public issue, so a fix can be prepared before details become public. This is a solo project with no dedicated security team and no formal SLA; reports are reviewed and taken seriously, and a fix (or an explanation of why an issue is not exploitable) will follow within a reasonable time.
+Open a [GitHub Security Advisory](https://github.com/ka5j/stm32_rtos/security/advisories/new)
+rather than a public issue. This is a solo project with no formal response
+time, but every report gets a fix or an explanation.
 
-## Supported versions
-
-Pre-`1.0.0` (see [docs/VERSIONING.md](docs/VERSIONING.md)), only the most recently tagged release on `main` is supported. There is no backport policy for older `0.y.z` tags at this stage, since breaking changes are expected and permitted at any point before `1.0.0`. Once `1.0.0` ships, this section will define which major version lines continue to receive fixes.
+Only the latest release on `main` is supported before `1.0.0`.
 
 ## Threat model
 
-This is bare-metal firmware with no network stack and no third-party dependencies. `drivers/` now includes a UART driver (`uartReceiveByte`/`uartReceive`) capable of reading bytes from a physical UART line, revisiting this document as promised the last time this section was written. It does not yet change the practical attack surface: `app/src/main.c` is still an empty `while(1)`, `api/` and `rtos/` are empty scaffolding and `bsp/` holds only `bspClockInit()` (which `main` never calls), so nothing in the built firmware calls these functions or routes UART data anywhere - there is no live runtime path from the physical UART line into firmware logic yet. The functions themselves also don't interpret what they read: `uartReceiveByte`/`uartReceive` move raw bytes into a caller-supplied, caller-sized buffer with no parsing, no assumed termination, and no length inferred from the data stream itself, so they introduce no new memory-safety risk on their own. The current attack surface remains the register-definition layer (`core/inc/`, `device/inc/`), the build tooling, and the CI/CD pipeline itself. This will change materially once `api/` or `app/` actually wires UART RX to something that interprets the bytes it receives (a command parser, a bootloader protocol, anything that branches on content) - that is the point at which untrusted input in the conventional sense first exists, and this document should be revisited again then, not treated as a one-time checklist.
+The firmware has no network stack and no third-party code.
 
-An incorrect register definition (wrong offset, wrong bit position) is a correctness bug, caught by the size/offset/field assertions in `tests/unit/`, not a vulnerability in the conventional sense, since no untrusted input reaches it. This distinction is why the policy is scoped as it is rather than treating every bug report as a security report.
+- **UART reads:** the UART driver can read bytes from a physical line, but
+  nothing in the built image calls it. `uartReceive()` copies raw bytes into
+  a caller-sized buffer and never interprets them.
+- **When this changes:** untrusted input first exists when something parses
+  received data, such as a command parser or a bootloader protocol. Revisit
+  this section then.
+- **Register definitions:** a wrong register definition is a correctness
+  bug, caught by the offset and field tests, not a vulnerability.
 
 ## CI/CD trust boundaries
 
-- **`ci.yml`** runs on every pull request, including from forks, and on every push to `main`/`develop` specifically (not every branch - see `CONTRIBUTING.md`'s CI triggers section for why). It only builds, lints, tests, and generates docs on a GitHub-hosted, ephemeral runner with `permissions: contents: read`; nothing it does is privileged or persists past the job. `main`/`develop` branch protection requires `build-and-check` (this workflow's job) and `Analyze (c-cpp)` (`codeql.yml`, below) to pass before a PR can merge.
-- **No self-hosted runners.** A `hil.yml` workflow previously ran hardware-in-the-loop tests on a self-hosted runner physically connected to a Nucleo-F446RE, triggered only by `workflow_dispatch` so that an untrusted push or fork PR could never run arbitrary code on that machine. It has been removed entirely, which retires the trust boundary rather than managing it: the board is attached to the development machine, so on-target work happens there directly (`make flash`, `make debug`) and no GitHub-triggered workflow reaches physical hardware. Every remaining workflow runs on an ephemeral GitHub-hosted runner that is discarded after the job. Reintroducing a self-hosted runner would reopen this boundary and should not be done casually.
-- **`pages.yml`** deploys only from `main`, never from a pull request or fork, so the published documentation site (<https://ka5j.github.io/stm32_rtos/>) cannot be hijacked by an untrusted branch. It also reflects only a tagged release, not in-progress `develop` work, since `PROJECT_NUMBER` is bumped only on a `develop`→`main` release PR.
-- **`release.yml`** runs when a `vX.Y.Z` tag is pushed. It is the only workflow with `contents: write` (declared on its one job, so the workflow default stays read-only), needed to create the GitHub Release. Only someone with write access to the repository can push a tag. Before publishing it checks that the tag, the Doxyfile version and the changelog agree and that the tagged commit is an ancestor of `main`, so a tag pushed from an unreviewed branch does not publish a release. The tag name reaches the shell through an environment variable, never interpolated into a script. On a pull request it runs the same steps but publishes nothing (the token is read-only there).
-- **`codeql.yml`** runs GitHub CodeQL static analysis on every push/PR to `main`/`develop`, plus a weekly schedule, with `permissions: contents: read, security-events: write`, sufficient to read the repository and upload findings.
+| Workflow      | Runs on                                   | Permissions                     |
+| ------------- | ----------------------------------------- | ------------------------------- |
+| `ci.yml`      | every PR (forks included), push to `main`/`develop` | `contents: read`      |
+| `codeql.yml`  | PR and push to `main`/`develop`, weekly   | `contents: read`, `security-events: write` |
+| `pages.yml`   | push to `main`, manual dispatch           | `pages: write`, `id-token: write` |
+| `release.yml` | `vX.Y.Z` tag push; dry run on PRs         | `contents: write` on its publishing job only |
 
-## Action pinning
+The `github-pages` environment accepts deployments only from `main`, so a
+manual run on another branch cannot publish. `codeql.yml` can also be run
+manually.
 
-Every third-party GitHub Action used in this repository's workflows is pinned to a full commit SHA rather than a mutable version tag (`actions/checkout@3d3c42e5...` with a `# v7.0.1` comment for readability, not `actions/checkout@v7`). A tag can be force-moved to reference different, potentially malicious code without any visible change in this repository's history; a commit SHA cannot be silently repointed in the same way. No automated dependency-update tooling watches these pins; bumping them is a manual step, performed by checking an action's release notes on GitHub and updating the SHA and version comment together. Pins remain safer than tracking a mutable tag even without automated bumping, but they stay current only if someone actually revisits them; this does not self-maintain. The version comment must name the exact release the SHA resolves to, not a floating major: the two `github/codeql-action` pins carried `# v4` while actually pinning `v4.37.8`, and the `v4` tag has since moved to a different commit — so the comment described something the workflow was not running. That is the same drift the SHA pin exists to prevent, reintroduced in the part a human actually reads.
+- **Runners:** every workflow runs on ephemeral GitHub-hosted runners.
+  There is no self-hosted runner. The board is attached to the development
+  machine, and no GitHub-triggered job reaches hardware. Do not add a
+  self-hosted runner casually.
+- **Merge gates:** `main` and `develop` require `build-and-check` and
+  `Analyze (c-cpp)` to pass.
+- **release.yml:**
+  - it refuses a tag whose commit is not on `main`, or whose version
+    disagrees with the Doxyfile and changelog;
+  - the tag name reaches the shell only through an environment variable.
 
-## Tool downloads
+## Supply chain
 
-The Arm GNU Toolchain and Doxygen are not installed from a package manager; each is downloaded as an upstream release archive and checked against a SHA256 pinned in this repository before anything is extracted. The checks live in two composite actions, `.github/actions/setup-arm-toolchain` and `.github/actions/setup-doxygen`, which are shared (`setup-arm-toolchain` by `ci.yml`, `codeql.yml` and `release.yml`; `setup-doxygen` by `ci.yml` and `pages.yml`), so each version and checksum exists in exactly one place. A checksum mismatch fails the job. The Arm value is the checksum Arm publishes next to the archive; Doxygen publishes none, so its value is the digest GitHub records for the release asset. Both were also confirmed by hashing a download directly. The cache key for each tool includes the start of its pinned checksum, so changing the pin invalidates the cached copy.
-
-What this does not cover: a restored cache is trusted as-is, since the checksum is verified only when the archive is downloaded. Caches are written only by runs in this repository, and a pull request from a fork cannot write a cache that `main` or `develop` runs restore. The apt-installed tools (`cppcheck`, `clang-format`) are pinned by version and `gcovr` from PyPI by version too, not by hash; all rely on their package managers' own signing. `graphviz` is installed unpinned from apt on purpose (see `ci.yml`).
+- **Actions** are pinned to full commit SHAs, with a comment naming the
+  exact release (for example `# v7.0.1`, never a floating `# v7`). Bump the
+  SHA and the comment together, by hand, after reading the release notes.
+- **Arm GNU Toolchain and Doxygen** are downloaded from upstream and checked
+  against a SHA256 pinned in `.github/actions/` before extraction. The
+  cache key includes the checksum, so changing the pin invalidates the
+  cache. A restored cache is trusted, and only this repository's own runs
+  can write one.
+- **Apt and PyPI tools:**
+  - `cppcheck`, `clang-format` and `gcovr` are pinned by version, not hash,
+    and rely on their package manager's signing;
+  - Graphviz is unpinned because it only draws diagrams and cannot change
+    what CI enforces.

@@ -19,6 +19,25 @@ specifically.
   `docs/theme/` with its dark-mode toggle and code copy button, plus
   `docs/theme/project.css` for project styles. No network access is needed
   to build the docs.
+- Project docs rewritten to be short and current, and published as pages
+  of the generated site: the README is the site's home page, followed by
+  Architecture, Design notes, Contributing, Versioning, Security and the
+  Changelog. `docs/mainpage.md` is gone. Heading anchors follow GitHub's
+  style (`MARKDOWN_ID_STYLE = GITHUB`), so the same links work on GitHub and
+  on the site.
+- New `docs/DESIGN.md` holds the reasoning that was repeated across
+  CONTRIBUTING, the README, the Makefile and driver headers: register blocks
+  as parameters, the error contract, `const` register parameters, poll-count
+  timeouts, clock bring-up order, concurrency, host-test limits and MISRA
+  deviations.
+- `docs/ARCHITECTURE.md` replaces its ASCII art with Mermaid diagrams of
+  the layers, the boot sequence and the 180 MHz clock tree. GitHub renders
+  them natively; the site renders them with Mermaid 11.4.1.
+- `CONTRIBUTING.md` gains a Doxygen style section (one-line briefs,
+  `@retval`, `@pre`/`@post`, `@code` examples, register `@name` groups).
+- The README no longer calls the driver layer complete: EXTI, IWDG and WWDG
+  have register headers but no driver.
+
 - `docs/groups.dox`: the ASCII table that rendered as preformatted text is
   replaced by a short description, and the group briefs are one line each.
 

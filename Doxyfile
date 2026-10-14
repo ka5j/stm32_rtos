@@ -17,7 +17,15 @@ OUTPUT_DIRECTORY       = docs
 #---------------------------------------------------------------------------
 # Input
 #---------------------------------------------------------------------------
-INPUT                  = docs/mainpage.md \
+# Pages are listed first, in the order the navigation shows them; the
+# README doubles as the site's home page.
+INPUT                  = README.md \
+                         docs/ARCHITECTURE.md \
+                         docs/DESIGN.md \
+                         CONTRIBUTING.md \
+                         docs/VERSIONING.md \
+                         SECURITY.md \
+                         CHANGELOG.md \
                          docs/groups.dox \
                          core \
                          device \
@@ -28,7 +36,10 @@ INPUT                  = docs/mainpage.md \
                          app
 FILE_PATTERNS          = *.c *.h *.md *.dox
 RECURSIVE              = YES
-USE_MDFILE_AS_MAINPAGE = docs/mainpage.md
+USE_MDFILE_AS_MAINPAGE = README.md
+# Heading anchors match GitHub's (#design-notes), so the same links work on
+# GitHub and on the site.
+MARKDOWN_ID_STYLE      = GITHUB
 
 #---------------------------------------------------------------------------
 # Language and extraction
@@ -85,6 +96,10 @@ HTML_DYNAMIC_SECTIONS  = YES
 # dropped)
 #---------------------------------------------------------------------------
 HAVE_DOT               = YES
+# Mermaid diagrams in the Markdown pages render in the browser, as they do on
+# GitHub. The script is fetched from the CDN at view time, pinned to a release.
+MERMAID_RENDER_MODE    = CLIENT_SIDE
+MERMAID_JS_URL         = https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs
 DOT_IMAGE_FORMAT       = svg
 INTERACTIVE_SVG        = YES
 # C has no classes: the class diagrams would be empty.
