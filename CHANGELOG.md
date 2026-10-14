@@ -92,6 +92,20 @@ specifically.
 
 ### Changed
 
+- `Makefile`: the firmware now links with `-nostartfiles` and
+  `-Wl,--fatal-warnings`. `Reset_Handler` already does everything crt0
+  would, and linking crt0 pulled newlib's syscall stubs in ahead of
+  `--gc-sections`, which printed four "`_close`/`_lseek`/`_read`/`_write`
+  is not implemented" warnings on every link. The link is now silent, so
+  any new linker warning fails the build. The image is 24 bytes smaller and
+  the vector table is unchanged. The old Makefile comment calling those
+  warnings unavoidable is replaced.
+
+- `Makefile`: the host test and coverage objects now depend on a flags
+  stamp, the way the firmware objects already did. Before this, editing
+  `WARN_FLAGS` or `HOST_CFLAGS` rebuilt nothing, so a new warning stayed
+  hidden until a clean build.
+
 - `core/inc/*_reg.h`, `device/inc/*_reg.h`: every bit and mask macro now
   casts its constant before shifting, `((uint32_t)1U << X_Pos)` instead of
   `(1U << X_Pos)`. `1U` has the essential type of an 8-bit unsigned, so
