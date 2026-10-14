@@ -7,8 +7,9 @@ from the reference manual and mapped to its memory address.
 
 ## Current status
 
-The **register layer** is implemented and complete, and part of the
-**driver layer** is - what is documented here is what exists. For the
+The **register layer** and the **driver layer** are implemented and
+complete, and the **board support package** has its first function (the
+180 MHz clock bring-up) - what is documented here is what exists. For the
 authoritative, per-layer status, see the Status section of the
 [GitHub repository](https://github.com/ka5j/stm32_rtos)'s README, which
 is the single source of truth for it rather than one of several copies
@@ -26,7 +27,9 @@ The **Topics** page groups every documented header by architectural layer:
   UART, EXTI, Flash, PWR, IWDG, WWDG, derived from RM0390).
 - **Drivers** — register-level driver logic consuming the layer above:
   the shared `DriverStatus_e` error contract and every driver
-  implemented so far.
+  (GPIO, RCC, Flash, PWR, UART, NVIC, SysTick).
+- **Board Support Package** — Nucleo-F446RE specifics built on the drivers;
+  today `bspClockInit()` and the `BSP_*_HZ` clock constants.
 
 Each register structure documents its memory-mapped layout with a
 per-field byte offset; each bit-definition macro documents its bit

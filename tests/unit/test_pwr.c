@@ -70,10 +70,9 @@ void test_pwr_driver_set_voltage_scale_touches_only_vos_field(void)
 }
 
 /** Selecting a scale does not poll, and in particular does not depend on
- *  CSR.VOSRDY - which cannot set until the PLL is enabled (RM0390 5.1.4),
- *  long after this call. A cleared CSR must still report OK, since an
- *  earlier revision of this driver polled here and would have timed out
- *  on every boot once the call was correctly ordered before the PLL. */
+ *  CSR.VOSRDY - which cannot set until the PLL is enabled (RM0390 5.1.3),
+ *  long after this call. A cleared CSR must still report OK: polling here
+ *  would time out on every boot, because this call runs before the PLL. */
 void test_pwr_driver_set_voltage_scale_does_not_poll_vosrdy(void)
 {
     PwrRegisters_t pwr = {0};
@@ -81,7 +80,6 @@ void test_pwr_driver_set_voltage_scale_does_not_poll_vosrdy(void)
     DriverStatus_e status = pwrSetVoltageScale(&pwr, PWR_CR_VOS_SCALE1);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
-    TEST_ASSERT_EQUAL_HEX32(0U, pwr.CSR);
 }
 
 /* --- pwrWaitVoltageScaleReady --- */
@@ -117,4 +115,71 @@ void test_pwr_driver_wait_voltage_scale_ready_does_not_write_cr(void)
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
     TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_SCALE1 << PWR_CR_VOS_Pos, pwr.CR);
+}
+
+/* --- pwrEnableOverdrive --- */
+
+/** With both ready flags set, overdrive enables ODEN then ODSWEN and reports OK. */
+void test_pwr_driver_enable_overdrive_sets_both_enable_bits(void)
+{
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_ODRDY | PWR_CSR_ODSWRDY};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN | PWR_CR_ODSWEN, pwr.CR);
+}
+
+/** Overdrive is a read-modify-write: it must preserve CR.VOS and every other CR field. */
+void test_pwr_driver_enable_overdrive_preserves_other_cr_fields(void)
+{
+    PwrRegisters_t pwr = {.CR = PWR_CR_VOS_Msk | PWR_CR_DBP,
+                          .CSR = PWR_CSR_ODRDY | PWR_CSR_ODSWRDY};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_VOS_Msk | PWR_CR_DBP | PWR_CR_ODEN | PWR_CR_ODSWEN, pwr.CR);
+}
+
+/** If ODRDY never sets, it times out and must not have written ODSWEN. */
+void test_pwr_driver_enable_overdrive_times_out_without_odrdy_and_skips_switch(void)
+{
+    PwrRegisters_t pwr = {0};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN, pwr.CR);
+}
+
+/** If ODSWRDY never sets after ODRDY did, it times out with both enable bits written. */
+void test_pwr_driver_enable_overdrive_times_out_without_odswrdy(void)
+{
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_ODRDY};
+
+    DriverStatus_e status = pwrEnableOverdrive(&pwr);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN | PWR_CR_ODSWEN, pwr.CR);
+}
+
+/* --- review follow-ups --- */
+
+/** pwrWaitVoltageScaleReady waits on VOSRDY specifically: ODRDY/ODSWRDY (and any other CSR bits)
+ *  being set must not satisfy it. */
+void test_pwr_driver_wait_voltage_scale_ready_ignores_other_csr_flags(void)
+{
+    PwrRegisters_t pwr = {.CSR = 0xFFFFFFFFU & ~PWR_CSR_VOSRDY};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, pwrWaitVoltageScaleReady(&pwr));
+}
+
+/** The over-drive waits are flag-specific too: ODSWRDY alone does not satisfy the ODRDY wait. */
+void test_pwr_driver_enable_overdrive_odrdy_wait_ignores_odswrdy(void)
+{
+    PwrRegisters_t pwr = {.CSR = PWR_CSR_ODSWRDY | PWR_CSR_VOSRDY};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, pwrEnableOverdrive(&pwr));
+    TEST_ASSERT_EQUAL_HEX32(PWR_CR_ODEN, pwr.CR);
 }

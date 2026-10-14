@@ -1,22 +1,20 @@
 /**
  * @file uart.h
- * @brief USART/UART driver - 8N1 asynchronous configuration and blocking
- *        transmit/receive for the STM32F446xx (device/inc/uart_reg.h).
- *        No application-facing logic; consumed by api/.
+ * @brief USART/UART driver - asynchronous configuration (8 data bits,
+ *        optional parity, 1 or 2 stop bits) and blocking transmit/receive
+ *        for the STM32F446xx (device/inc/uart_reg.h).
+ *        No application-facing logic; consumed by bsp/ and, once it exists, api/.
  *
- * 8 data bits only, matching uart_reg.h's own documented "8N1" scope -
+ * 8 data bits only, matching uart_reg.h's own documented scope -
  * CR1.M is not a configurable parameter here. uartInit() derives it from
  * the parity setting: RM0390 counts the parity bit inside the frame length
  * M selects, so parity off leaves M clear (8 bits on the wire), and parity
  * on sets M (9 bits on the wire: 8 data + parity). The extra bit is parity,
  * generated and checked by hardware, so DR transfers stay uint8_t.
- * Genuine 9-data-bit mode is architecturally real (RM0390) but was never
- * actually supported by this driver: an earlier revision exposed CR1.M as a
- * parameter without widening transmit/receive past uint8_t, so a caller
- * requesting 9-bit mode would have silently truncated every byte through
- * DR instead of erroring. Add real 9-bit support (uint16_t transmit/
- * receive) if a future consumer actually needs it; don't re-expose the
- * parameter without it.
+ * Genuine 9-data-bit mode is architecturally real (RM0390) but not
+ * supported by this driver: transmit/receive move uint8_t, so exposing CR1.M
+ * as a parameter would silently truncate every byte through DR. Add it with
+ * uint16_t transmit/receive if a consumer needs it, not before.
  *
  * CR2.STOP similarly offers only 1 or 2 stop bits, not the full 4-value
  * field RM0390 documents. The other two encodings, 0.5 and 1.5 stop
@@ -31,15 +29,34 @@
  * shipped accepting a value the rest of the driver cannot act on.
  *
  * Every transmit/receive function here blocks by spin-polling TXE/RXNE
- * with a bounded iteration count - the only thing implementable before
- * an NVIC driver exists to configure an interrupt and an RTOS scheduler
- * exists to block/wake a task against one. A task that calls
+ * with a bounded, caller-supplied poll count - the only thing implementable before
+ * an RTOS scheduler exists to block/wake a task against an interrupt
+ * (drivers/inc/nvic.h now exists to configure the interrupt itself). A task that calls
  * uartTransmit()/uartReceive() once real tasks exist will monopolize the
  * CPU for the duration of the transfer, defeating preemption for
  * whatever else wanted to run - this is a known, deliberate limitation
  * of this revision, not the intended final form. Revisit with an
- * interrupt- or DMA-driven variant once drivers/inc/nvic.h and
- * rtos/kernel/ exist to build one against.
+ * interrupt- or DMA-driven variant once rtos/kernel/ exists to build
+ * one against.
+ *
+ * Timeouts are supplied by the caller, as a count of SR polls (@c timeout
+ * on each function), not baked into the driver. A fixed count cannot be
+ * right: one SR poll costs roughly 10-30 core cycles depending on the
+ * build (-O0 is about 2-3x slower than -O2) and the core clock (16 MHz
+ * HSI to 180 MHz), so any constant is a different number of milliseconds
+ * in every configuration, and how long a wait should last is a property
+ * of the caller - a transmit is bounded by the frame time at the
+ * configured baud rate (10-12 bit times per byte, two frames for a wait
+ * on TC), while a receive waits for whenever the sender next speaks,
+ * which is not related to the baud rate at all. Size a timeout as
+ * milliseconds x core_hz / 1000 / 30 for a safe lower bound on polls (30
+ * cycles per poll is the slow end), or pass UINT32_MAX for an effectively
+ * unbounded wait (about 2^32 polls: tens of seconds to minutes). A
+ * @c timeout of 0 polls exactly once, so it turns a call into a
+ * non-blocking check that reports DRIVER_STATUS_ERR_TIMEOUT when the flag
+ * is not already set. These are bounded retry counts, not wall-clock
+ * timeouts, for the reason in rcc.h's file-level comment; revisit with a
+ * SysTick deadline once the kernel provides one.
  *
  * Takes UART's register block as a parameter (UartRegisters_t *) even
  * though every instance (USART1/2/3, UART4/5, USART6) shares this same
@@ -56,6 +73,7 @@
 #include "uart_reg.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 /**
  * @addtogroup driver_layer
@@ -75,11 +93,17 @@
  * correct.
  *
  * Disabling the peripheral up front matters on a *re*-configuration, not
- * a first call: RM0390 requires BRR and the framing fields be programmed
- * with the USART disabled, so calling this on an already-running
- * instance (e.g. to change baud rate) would otherwise mutate those
- * fields underneath an in-flight frame. On a first call after reset UE
- * is already clear and the write is a no-op.
+ * a first call: calling this on an already-running instance (e.g. to
+ * change baud rate) would otherwise change BRR and the framing fields
+ * underneath an in-flight frame (RM0390's USART_BRR note: the baud rate
+ * register value should not be changed during communication; its own
+ * enable procedure sets UE first, so it does not require UE to be clear). On a first call after
+ * reset UE is already clear and the write is a no-op.
+ *
+ * Only the fields named above are rewritten. CR1's interrupt-enable and
+ * other bits and all of CR3 keep whatever they held, so when re-initialising
+ * an instance that was used with those (interrupts, DMA, half-duplex), call
+ * uartDeinit() first to start from the reset state.
  *
  * @param uart          UART register block (e.g. USART2).
  * @param pclk_hz       The peripheral's bus clock frequency in Hz (APB1
@@ -106,8 +130,10 @@
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if stop_bits, parity_enable,
  *         parity_select, or direction is not one of its documented
  *         values, if @p baud or @p pclk_hz is `0U`, or if the computed
- *         baud-rate divisor doesn't fit BRR (@p baud too high or too low
- *         for @p pclk_hz).
+ *         baud-rate divisor doesn't fit BRR: @p baud too low for
+ *         @p pclk_hz (divisor overflows the 16-bit field), or above
+ *         @p pclk_hz / 16 (a divisor below 1, which 16x oversampling
+ *         cannot generate).
  */
 DRIVER_MUST_CHECK DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud,
                                           uint32_t stop_bits, uint32_t parity_enable,
@@ -149,13 +175,15 @@ void uartDeinit(UartRegisters_t *uart);
  *             does not clear TC (RM0390 clears it via an SR read
  *             followed by a DR write, and this function never writes
  *             DR).
+ * @param timeout Maximum number of SR polls to wait for TC - see this
+ *             file's comment on timeouts.
  * @pre uartInit() has already enabled this instance with
  *      ::USART_CR1_TE set in its @c direction argument.
  * @return DRIVER_STATUS_OK once SR.TC is observed set.
  * @return DRIVER_STATUS_ERR_TIMEOUT if SR.TC never set within
- *         UART_READY_TIMEOUT_ITERATIONS iterations of this call.
+ *         @p timeout polls.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartFlush(const UartRegisters_t *uart);
+DRIVER_MUST_CHECK DriverStatus_e uartFlush(const UartRegisters_t *uart, uint32_t timeout);
 
 /**
  * @brief Send one byte, blocking until the transmit data register is
@@ -163,16 +191,17 @@ DRIVER_MUST_CHECK DriverStatus_e uartFlush(const UartRegisters_t *uart);
  *
  * @param uart UART register block (e.g. USART2).
  * @param byte Byte to send.
+ * @param timeout Maximum number of SR polls to wait for TXE - see this
+ *             file's comment on timeouts. A full frame time at the
+ *             configured baud rate is the longest legitimate wait.
  * @pre uartInit() has already enabled this instance with
  *      ::USART_CR1_TE set in its @c direction argument.
  * @return DRIVER_STATUS_OK once DR has been written.
  * @return DRIVER_STATUS_ERR_TIMEOUT if SR.TXE never set within
- *         UART_READY_TIMEOUT_ITERATIONS iterations of this call - a
- *         bounded retry count, not a wall-clock timeout, matching every
- *         other bounded hardware-ready wait in this project (see rcc.h's
- *         file-level comment for why).
+ *         @p timeout polls.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte);
+DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte,
+                                                  uint32_t timeout);
 
 /**
  * @brief Send a buffer of bytes, blocking until the last one has been
@@ -184,19 +213,24 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t
  * call directly with uartDeinit(), a clock gate, or a reconfiguration.
  *
  * @param uart   UART register block (e.g. USART2).
- * @param data   Bytes to send.
+ * @param data   Bytes to send. May be NULL only when @p length is `0U`.
  * @param length Number of bytes in @p data. A @p length of `0U` sends
  *               nothing and returns DRIVER_STATUS_OK without waiting on
  *               TC, since no transmission was started.
+ * @param timeout Maximum number of SR polls to wait *per byte* for
+ *               TXE, and again for the closing TC wait - see this
+ *               file's comment on timeouts.
  * @return DRIVER_STATUS_OK once every byte has been sent and SR.TC
  *         confirms the transmitter is idle.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p data is NULL while
+ *         @p length is non-zero. Nothing is sent.
  * @return DRIVER_STATUS_ERR_TIMEOUT propagated from uartTransmitByte()
  *         the moment any byte times out, or from the closing uartFlush()
  *         if SR.TC never set; bytes already sent are not undone, and no
  *         further bytes are sent after the failure.
  */
 DRIVER_MUST_CHECK DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data,
-                                              size_t length);
+                                              size_t length, uint32_t timeout);
 
 /**
  * @brief Receive one byte, blocking until one is available.
@@ -217,32 +251,46 @@ DRIVER_MUST_CHECK DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8
  *             not.
  * @param byte Set to the received byte - written even when this function
  *             returns DRIVER_STATUS_ERR_HW_FAULT, since DR is always
- *             read; treat the byte as unreliable in that case.
+ *             read; treat the byte as unreliable in that case. Must not
+ *             be NULL.
+ * @param timeout Maximum number of SR polls to wait for RXNE - see this
+ *             file's comment on timeouts. An RXNE wait is bounded by
+ *             when the sender next transmits, not by the baud rate, so
+ *             this is usually the one to make large.
  * @pre uartInit() has already enabled this instance with
  *      ::USART_CR1_RE set in its @c direction argument.
  * @return DRIVER_STATUS_OK once a byte with no reported fault has been
  *         read into @p byte.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p byte is NULL. DR is not
+ *         read, so a pending byte stays pending.
  * @return DRIVER_STATUS_ERR_HW_FAULT if SR reports ORE, NE, FE, or PE
  *         for this byte.
  * @return DRIVER_STATUS_ERR_TIMEOUT if SR.RXNE never set within
- *         UART_READY_TIMEOUT_ITERATIONS iterations of this call.
+ *         @p timeout polls.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte);
+DRIVER_MUST_CHECK DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte,
+                                                 uint32_t timeout);
 
 /**
  * @brief Receive a buffer of bytes, blocking on each one in turn.
  *
  * @param uart   UART register block (e.g. USART2).
- * @param data   Buffer to receive into.
+ * @param data   Buffer to receive into. May be NULL only when
+ *               @p length is `0U`.
  * @param length Number of bytes to receive into @p data.
+ * @param timeout Maximum number of SR polls to wait *per byte* for RXNE
+ *               - see this file's comment on timeouts.
  * @return DRIVER_STATUS_OK once every byte has been received with no
  *         fault.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p data is NULL while
+ *         @p length is non-zero. Nothing is received.
  * @return DRIVER_STATUS_ERR_HW_FAULT or DRIVER_STATUS_ERR_TIMEOUT
  *         propagated from uartReceiveByte() the moment any byte fails;
  *         bytes already received remain in @p data, and no further
  *         bytes are received after the failure.
  */
-DRIVER_MUST_CHECK DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length);
+DRIVER_MUST_CHECK DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length,
+                                             uint32_t timeout);
 
 /** @} */
 

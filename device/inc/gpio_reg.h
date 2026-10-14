@@ -3,7 +3,7 @@
  * @brief GPIO peripheral register definitions for the STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 8: General-purpose I/Os (GPIO).
+ * reference manual), section 7: General-purpose I/Os (GPIO).
  */
 #ifndef GPIO_REG_H
 #define GPIO_REG_H
@@ -25,7 +25,7 @@
 #define GPIOH_BASE (0x40021C00UL) ///< GPIOH peripheral base address
 
 /**
- * @brief GPIO peripheral register map (RM0390 section 8.4).
+ * @brief GPIO peripheral register map (RM0390 section 7.4).
  *
  * One instance per port, overlaid on the port's base address (see the
  * GPIOx_BASE defines above and the GPIOx pointer macros below).
@@ -56,12 +56,12 @@ typedef struct GpioRegisters_t
 /* --- MODER field values (2 bits per pin, shift = pin * 2) --- */
 #define GPIO_MODE_INPUT (0x0U)  ///< MODER field value: input mode
 #define GPIO_MODE_OUTPUT (0x1U) ///< MODER field value: output mode
-#define GPIO_MODE_AF (0x2U)     ///< MODER field value: af mode
+#define GPIO_MODE_AF (0x2U)     ///< MODER field value: alternate-function mode
 #define GPIO_MODE_ANALOG (0x3U) ///< MODER field value: analog mode
 
 /* --- OTYPER field values (1 bit per pin) --- */
-#define GPIO_OTYPE_PP (0x0U) ///< push-pull
-#define GPIO_OTYPE_OD (0x1U) ///< open-drain
+#define GPIO_OTYPE_PP (0x0U) ///< OTYPER field value: push-pull
+#define GPIO_OTYPE_OD (0x1U) ///< OTYPER field value: open-drain
 
 /* --- OSPEEDR field values (2 bits per pin, shift = pin * 2) --- */
 #define GPIO_OSPEED_LOW (0x0U)    ///< OSPEEDR field value: low speed
@@ -70,23 +70,27 @@ typedef struct GpioRegisters_t
 #define GPIO_OSPEED_HIGH (0x3U)   ///< OSPEEDR field value: high speed
 
 /* --- PUPDR field values (2 bits per pin, shift = pin * 2) --- */
-#define GPIO_PUPD_NONE (0x0U) ///< PUPDR field value: none
-#define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: up
-#define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: down
+#define GPIO_PUPD_NONE (0x0U) ///< PUPDR field value: no pull
+#define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: pull-up
+#define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: pull-down
 
 /* --- Power-on-reset values that differ from zero ---
  *
- * Every GPIO register resets to 0 except the three below, and only on
+ * Every GPIO register resets to 0 (GPIOx_IDR excepted: it reflects the
+ * pin levels, so RM0390 gives no fixed reset value) except the five below, and only on
  * GPIOA and GPIOB: the pins that carry the SWD/JTAG debug interface come
  * out of reset in alternate-function mode with the pulls the debug port
- * needs. GPIOC..GPIOH, and OTYPER/AFRL/AFRH on every port, reset to 0.
- * GPIOA: PA13 (SWDIO) / PA14 (SWCLK) / PA15 (JTDI); GPIOB: PB3 (SWO/JTDO)
- * / PB4 (NJTRST). */
+ * needs. GPIOC..GPIOH, OTYPER/AFRL/AFRH on every port, and GPIOA's OSPEEDR
+ * reset to 0. GPIOA: PA13 (SWDIO) / PA14 (SWCLK) / PA15 (JTDI); GPIOB: PB3
+ * (SWO/JTDO) / PB4 (NJTRST).
+ *
+ * GPIOA_OSPEEDR is zero on the F446 but not on every STM32F4: the F401 and
+ * F411 reset it to 0x0C000000 (PA13 at OSPEEDR 0b11). Do not "fix" it
+ * from another family's manual. Values checked against ST's STM32F446 SVD. */
 #define GPIOA_MODER_RESET (0xA8000000U)   ///< GPIOA_MODER reset: PA13/14/15 in AF mode
-#define GPIOA_OSPEEDR_RESET (0x0C000000U) ///< GPIOA_OSPEEDR reset: PA13 very high speed
 #define GPIOA_PUPDR_RESET (0x64000000U)   ///< GPIOA_PUPDR reset: PA13/15 pull-up, PA14 pull-down
 #define GPIOB_MODER_RESET (0x00000280U)   ///< GPIOB_MODER reset: PB3/4 in AF mode
-#define GPIOB_OSPEEDR_RESET (0x000000C0U) ///< GPIOB_OSPEEDR reset: PB3 very high speed
+#define GPIOB_OSPEEDR_RESET (0x000000C0U) ///< GPIOB_OSPEEDR reset: PB3 high speed (0b11)
 #define GPIOB_PUPDR_RESET (0x00000100U)   ///< GPIOB_PUPDR reset: PB4 pull-up
 
 /** @} */

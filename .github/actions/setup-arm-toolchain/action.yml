@@ -2,7 +2,7 @@ name: Set up Arm GNU Toolchain
 description: >-
   Install the pinned Arm GNU Toolchain (arm-none-eabi) into /opt, verified
   against a pinned SHA256, and add it to PATH. The single place the
-  toolchain version and checksum live - ci.yml and codeql.yml both use it.
+  toolchain version and checksum live - ci.yml, codeql.yml and release.yml use it.
 
 runs:
   using: composite

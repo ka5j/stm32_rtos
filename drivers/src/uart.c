@@ -10,9 +10,10 @@
  * @{
  */
 
-/** Bounded retry count for SR.TXE/RXNE, not a wall-clock timeout - see
- *  uart.h's file-level comment for why. */
-#define UART_READY_TIMEOUT_ITERATIONS (100000U)
+/** Smallest BRR value uartInit() accepts. BRR holds USARTDIV * 16 (see
+ *  uartComputeBrr()), and USARTDIV below 1 cannot be generated: with 16x
+ *  oversampling the baud rate tops out at pclk / 16, which is BRR 16. */
+#define UART_BRR_MIN (16U)
 
 /**
  * @brief Compute BRR from a bus clock and target baud rate, standard 16x
@@ -31,17 +32,11 @@
  * it explicitly (MISRA C:2012 Rule 10.7 - no implicit widening across a
  * mixed-width operator): pclk_hz + baud/2 does not overflow uint32_t for
  * any realistic clock, but this function has no way to bound a
- * caller-supplied pclk_hz, and the previous x100 fixed-point form needed
- * the same 64-bit guard for the same reason.
+ * caller-supplied pclk_hz.
  *
- * This is strictly more accurate than an earlier version of this
- * function, which computed USARTDIV*100 in a 64-bit intermediate (an
- * integer division, truncating to 2 decimal digits of USARTDIV) and
- * then rounded that truncated value to the nearest 16th - losing
- * precision before rounding could double the worst-case error. E.g. for
- * a 42 MHz bus clock at 115200 baud, the true ratio is 364.5833 (nearest
- * integer 365), but truncating to 2 decimals first produced BRR 364,
- * one off in the wrong direction; this formula computes 365 directly.
+ * Rounding once, at the end, matters: for a 42 MHz bus clock at 115200
+ * baud the true ratio is 364.5833, which rounds to 365. Truncating to a
+ * fixed-point intermediate first would give 364.
  *
  * @param pclk_hz Bus clock frequency in Hz.
  * @param baud    Target baud rate in bit/s.
@@ -50,8 +45,8 @@
  * @return DRIVER_STATUS_OK on success.
  * @return DRIVER_STATUS_ERR_INVALID_PARAM if pclk_hz or baud is 0, if the
  *         result would exceed BRR's 16-bit field (baud too low for
- *         pclk_hz), or if it computes to 0 (baud too high for pclk_hz -
- *         RM0390 forbids a BRR of 0).
+ *         pclk_hz), or if it is below ::UART_BRR_MIN (baud above pclk_hz /
+ *         16, which 16x oversampling cannot generate).
  */
 static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *brr)
 {
@@ -65,7 +60,7 @@ static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *
     {
         uint64_t rounded = ((uint64_t)pclk_hz + ((uint64_t)baud / 2U)) / (uint64_t)baud;
 
-        if (rounded == 0U)
+        if (rounded < UART_BRR_MIN)
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
         }
@@ -88,12 +83,6 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
     uint32_t brr = 0U;
     DriverStatus_e status = uartComputeBrr(pclk_hz, baud, &brr);
 
-    /* Every USART_CR1/USART_CR2_STOP value below is a fixed, tested
-     * compile-time bit value (device/inc/uart_reg.h), not a runtime-
-     * computed shift - cppcheck's MISRA addon can't bound a shift
-     * through a macro expansion like this and flags every reference to
-     * it; see drivers/src/rcc.c's matching comment on rccHseEnable() for
-     * the same finding on the same class of macro. */
     if (status == DRIVER_STATUS_OK)
     {
         /* USART_CR2_STOP_0_5/_1_5 are architecturally real (RM0390) but
@@ -107,7 +96,6 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         if ((parity_enable != 0U) && (parity_enable != USART_CR1_PCE))
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
@@ -116,7 +104,6 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         if ((parity_select != 0U) && (parity_select != USART_CR1_PS))
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
@@ -143,33 +130,28 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
          * on is 7 data bits plus parity and would overwrite DR bit 7 with
          * the parity bit. The 9th bit is parity, not data, so transmit/
          * receive stay uint8_t - see uart.h's file-level comment. */
-        // cppcheck-suppress misra-c2012-12.2
         uint32_t cr1_mask = USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
                             | USART_CR1_TE | USART_CR1_RE;
         uint32_t frame_length = 0U;
 
         if (parity_enable != 0U)
         {
-            // cppcheck-suppress misra-c2012-12.2
             frame_length = USART_CR1_M;
         }
 
-        /* Disable before touching BRR or the framing fields: RM0390
-         * requires them programmed with the USART off, which matters
-         * when this is a reconfiguration of an already-running instance
-         * rather than a first call - see uartInit()'s doc comment. */
-        // cppcheck-suppress misra-c2012-12.2
+        /* Disable before touching BRR or the framing fields, so a
+         * reconfiguration of an already-running instance does not change
+         * them underneath an in-flight frame - see uartInit()'s doc
+         * comment. */
         uart->CR1 &= ~USART_CR1_UE;
 
         uart->BRR = brr;
-        // cppcheck-suppress misra-c2012-12.2
         uart->CR2 = (uart->CR2 & ~USART_CR2_STOP_Msk) | (stop_bits << USART_CR2_STOP_Pos);
         uart->CR1 =
             (uart->CR1 & ~cr1_mask) | frame_length | parity_enable | parity_select | direction;
 
         /* UE set last, after every other field is already correct - see
          * this function's own doc comment. */
-        // cppcheck-suppress misra-c2012-12.2
         uart->CR1 |= USART_CR1_UE;
     }
 
@@ -186,8 +168,8 @@ void uartDeinit(UartRegisters_t *uart)
 }
 
 /**
- * @brief Spin until one of SR's ready flags reads set, or the bounded
- *        retry count is exhausted. Shared by every blocking transfer
+ * @brief Spin until one of SR's ready flags reads set, or the caller's
+ *        poll budget is exhausted. Shared by every blocking transfer
  *        function here, which differ only in which SR bit they watch.
  *
  * The outcome is decided by re-reading the flag after the loop, not by
@@ -199,18 +181,20 @@ void uartDeinit(UartRegisters_t *uart)
  * @param uart UART register block (e.g. USART2).
  * @param flag SR flag to wait on - ::USART_SR_TXE, ::USART_SR_TC, or
  *             ::USART_SR_RXNE.
+ * @param timeout Maximum number of SR polls to wait. 0 polls once and
+ *             does not wait.
  * @return DRIVER_STATUS_OK if flag is set on exit.
- * @return DRIVER_STATUS_ERR_TIMEOUT if it is still clear after
- *         UART_READY_TIMEOUT_ITERATIONS iterations.
+ * @return DRIVER_STATUS_ERR_TIMEOUT if it is still clear after the
+ *         poll budget.
  */
-static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag)
+static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag, uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
-    uint32_t timeout = UART_READY_TIMEOUT_ITERATIONS;
+    uint32_t remaining = timeout;
 
-    while (((uart->SR & flag) == 0U) && (timeout > 0U))
+    while (((uart->SR & flag) == 0U) && (remaining > 0U))
     {
-        timeout--;
+        remaining--;
     }
 
     if ((uart->SR & flag) == 0U)
@@ -221,15 +205,14 @@ static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag)
     return status;
 }
 
-DriverStatus_e uartFlush(const UartRegisters_t *uart)
+DriverStatus_e uartFlush(const UartRegisters_t *uart, uint32_t timeout)
 {
-    // cppcheck-suppress misra-c2012-12.2
-    return uartWaitSrFlag(uart, USART_SR_TC);
+    return uartWaitSrFlag(uart, USART_SR_TC, timeout);
 }
 
-DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte)
+DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte, uint32_t timeout)
 {
-    DriverStatus_e status = uartWaitSrFlag(uart, USART_SR_TXE);
+    DriverStatus_e status = uartWaitSrFlag(uart, USART_SR_TXE, timeout);
 
     if (status == DRIVER_STATUS_OK)
     {
@@ -239,13 +222,19 @@ DriverStatus_e uartTransmitByte(UartRegisters_t *uart, uint8_t byte)
     return status;
 }
 
-DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t length)
+DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t length,
+                            uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
+    if ((data == NULL) && (length > 0U))
+    {
+        status = DRIVER_STATUS_ERR_INVALID_PARAM;
+    }
+
     for (size_t i = 0U; (i < length) && (status == DRIVER_STATUS_OK); i++)
     {
-        status = uartTransmitByte(uart, data[i]);
+        status = uartTransmitByte(uart, data[i], timeout);
     }
 
     /* Wait for the last byte to leave the shift register, not merely to
@@ -254,7 +243,7 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
      * previous transfer left behind. */
     if ((status == DRIVER_STATUS_OK) && (length > 0U))
     {
-        status = uartFlush(uart);
+        status = uartFlush(uart, timeout);
     }
 
     return status;
@@ -273,9 +262,18 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
  * reorderable observation and mislead every future reader and refactor.
  * See CONTRIBUTING.md's `const` on a register-block parameter section;
  * this function is the worked example it cites. */
-DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte)
+DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte, uint32_t timeout)
 {
-    DriverStatus_e status = uartWaitSrFlag(uart, USART_SR_RXNE);
+    DriverStatus_e status = DRIVER_STATUS_OK;
+
+    if (byte == NULL)
+    {
+        status = DRIVER_STATUS_ERR_INVALID_PARAM;
+    }
+    else
+    {
+        status = uartWaitSrFlag(uart, USART_SR_RXNE, timeout);
+    }
 
     if (status == DRIVER_STATUS_OK)
     {
@@ -292,13 +290,18 @@ DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte)
     return status;
 }
 
-DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length)
+DriverStatus_e uartReceive(UartRegisters_t *uart, uint8_t *data, size_t length, uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
+    if ((data == NULL) && (length > 0U))
+    {
+        status = DRIVER_STATUS_ERR_INVALID_PARAM;
+    }
+
     for (size_t i = 0U; (i < length) && (status == DRIVER_STATUS_OK); i++)
     {
-        status = uartReceiveByte(uart, &data[i]);
+        status = uartReceiveByte(uart, &data[i], timeout);
     }
 
     return status;

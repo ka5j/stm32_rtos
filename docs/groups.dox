@@ -6,18 +6,19 @@
  *        rather than repeating \@ingroup on every member.
  *
  * The full group hierarchy mirrors the layer diagram in
- * docs/ARCHITECTURE.md and is defined in full even though most layers are
- * still unimplemented (see README.md's Status section). A group should be
- * declared here only once its layer has real content, but must match this
- * naming exactly so the hierarchy never requires restructuring, only
- * additions:
+ * docs/ARCHITECTURE.md. Only the groups whose layers have real content are
+ * declared below (register layer, drivers, board support); the others
+ * appear in this table purely as reserved names (see README.md's Status
+ * section for which layers exist). A group is declared only once its layer
+ * has real content, but must match this naming exactly so the hierarchy
+ * never requires restructuring, only additions:
  *
  *   register_layer          "Register Layer"            (parent)
  *     core_peripherals      "Cortex-M4 Core Peripherals" (core/inc/)
  *     device_peripherals    "STM32F446 Peripherals"      (device/inc/)
  *   driver_layer             "Drivers"                    (drivers/)
- *   peripheral_api           "Peripheral API"              (api/)
  *   board_support            "Board Support Package"       (bsp/)
+ *   peripheral_api           "Peripheral API"              (api/)
  *   rtos_layer               "RTOS"                        (parent)
  *     rtos_kernel            "RTOS Kernel"                 (rtos/kernel/)
  *     rtos_api               "RTOS API"                    (rtos/api/)
@@ -146,5 +147,12 @@
 /**
  * @defgroup driver_layer Drivers
  * @brief Register-level driver logic (GPIO, RCC, Flash, PWR, UART, NVIC,
- *        SysTick), with no application-facing logic. Consumed by api/.
+ *        SysTick), with no application-facing logic. Consumed by bsp/ and,
+ *        once it exists, api/.
+ */
+
+/**
+ * @defgroup board_support Board Support Package
+ * @brief Board-specific configuration for the NUCLEO-F446RE (today: the
+ *        180 MHz clock bring-up), built on drivers/ and consumed by api/.
  */

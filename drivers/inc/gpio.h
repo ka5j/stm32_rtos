@@ -2,13 +2,15 @@
  * @file gpio.h
  * @brief GPIO peripheral driver - register-level configuration and digital
  *        I/O for the STM32F446xx GPIO peripheral (device/inc/gpio_reg.h).
- *        No application-facing logic; consumed by api/.
+ *        No application-facing logic; consumed by bsp/ and, once it exists, api/.
  */
 #ifndef GPIO_H
 #define GPIO_H
 
 #include "driver_status.h"
 #include "gpio_reg.h"
+
+#include <stdint.h>
 
 /**
  * @addtogroup driver_layer
@@ -75,8 +77,9 @@ typedef struct GpioResetValues_t
  *
  * Identifies @p port by address only and never dereferences it. GPIOA and
  * GPIOB reset to non-zero values because they hold the SWD/JTAG debug
- * pins (see the GPIOx_*_RESET macros in gpio_reg.h); every other port,
- * and any address that is not GPIOA..GPIOH, reports all zeros. OTYPER,
+ * pins (see the GPIOx_*_RESET macros in gpio_reg.h) - GPIOA's OSPEEDR is
+ * the exception and resets to zero; every other port, and any address that
+ * is not GPIOA..GPIOH, reports all zeros. OTYPER,
  * AFRL and AFRH reset to zero on every port, so they are not included.
  *
  * Public so the lookup can be tested on the host: gpioDeinit() reads the
@@ -132,6 +135,26 @@ DRIVER_MUST_CHECK DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, 
 void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin);
 
 /**
+ * @brief gpioDeinit()'s register work, with the port's reset values passed
+ *        in instead of looked up from the port's address.
+ *
+ * Public for the same reason as gpioPortResetValues(): gpioDeinit() finds
+ * the reset values by comparing @p port with GPIOA and GPIOB, and a host
+ * test cannot place a fake register block at those addresses, so through
+ * gpioDeinit() alone every host test sees all-zero reset values and the
+ * SWD pins' restore - the part that keeps the debugger connected - is never
+ * exercised. Firmware calls gpioDeinit(); this exists so a test can supply
+ * GPIOA's or GPIOB's values to a plain struct.
+ *
+ * @param port  GPIO port register block (e.g. GPIOA).
+ * @param pin   Pin number within the port.
+ * @param reset The port's reset values, as gpioPortResetValues() reports.
+ * @pre @p pin is one of the ::GpioPin_e enumerators (0-15), as for
+ *      gpioDeinit().
+ */
+void gpioDeinitToReset(GpioRegisters_t *port, GpioPin_e pin, GpioResetValues_t reset);
+
+/**
  * @brief Select which alternate function a pin routes to via AFRL/AFRH.
  *        Has no electrical effect until the pin's MODER field is also
  *        set to ::GPIO_MODE_AF (see gpioInit()).
@@ -140,7 +163,8 @@ void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin);
  * @param pin  Pin number within the port.
  * @param af   Alternate function number, 0-GPIO_AF_MAX.
  * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if af > GPIO_AF_MAX.
+ * @return DRIVER_STATUS_ERR_INVALID_PARAM if @p pin is outside
+ *         GpioPin_e's 0-15 domain, or if af > GPIO_AF_MAX.
  */
 DRIVER_MUST_CHECK DriverStatus_e gpioSetAlternateFunction(GpioRegisters_t *port, GpioPin_e pin,
                                                           uint32_t af);

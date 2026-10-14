@@ -17,7 +17,7 @@ PROJECT_NAME           = "STM32 RTOS"
 
 # Version/revision string. Bumped only on a develop->main release PR - see
 # docs/VERSIONING.md.
-PROJECT_NUMBER         = 0.1.5
+PROJECT_NUMBER         = 0.1.6
 
 # One-line description shown at the top of every page.
 PROJECT_BRIEF          = "Bare-metal preemptive RTOS for STM32F446RE"
@@ -318,8 +318,8 @@ SORT_BRIEF_DOCS        = NO
 SORT_MEMBERS_CTORS_1ST = NO
 
 # Sort the Topics/group hierarchy alphabetically. Left off: groups.dox
-# declares a deliberate architectural order (register layer -> drivers ->
-# api -> bsp -> rtos -> app, matching docs/ARCHITECTURE.md) that
+# declares a deliberate architectural order, bottom up (register layer ->
+# drivers -> bsp -> api -> rtos -> app, matching docs/ARCHITECTURE.md) that
 # alphabetical order would scramble.
 SORT_GROUP_NAMES       = NO
 
@@ -998,10 +998,11 @@ INCLUDE_GRAPH          = YES
 INCLUDED_BY_GRAPH      = YES
 
 # Per-function call/caller graph. Overridden to NO: almost nothing calls
-# anything yet above drivers/src/gpio.c (api/, bsp/, rtos/ are still
-# empty - see README.md's Status section), so every function's graph
-# today would be a single node with no edges. Revisit once api/ exists
-# and there's a real call chain worth drawing.
+# anything yet above the drivers (bsp/ has one function, bspClockInit(),
+# whose call fan-out is the only chain; api/ and rtos/ are still empty -
+# see README.md's Status section), so most functions' graphs would be a
+# single node with no edges. Revisit once api/ exists and there's a real
+# call chain worth drawing.
 CALL_GRAPH             = NO
 CALLER_GRAPH           = NO
 

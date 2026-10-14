@@ -8,6 +8,553 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-14
+
+Not verified on hardware: every driver and `bspClockInit()` is covered by
+host tests (100% line and branch), but `main()` is still an empty loop, so
+none of it has executed on the board. The register layer, startup file and
+vector table were checked against RM0390/PM0214 by review, not on silicon.
+
+### Added
+
+- `tools/check_pr_files.sh` and `make check-pr [BASE=origin/develop]`: the
+  two pull-request file checks that lived as inline shell in `ci.yml` (every
+  touched source file has a Doxygen `@file` block; every touched
+  driver/bsp/api/rtos `.c` has a `tests/unit/test_<name>.c` and every touched
+  `*_reg.h` is included by a test), now runnable before pushing. CI calls the
+  same target. Checked by hand against a branch that adds a bare module and
+  a bare register header: all four error cases fire and the exit is 1.
+
+- `make test SANITIZE=1` builds and runs the host suite under
+  AddressSanitizer and UndefinedBehaviorSanitizer with every report fatal,
+  and CI runs it after the plain suite. `gpio.h` documents an out-of-range
+  pin as undefined behaviour; this is the build that would see it. All 275
+  tests pass under it.
+
+- `bsp/inc/bsp.h`, `bsp/src/bsp.c`: `bspClockInit(rcc, pwr, flash)`, the
+  board's 180 MHz bring-up built from the driver calls in order: PWR
+  clock, HSE bypass (8 MHz from the ST-LINK), regulator scale 1, PLL
+  M=8/N=360/P=2, wait for the regulator, over-drive, AHB /1, APB1 /4
+  (45 MHz), APB2 /2 (90 MHz), SYSCLK to the PLL with 5 flash wait states,
+  then prefetch and caches. Stops at the first failing step and returns
+  its status. `BSP_SYSCLK_HZ`/`BSP_HCLK_HZ`/`BSP_PCLK1_HZ`/`BSP_PCLK2_HZ`
+  name the result for SysTick and UART setup. PLL M/N/P, the prescalers
+  and the latency are the values in ST's own Nucleo-F446 180 MHz example;
+  there is no VCO/APB validation in `rccPllConfig`/`rccBusPrescalerConfig`;
+  the limits are `_Static_assert`s in `bsp.h` on this one configuration,
+  and `test_bsp.c` checks that the registers `bspClockInit()` programs
+  work out to the `BSP_*` frequencies. Ten host tests (the whole sequence, the
+  limit checks, and one timeout or `BUSY` case per step). Adds a `board_support` Doxygen group, and `make
+  coverage` now also gates `bsp/src` at 100%.
+
+- `drivers/inc/flash.h`, `drivers/src/flash.c`: `flashEnableCaches()`
+  sets ACR.PRFTEN, ICEN and DCEN in one read-modify-write that keeps
+  LATENCY, and returns void (no failure path). No cache reset: the caches
+  come out of power-on reset empty, as ST's `HAL_Init()` also assumes, so
+  ICRST/DCRST stay unused. Covered by three tests in `test_flash.c`,
+  including that `flashSetLatency()` preserves the cache bits.
+
+- `drivers/inc/pwr.h`, `drivers/src/pwr.c`: `pwrEnableOverdrive()`
+  (CR.ODEN, wait CSR.ODRDY, CR.ODSWEN, wait CSR.ODSWRDY) for the 180 MHz
+  range, with bounded waits like `pwrWaitVoltageScaleReady()`; ODSWEN is
+  not written if ODRDY never sets, and CR.VOS is preserved. The ready-flag
+  waits share one helper, and the timeout constant is renamed
+  `PWR_READY_TIMEOUT_ITERATIONS` (same 100000 value). `drivers/inc/rcc.h`'s
+  ordered bring-up sequence gains the over-drive step between the VOS
+  wait and the prescaler/SYSCLK-switch steps. Sequence and bit positions
+  checked against ST's HAL (`HAL_PWREx_EnableOverDrive`), its
+  `stm32f446xx.h`, and its Nucleo-F446 180 MHz example; RM0390 5.1.4 was
+  not checked directly.
+
+- `drivers/inc/systick.h`, `drivers/src/systick.c`: the SysTick driver,
+  completing `drivers/` (7 of 7). `systickInit(systick, core_hz,
+  tick_hz)` programs LOAD = `core_hz / tick_hz - 1`, rejecting zero
+  arguments and any period outside 2 to 2^24 clocks (LOAD 0 never
+  reloads; LOAD is 24 bits) without touching a register, and starts the
+  timer last with CLKSOURCE|TICKINT|ENABLE; `systickDeinit` restores the
+  reset state. The `SysTick_Handler` and tick counter stay with the kernel.
+  Covered by `tests/unit/test_systick.c`.
+
+- `drivers/inc/nvic.h`, `drivers/src/nvic.c`: the NVIC driver
+  (`nvicEnableIrq`/`DisableIrq`, `SetPending`/`ClearPending`,
+  `SetPriority`/`GetPriority`, and `nvicSetSystemHandlerPriority` for the
+  six configurable system handlers via SCB SHPR1-3). Device IRQn is
+  range-checked (0 to `FMPI2C1_Error_IRQn`) so a negative system-exception
+  number can never index the NVIC arrays; priorities are 0-15, shifted into
+  the implemented top nibble. ISER/ICER/ISPR/ICPR are written as single
+  bits, never read-modify-written. No PRIGROUP setter: `Reset_Handler`
+  already owns it. Covered by `tests/unit/test_nvic.c`; `make lint` gains
+  scoped `misra-c2012-8.7` (nvic.c) and `2.5`/`2.3`/`2.4` (`nvic_reg.h`,
+  `scb_reg.h`) suppressions now that those headers are analysed.
+
+- `core/inc/scb_reg.h`, `core/inc/nvic_reg.h`, `core/inc/systick_reg.h`:
+  added the core-register definitions the NVIC and SysTick drivers and the
+  kernel's context switch need and the headers lacked. SCB: ICSR
+  (`PENDSVSET`/`PENDSVCLR`/`PENDSTSET`/`PENDSTCLR`/`VECTACTIVE`), SCR
+  (`SLEEPONEXIT`/`SLEEPDEEP`/`SEVONPEND`), `CCR.USERSETMPEND`, the SHCSR
+  active and pended bits, the SHPR1 priority fields, and the six
+  `EXC_RETURN_*` values (basic and FPU frames). `IRQn_e` gains the negative
+  system-exception numbers (MemManage -12, BusFault -11, UsageFault -10,
+  SVCall -5, PendSV -2, SysTick -1), which index SCB rather than the NVIC;
+  `tools/check_vector_table.awk` only matches non-negative entries, so the
+  vector-table cross-check is unaffected. SysTick gains the 24-bit
+  `LOAD`/`VAL` masks and the `CALIB` fields. Each is covered by a test.
+  Cross-checked against ARM's CMSIS `core_cm4.h` and ST's
+  `stm32f446xx.h` (ST's F446 SVD has no core peripherals).
+
+- `tools/install_cppcheck.sh` builds the exact cppcheck version CI pins
+  (2.13.0) from source into a per-user prefix, verifying the cloned commit
+  first, and `make lint` now uses it automatically when it is installed
+  (`CPPCHECK=` overrides). `make lint` also warns whenever the cppcheck it
+  runs differs from CI's version. Different cppcheck versions report
+  different MISRA findings; a `cond ? A : B` expression passed locally under
+  2.21 and failed CI under 2.13.0 (`misra-c2012-10.6`), costing a CI cycle.
+  Reproduced that exact failure with the pinned build before relying on it.
+
+### Changed
+
+- `app/src/main.c`: dropped the unreachable `return 0;` after the infinite
+  loop (MISRA C:2012 Rule 2.1). `tests/unit/test_nvic.c`: removed a
+  duplicate `COUNT_OF` definition. No behaviour change.
+
+- Docs and comments only: comments that narrated how the code used to be
+  now say how it is, in `uart.c`, `uart.h`, `iwdg_reg.h`, `startup`, the
+  Makefile, `ci.yml`, `test_pwr.c` and the README Status intro; the reasons
+  they carried (why BRR rounds once, why the CI workflow must not use
+  `cancel-in-progress`) stay. History belongs in this file and in commits.
+  Also corrected: `rcc.h` now says a raising flash latency is already
+  written when `rccSysclkSwitch()` returns `NOT_INITIALIZED` or `TIMEOUT`
+  (safe, and left in place); the README's missing-VCO-check limitation is
+  attributed to `rccPllConfig()`, not `rccBusPrescalerConfig()`; and
+  `driver_status.h` names the GPIO functions that document a pin `@pre`
+  instead of validating it.
+
+- `Makefile`: the firmware now links with `-nostartfiles` and
+  `-Wl,--fatal-warnings`. `Reset_Handler` already does everything crt0
+  would, and linking crt0 pulled newlib's syscall stubs in ahead of
+  `--gc-sections`, which printed four "`_close`/`_lseek`/`_read`/`_write`
+  is not implemented" warnings on every link. The link is now silent, so
+  any new linker warning fails the build. The image is 24 bytes smaller and
+  the vector table is unchanged. The old Makefile comment calling those
+  warnings unavoidable is replaced.
+
+- `Makefile`: the host test and coverage objects now depend on a flags
+  stamp, the way the firmware objects already did. Before this, editing
+  `WARN_FLAGS` or `HOST_CFLAGS` rebuilt nothing, so a new warning stayed
+  hidden until a clean build.
+
+- `core/inc/*_reg.h`, `device/inc/*_reg.h`: every bit and mask macro now
+  casts its constant before shifting, `((uint32_t)1U << X_Pos)` instead of
+  `(1U << X_Pos)`. `1U` has the essential type of an 8-bit unsigned, so
+  `1U << 17U` is a real MISRA C:2012 Rule 12.2 violation, not the
+  cppcheck limitation the old comments called it; with the cast the rule
+  passes under CI's cppcheck 2.13.0. That removes all 50 inline
+  `// cppcheck-suppress misra-c2012-12.2` comments from `drivers/` and
+  `bsp/`, and the comments that justified them. Generated code is
+  unchanged. The Makefile's lint notes now say the rule is deliberately
+  not suppressed anywhere.
+
+- Docs and comments only, from the full review: claims the code or the
+  manual did not back are corrected or removed. `rccBusPrescalerConfig()`
+  no longer says its fields "take effect immediately and synchronously"
+  (RM0390 has no ready flag, but a divider can apply a few AHB cycles after
+  the write); `uartInit()` no longer attributes its clear-UE-first order to
+  an RM0390 requirement (the order is the safe one either way) and now says
+  it rewrites only the fields it names, so a re-init of an instance that
+  used interrupts or CR3 features should `uartDeinit()` first; `bsp.h` says
+  what the `_Static_assert`s do and do not cover and that `test_bsp.c` ties
+  the programmed registers to the `BSP_*` constants; CONTRIBUTING.md no
+  longer says an unresolved bare include signals a layering violation (every
+  `inc/` directory is on every compile's path, so layering is a convention);
+  the changelog no longer says a test binds the startup file's literals to
+  `scb_reg.h` (it pins the header's side only); `iwdg_reg.h` names
+  `IWDG_KEY_ENABLE_ACCESS` correctly; the Makefile comments give the real
+  CI step order and explain the four libc "not implemented" link warnings.
+  Checked against RM0390 Rev 6 (March 2021) once the manual was available:
+  the "RM0390 Table 15" citations pointed at the *Low-power mode summary*;
+  the flash wait states are Table 5 (section 3.4.1), and the note beneath
+  it gives each voltage scale's maximum HCLK (scale 3 120 MHz, scale 2
+  144 MHz, scale 1 168 MHz, the last two extended by over-drive; an
+  earlier revision of this entry wrongly said the manual gives no such
+  figures). Section numbers now match Rev 6, including the chapter numbers
+  in each register header's file comment: GPIO 7.4 (was 8.4), SYSCFG 8.2
+  (9.2), EXTI 10.3 (12.3), Flash registers 3.8 (3.7), IWDG 20.4 (21.4),
+  WWDG 21.6 (20.6), USART 25.6 (19.6), and the voltage regulator and
+  over-drive text is 5.1.3, not 5.1.4. Also from checking the headers
+  against the manual: `iwdg_reg.h` said SR must be polled clear before a
+  PR/RLR write "takes effect", but RM0390 says the wait is needed only
+  before writing them again; `syscfg_reg.h` said PMC holds Ethernet
+  selection (only ADCxDC2 on the F446), now notes SYSCFG_CFGR (0x2C) is not
+  modeled and that PH exists only for EXTI0/1; `exti_reg.h` now says bit 19
+  is reserved in RTSR/FTSR; `gpio_reg.h` notes GPIOx_IDR has no fixed
+  reset value and calls OSPEEDR 0b11 "high speed" as the manual does;
+  `pwr.h` no longer says VOSRDY "cannot set" with the PLL off or that a
+  VOS write with the PLL on is "discarded" (RM0390 says neither);
+  `flash.c`'s read-back comment now quotes what 3.4.1 actually says;
+  `rcc.h` notes PLLSRC also needs PLLI2S off, which this driver never
+  enables; `flash_reg.h` says OPTCR1's offset comes from ST's CMSIS header.
+  GPIOA_OSPEEDR resetting to 0 is correct (RM0390 Table 26: `GPIOx_OSPEEDR`,
+  x = A..H, resets to 0 and only `GPIOB_OSPEEDR` is `0xC0`); the F401/F411
+  value `0x0C000000` does not apply to the F446. RM0390's over-drive text
+  also confirms what `pwr.h` had only from ST's HAL: no peripheral clocks
+  other than PWR's should be on during the over-drive switch.
+
+- `drivers/inc/gpio.h`, `drivers/src/gpio.c`: `gpioDeinitToReset(port, pin,
+  reset)` is `gpioDeinit()`'s register work with the reset values passed
+  in; `gpioDeinit()` is now `gpioDeinitToReset(port, pin,
+  gpioPortResetValues(port))`, with no change in behaviour. `gpioDeinit()`
+  finds those values by comparing `port` with `GPIOA`/`GPIOB`, so on the
+  host (a fake register block at no real address) it always restored
+  zeros and the part that keeps the debugger connected, putting PA13-15
+  and PB3/PB4 back into alternate-function mode with their pulls and speed,
+  was never exercised: a mistake there would have left 100% line and branch
+  coverage intact. Public for the same reason as `gpioPortResetValues()`.
+  This is the seam the earlier "not justified yet" note was waiting for: a
+  wrong SWD restore costs the debugger connection.
+
+- Tests only, from the full review: tests that could not catch the
+  regression they were written for now can. `rccSysclkSwitch` is tested
+  with `CFGR.SW` starting at a stale value (its test preloaded SW to 0
+  despite a comment saying all-1s, so an OR in place of a replace passed),
+  including the PLL-to-HSI switch-back; `rccBusPrescalerConfig` with
+  HPRE/PPRE1/PPRE2 starting at all-1s; `gpioDeinitToReset` with GPIOA's and
+  GPIOB's real reset values and with three distinct values to catch fields
+  taken from the wrong register; each `USART_SR` flag and each
+  `RCC_AHB1ENR` GPIO enable bit is pinned to its own literal (the existing
+  tests only showed they filled a range, so a swap passed). Each of these
+  was checked by introducing the bug and watching the new test fail.
+  `test_bsp_clock_configuration_respects_pll_limits` is removed: it
+  repeated the `_Static_assert`s in `bsp.h` and could not fail separately.
+  A new BSP test derives the frequencies from the PLL and prescaler fields
+  `bspClockInit()` wrote and compares them to `BSP_SYSCLK_HZ`/`BSP_PCLK1_HZ`/
+  `BSP_PCLK2_HZ`, which the `_Static_assert`s could not see because bsp.c
+  programs its register values from separate literals.
+  `test_uart_driver_transmit_sends_every_byte_in_order` and
+  `..._receive_reads_every_byte_in_order` are renamed
+  `..._completes_a_multi_byte_buffer` and `..._fills_every_element`, and
+  their comments say what a one-word fake DR can show; the init test no
+  longer claims it observes UE being cleared first; the duplicate
+  `test_uart_driver_transmit_applies_timeout_to_closing_flush` is removed.
+
+- `Makefile`, `.github/workflows/ci.yml`: warnings are enforced. The
+  firmware and the host test builds used `-Wall -Wextra` with only
+  `-Werror=unused-result` fatal, so a new warning of any other kind passed
+  CI; the `-Wshadow -Wconversion -Wundef` claim in the `test_nvic.c` entry
+  below was likewise checked by nothing. Both builds now share one
+  `WARN_FLAGS` set, `-Wall -Wextra -Wshadow -Wconversion -Wundef -Werror`;
+  the tree already built clean under it at -O0 and -O2 (arm-none-eabi-gcc
+  15.2 and Apple clang). CI also builds `BUILD=release` (-O2) on every
+  run, so an optimiser-only warning shows up on the pull request and not
+  for the first time in the release workflow.
+
+- Docs only, from the full review: `CONTRIBUTING.md` gains a Concurrency
+  section classifying every driver function as single-store (safe on
+  distinct bits), read-modify-write on a shared register (caller must
+  serialise) or single-owner, since the drivers had no stated contract and
+  most of them read-modify-write registers shared across peripherals;
+  `pwrEnableOverdrive()`'s precondition now states ST's HAL note that no
+  other peripheral clock should be enabled during the over-drive switch
+  (which `bspClockInit()` satisfies); and the README lists the known
+  limitations the review found and left alone (no `VTOR`/`.init_array` in
+  startup, the PLLR SYSCLK source, `uartInit()`/`uartDeinit()`/
+  `systickInit()` edge behaviour, no unwind in `bspClockInit()`).
+
+- Header and comment hygiene, from the full review. Annotations and types:
+  `USART_SR_RXNE` is write-0-to-clear (rc_w0), not "READ only";
+  `NvicRegisters_t::IABR` is `volatile const` like every other read-only
+  register; `FPU_FPCCR_LSPACT` is "lazy state preservation active".
+  Includes: `gpio.h`, `flash.h`, `pwr.h`, `rcc.h` and `uart.h` include
+  `<stdint.h>` for the types they use instead of relying on their register
+  header, and `bsp.h` drops one it never used. Comments: `gpioSetAlternateFunction`'s
+  `@return` now lists the pin check, `I2SSCR` is `I2SSRC`, the GPIO value
+  macros all name their register, the SYSCFG EXTICR bit-position wording and
+  a stale "top-of-file note" cross-reference are fixed, the flash header
+  lists `RDERR` among the omitted SR bits, and `bsp.h` says its limits are
+  `_Static_assert`s. `Makefile`, `device/inc/rcc_reg.h` and
+  `tools/openocd.cfg` gained their missing final newline.
+
+- Release process and setup docs, from the full review. `docs/VERSIONING.md`
+  now describes how releases were actually cut (a `release/vX.Y.Z` branch
+  into `main`, the changelog link references, the UTC-date convention, the
+  strict "up to date" branch protection, and the sync-back PR into
+  `develop`), where it described a `develop`->`main` PR and omitted the last
+  two; `CONTRIBUTING.md` agrees. The README lists `arm-none-eabi-gdb` and
+  `nc` (needed by `make debug`) and the CI tool versions (clang-format 18,
+  Doxygen 1.18.0, cppcheck 2.13.0, Arm 15.2.rel1) with the warning that other
+  versions can fail `make format-check`/`make docs`, and mentions the
+  `flash.c` coverage exclusion next to the "100% coverage" claim.
+  `SECURITY.md` no longer calls `bsp/` empty. `groups.dox`/`Doxyfile` order
+  the layers bottom-up (`drivers` -> `bsp` -> `api`) like ARCHITECTURE.
+  `release.yml`'s PR dry run now also triggers on `Doxyfile` and
+  `CHANGELOG.md` - the two files a release PR changes, which it previously
+  skipped. `ci.yml` runs on `ubuntu-24.04` (its apt pins are for that
+  release; `ubuntu-latest` would break them when the alias moves) and passes
+  the PR base ref through `env:` instead of interpolating it into the script.
+
+- Tests only: closed the remaining gaps the review's contract matrix found
+  between each driver's documented contract and what the tests pin (29
+  tests; the mutations below each passed the old suite and fail now).
+  `gpioInit` places every field on every pin with distinct non-zero values
+  (including `GPIO_MODE_ANALOG`, never accepted by a test before), rejects
+  each bad argument without touching any of the four registers, and
+  `gpioWritePin` writes BSRR exactly (not OR-ed) and leaves ODR alone;
+  `gpioTogglePin` reads ODR, not IDR. AF selection is tested on all 16 pins
+  at AF 0 and 15 (pins 7/8 straddle AFRL/AFRH). RCC: `rccPllConfig` with an
+  HSI source clears PLLSRC, `rccHseEnable` in crystal mode clears a stale
+  HSEBYP, the enables preserve every other CR bit, each `rccSysclkSwitch`
+  source checks its own ready bit. UART: a rejected `uartInit` leaves a
+  running peripheral untouched, STOP 2 -> 1 clears the field, BRR rounds to
+  nearest (down and tie cases) without 32-bit overflow, non-fault SR bits
+  are not errors, a NULL output is rejected before waiting, `uartReceive`
+  stops at the first fault, waits are flag-specific. NVIC: `nvicSetPriority`
+  overwrites and leaves every neighbouring IP byte. PWR/flash/SysTick:
+  flag-specific waits, other ACR bits preserved, `systickInit` rejections
+  leave VAL untouched. `bspClockInit`: PLL enabled before the VOSRDY wait,
+  PWR clock first, the documented state after a switch timeout, and no
+  plain retry. Still not observable through a single-register fake: write
+  *ordering* inside a function and UART byte order.
+
+- Tests only: every register header now has a test with literal values for
+  what the drivers rely on, taken from ST's SVD/HAL and ARM's CMSIS rather
+  than built from the header's own macros. Before, the field-value macros
+  were only tested for distinctness, so swapping `PWR_CR_VOS_SCALE1` and
+  `SCALE3` (which would under-volt the 180 MHz bring-up), or exchanging
+  `GPIO_MODE_AF` and `GPIO_PUPD_DOWN` (both 0x2), passed every test. Now
+  pinned: the VOS/SYSCLK/HPRE/PPRE/PLLP/PLLSRC/GPIO/EXTICR/STOP/AP encodings,
+  `Msk` values for the fields the drivers shift, the `CR`/`CSR`/`ACR`/`CTRL`
+  bits the drivers touch, every base address and pointer macro that was
+  unpinned (`GPIOA`..`GPIOH`, `USART1`..`UART5`, RCC, FLASH, PWR, EXTI,
+  SYSCFG, IWDG, WWDG, NVIC, SCB, FPU, MPU, SysTick), `sizeof(RccRegisters_t)`
+  and the offset of every member after a RESERVED gap in each struct. The
+  constants `startup_stm32f446re.s` hard-codes (CPACR address, FPU enable
+  mask, AIRCR address and the PRIGROUP=3 write) have `scb_reg.h`'s matching
+  macros pinned to the same literals by a test. Nothing reads the `.s` file,
+  so editing a literal there alone is not caught; the pins catch the header
+  drifting from the manual. Every literal agreed with the existing macros, so
+  this found no wrong value - it makes the next wrong header value fail. The EXTI line numbers
+  16-22 are regression pins only: neither the SVD nor ST's headers define
+  them.
+
+- `drivers/{inc,src}/uart.{h,c}`: the TXE/TC/RXNE waits no longer use a
+  fixed 100000-poll count; `uartFlush`, `uartTransmitByte`, `uartTransmit`,
+  `uartReceiveByte` and `uartReceive` take a caller-supplied `timeout`
+  (SR polls; per byte for the buffer functions). A fixed count is about
+  5-9 ms at 180 MHz -O2 but 11x longer at 16 MHz and 2-3x longer at -O0, so
+  it timed out spuriously at low baud rates (a TC wait is two frame times:
+  8 ms at 2400 baud) and whenever a received byte arrived more than a few
+  milliseconds after the call - which made an echo loop unusable. A receive
+  wait depends on when the sender next speaks, not on the baud rate, so only
+  the caller can size it. `timeout == 0` polls once (a non-blocking check);
+  `UINT32_MAX` is an effectively unbounded wait. `uart.h` documents how to
+  size one. API change, but nothing in the repo calls these yet. Per-poll
+  cost figures are estimates, not measured on hardware.
+
+- Docs and comments brought in line with the code after the driver and BSP
+  work: `docs/ARCHITECTURE.md` (the drivers box omitted Flash and PWR; bsp/
+  is no longer only "pin mapping"; `tools/install_cppcheck.sh`),
+  `CONTRIBUTING.md` (layering diagram now `drivers` -> `bsp` -> `api` ->
+  `app`, matching ARCHITECTURE; `if (status)` reasoning; coverage filter
+  now `drivers/src` + `bsp/src`; the four workflows; the standalone-command
+  list), `README.md`/`docs/VERSIONING.md`/`docs/mainpage.md`/`docs/groups.dox`
+  (drivers are complete; "0.2.0 is reserved" reworded; BSP described),
+  `SECURITY.md` (shared composite actions, graphviz unpinned on purpose),
+  `driver_status.h` (`DRIVER_STATUS_ERR_BUSY` is returned by `rcc.c` - it
+  is not reserved for non-blocking drivers), `uart.h` (no longer "8N1",
+  nvic.h now exists), `rcc.h` (CR.VOS resets to 0b11, so "reset default
+  scale 3" was wrong: scale 3 is what runs while the PLL is off; steps 2
+  and 3 are interchangeable), `pwr.h` (over-drive), `bsp.h` (the state a
+  failed `bspClockInit()` leaves behind and that it cannot be retried), and
+  the Makefile, workflow and Doxyfile comments that still described
+  `bsp/` as empty, `pwr.c` as caller-less, or `clean` as only deleting
+  `build/`. `make lint`'s suppression rationale is rewritten against what
+  the pinned cppcheck 2.13.0 actually reports: the `misra-c2012-8.7`
+  suppressions on rcc.c, pwr.c, nvic.c, systick.c and bsp.c and four inline
+  `misra-c2012-12.2` suppressions in nvic.c were not needed and are removed.
+- `bsp/inc/bsp.h`: the PLL VCO and APB/SYSCLK limits are now
+  `_Static_assert`s, so an out-of-range `BSP_*` constant fails any firmware
+  build, not only `make test`.
+
+- Tests only: closed the gaps a mutation pass over `drivers/` and `bsp/`
+  found (each mutation passed all 207 tests before, and is caught now).
+  `bspClockInit` tests assert CR.VOS was written before the PLL stage
+  (the ordering bug CONTRIBUTING.md says shipped once) and cover the
+  PLL-already-on `BUSY` case; `gpioInit` is tested with non-zero field
+  values in every register; `rccPllConfig` is tested at M 2/63, N 50/432
+  and PLLP DIV8; `uartInit`'s BRR bounds are tested at exactly 16, 65535
+  and one past each; a tautological assertion in `test_pwr.c` was removed.
+  Not closed: `uartTransmit`/`uartReceive` byte *order* is not observable
+  through a single-register fake DR (the tests that claimed it are renamed
+  below). `gpioDeinit`'s SWD reset-value restore was also out of reach here
+  because `gpioPortResetValues()` identifies a port by its real address; it
+  is tested now through `gpioDeinitToReset()` (see below).
+
+### Fixed
+
+- `tools/check_test_registration.awk`: two more ways to get "test compiles,
+  never runs" past it, found by trying them. A `RUN_TEST(test_x);` inside a
+  `/* ... */` block or an `#if 0` region still counted as a live registration
+  (only a `//` comment or a line starting with `*` was excluded), and a
+  definition written as `void` on one line and `test_x(void)` on the next was
+  invisible to both the defined-test and the odd-signature patterns. Every
+  rule now sees the line with line comments, block comments (one line or
+  many) and `#if 0` regions removed, so a commented-out registration is
+  reported as `MISSING RUN_TEST` and a test defined inside one as a
+  `RUN_TEST` for a test nothing defines, and a column-0 `test_x(` is
+  reported as an unrecognised signature. Checked against ten hand-made
+  variants of the real test tree (BWK awk; not run under mawk, which CI's
+  Ubuntu image uses). The file mode is now 644 like the other awk scripts.
+
+- `Makefile`: plain `make` built nothing. The flags-stamp rule is the first
+  target in the file, so it was the default goal and `all` was never
+  reached; the README's "`make` / `make all`" was wrong, and CI, the
+  pre-commit hook and the release workflow all hid it by calling `make all`.
+  `.DEFAULT_GOAL := all` is now set explicitly.
+
+- `Makefile`: `make debug` attached GDB to whatever image was already on the
+  board, so the symbols of the ELF just built could silently disagree with
+  the running code, and `Reset_Handler` could not be stepped. After
+  attaching it now runs `monitor reset halt`, `load`, `monitor reset halt`.
+
+- `startup/startup_stm32f446re.s`: `Default_Handler` was a `NOTYPE` symbol
+  with an even address (`0x0800024c`). The vector table only ever used the
+  `.thumb_set` aliases, which do carry the Thumb bit, so nothing was broken,
+  but any direct reference to the global symbol (a fallback handler pointer
+  in the kernel, say) would have loaded an even address and taken an
+  INVSTATE UsageFault. It is now `.type Default_Handler, %function` (address
+  `0x0800024d`); the vector table words are unchanged.
+
+- Tests only: `test_nvic.c` passed `1UL << n` (64-bit on a 64-bit host) to
+  32-bit parameters, a `-Wconversion` warning; every test file now compiles
+  with `-Wall -Wextra -Wshadow -Wconversion -Wundef` and no warnings.
+
+- `tools/`: the repo's own consistency checks are harder to fool (full
+  review). `check_test_registration.awk` counted a commented-out
+  `// RUN_TEST(test_x);` as registered, which is exactly the "test compiles,
+  passes, never runs" failure it exists to catch: only a live statement
+  counts now, a duplicate registration, a commented-out one, and a test
+  function with a signature other than `void test_x(void)` (invisible to
+  the strict pattern) are each reported, and finding no tests at all fails.
+  `check_vector_table.awk` only compared the 97 peripheral slots; it now
+  also checks the 16 architecturally fixed core words and that each
+  negative `IRQn_e` entry (SVCall, PendSV, SysTick, MemManage, BusFault,
+  UsageFault) names the vector word it claims - a swapped SVC/PendSV/SysTick
+  slot used to pass - and that the table has exactly 97 peripheral slots
+  and no duplicate IRQn. `install_cppcheck.sh` stages the install and swaps
+  it into place only after the binary passes a real cppcheck+MISRA run
+  (previously an interrupted run could leave a `bin/cppcheck` without its
+  `cfg/` that `make lint` then trusted), restoring the previous install on
+  failure, and cleans up on SIGINT/SIGTERM. New `make hooks` sets up the
+  pre-commit hook; README/CONTRIBUTING no longer say `chmod +x` (the file is
+  already executable), and now document that the hook checks the working
+  tree rather than the index and that `git commit --no-verify` skips it.
+  Each awk change was checked against a deliberately broken copy.
+
+- `Makefile`: the build now tracks what it was silently ignoring (found by
+  the full review). **Flags:** after a `BUILD=debug` build, `make
+  BUILD=release` printed "nothing to be done" and left the -O0 image to be
+  mistaken for a release one, and a partial edit linked a mix of -O0 and -O2
+  objects; the objects and the ELF now depend on a `build/.flags` stamp that
+  is rewritten only when the compile/link command lines change, and the ELF
+  also depends on the linker script (editing `STM32F446RE.ld` did not
+  relink). **Host builds:** `make test` and `make coverage` had no header
+  dependency tracking, so editing a driver or register header could leave
+  stale test objects and a green run; they now use `-MMD -MP` like the
+  firmware build. **Coverage:** `make coverage` deletes leftover `.gcda`
+  files before running (counters accumulate, so a removed or broken test
+  could keep showing hits and let the 100% gate pass; CI's fresh checkout
+  was never affected, local runs were). Also: `make re` no longer races
+  under `make -j` (`clean` and `all` are now sequenced), source discovery is
+  `$(sort)`ed so the link order does not depend on the filesystem,
+  `.DELETE_ON_ERROR` stops a failed `objcopy` leaving a truncated `.bin`
+  that looks up to date. The flags stamp compares mtimes, so macOS make
+  3.81's 1-second resolution can miss a profile switch made within a second
+  of the previous build - only reachable from a script. Verified by
+  switching profiles, touching the linker script and headers, and running
+  `make -j4 re`.
+
+- `drivers/src/nvic.c`: `nvicDisableIrq()` now issues `DSB`+`ISB` after the
+  ICER write, and `nvicEnableIrq()` brackets the ISER write with compiler
+  barriers, as CMSIS' `__NVIC_DisableIRQ()`/`__NVIC_EnableIRQ()` do. Without
+  the DSB the ICER write can still be in the write buffer when the caller
+  continues, so an interrupt that was already pending could be taken after
+  the function returned and break the usual "disable, then touch state the
+  ISR also uses" pattern; without the compiler barrier an inlined or LTO
+  build could move stores to ISR-shared state past the enable. Host builds
+  get a compiler barrier only (there is no NVIC to synchronise); the
+  `dsb`/`isb` instructions are confirmed in the target object. The
+  behaviour is not observable in the in-memory fake, so no new test.
+
+- `drivers/src/rcc.c`: `rccHsiDisable()`, `rccHseDisable()` and
+  `rccPllDisable()` now wait (bounded, like the enables) for the ready flag
+  to follow the ON bit down, and return `DRIVER_STATUS_ERR_TIMEOUT` if it
+  does not. The flag drops a few cycles after the ON bit, so a quick
+  disable-then-enable read a stale `HSERDY`/`PLLRDY` and reported success
+  before the oscillator had restarted; with the PLL that also let
+  `rccSysclkSwitch()`'s ready check pass on a stale `PLLRDY`. ST's HAL waits
+  for the flag to clear in all three paths (`HAL_RCC_OscConfig`). Not on
+  the `bspClockInit()` path (it starts from reset), so this affects any
+  later reconfiguration. A timed-out `rccHseEnable()`/`rccPllEnable()`
+  still leaves its ON bit set (a retry reports `BUSY`); `rcc.h` now says
+  to call the matching disable first. Six tests (each oscillator: success
+  preserves every other CR bit; a ready flag that never clears times out).
+
+- `drivers/src/flash.c`: a comment containing the coverage-exclusion
+  marker text made gcovr see a second, never-closed exclusion region and
+  warn on every `make coverage`; the comment no longer spells the markers
+  out (coverage is unchanged at 100%).
+
+- `drivers/src/rcc.c`: every `rcc*ClockEnable()` now reads its enable
+  register back after setting the bit, so the clock is running before the
+  caller's first access to the peripheral (e.g. `gpioInit()` straight
+  after `rccGpioClockEnable()`). ST's HAL does the same in each
+  `__HAL_RCC_*_CLK_ENABLE` macro ("Delay after an RCC peripheral clock
+  enabling"), which is what this follows; ST's errata sheet itself was not
+  checked, and the effect cannot be observed in the host tests.
+
+- `drivers/src/uart.c`: `uartTransmit()`/`uartReceive()` with a NULL buffer
+  and a non-zero length, and `uartReceiveByte()` with a NULL output, now
+  return `DRIVER_STATUS_ERR_INVALID_PARAM` instead of dereferencing NULL,
+  as CONTRIBUTING.md's error-handling contract already requires of every
+  runtime parameter outside its domain (`nvicGetPriority()` already did).
+  A zero length with a NULL buffer is still a successful no-op. Documented
+  in `uart.h` and covered by three tests.
+
+- `drivers/src/nvic.c`: the NVIC functions now reject the reserved vector
+  positions inside 0 to `FMPI2C1_Error_IRQn` (61-62, 79-80, 82-83, 85-86,
+  88-90) with `DRIVER_STATUS_ERR_INVALID_PARAM`, where #99 accepted them
+  as "architecturally harmless". Enabling and then pending one vectors
+  through the zero in startup's vector table, which is a fault. The tests
+  for the write-1-to-act banks now preload every ISER/ICER/ISPR/ICPR word
+  with a pattern, so a read-modify-write (`ICER |= bit`, which on silicon
+  disables every enabled line) is caught; the system-handler tests
+  preload SHPR1-3 so a wrong byte-lane mask is caught. Both were found by
+  mutation testing.
+
+- `device/inc/iwdg_reg.h`: removed `WINR` (0x10), `IWDG_SR_WVU` and
+  `IWDG_WINR_WIN_*`, which the F446's IWDG does not have; the struct is
+  0x10 bytes, not 0x14. ST's F446 SVD and `stm32f446xx.h` both define only
+  KR, PR, RLR and SR (the window option is a feature of other STM32
+  families). Nothing in the repo used them. RM0390 section 21 itself was
+  not available to check.
+
+- `uartInit()` accepted any computed BRR from 1 upward and rejected only 0.
+  BRR holds USARTDIV x 16, and USARTDIV below 1 cannot be generated: with
+  16x oversampling the highest baud rate is pclk / 16, which is BRR 16. A
+  baud rate above that (e.g. 8 MHz at 1 Mbaud, BRR 8) returned
+  `DRIVER_STATUS_OK` and configured a baud rate the peripheral cannot
+  produce. It now returns `DRIVER_STATUS_ERR_INVALID_PARAM` for any BRR
+  below 16. The old test that asserted BRR 1 was accepted is replaced by
+  one asserting BRR 16 is the smallest valid value and one covering 1, 8
+  and 15.
+- `GPIOA_OSPEEDR_RESET` was `0x0C000000` (PA13 at very high speed), a value
+  that belongs to other STM32F4 variants such as the F401/F411. ST's own
+  STM32F446 SVD, which lists a reset value for every register, has GPIOA's
+  `OSPEEDR` at `0x00000000` (GPIOB's `0x000000C0` and the other four
+  non-zero values were right). Left in, `gpioDeinit()` on PA13 would have
+  written a very-high-speed setting the chip never resets to. The constant is
+  removed, `gpioPortResetValues()` reports 0 for it, and a test pins it. This
+  corrects the reset table added in v0.1.5.
+
 ## [0.1.5] - 2026-10-08
 
 ### Added
@@ -798,7 +1345,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/ka5j/stm32_rtos/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/ka5j/stm32_rtos/compare/v0.1.2...v0.1.3

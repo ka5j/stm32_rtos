@@ -18,7 +18,7 @@
  * this chip; the remainder of each 8-word bank reads as unimplemented.
  *
  * Only the top 4 bits of each IP[] priority byte are implemented on the
- * Cortex-M4 (PM0214: __NVIC_PRIO_BITS = 4), giving 16 priority levels
+ * Cortex-M4 (__NVIC_PRIO_BITS = 4 in CMSIS and ST's stm32f446xx.h), giving 16 priority levels
  * with values 0x00, 0x10, 0x20, ... 0xF0. Writing a priority value with
  * low-nibble bits set does not fault, but those bits are not stored in
  * hardware; a driver setting priorities should shift into the top
@@ -53,7 +53,7 @@ typedef struct NvicRegisters_t
     volatile uint32_t RESERVED2[24]; ///< 0x120-0x17C: reserved
     volatile uint32_t ICPR[8];       ///< 0x180-0x19C: Interrupt Clear-Pending Registers
     volatile uint32_t RESERVED3[24]; ///< 0x1A0-0x1FC: reserved
-    volatile uint32_t IABR[8];       ///< 0x200-0x21C: Interrupt Active Bit Registers (READ only)
+    volatile const uint32_t IABR[8]; ///< 0x200-0x21C: Interrupt Active Bit Registers (READ only)
     volatile uint32_t RESERVED4[56]; ///< 0x220-0x2FC: reserved
     volatile uint8_t IP[240]; ///< 0x300-0x3EF: Interrupt Priority Registers, byte-addressable
     volatile uint32_t RESERVED5[644]; ///< 0x3F0-0xDFC: reserved
@@ -68,11 +68,22 @@ typedef struct NvicRegisters_t
  * Matches the position of each *_IRQHandler entry in
  * startup/startup_stm32f446re.s. Used to index NVIC->ISER/ICER/ISPR/
  * ICPR/IABR (word = IRQn / 32, bit = IRQn % 32) and NVIC->IP (byte
- * index = IRQn directly). Gaps (61-62, 79-80, 82-83, 85-86, 88-90) are
+ * index = IRQn directly) for the device interrupts (IRQn >= 0). The
+ * negative entries are the Cortex-M4 system exceptions (PM0214), which
+ * have no NVIC enable/pending/priority bits: they are configured through
+ * SCB (SHPRx, SHCSR, ICSR) and never index the NVIC arrays above - a
+ * driver must range-check IRQn >= 0 before using it as an NVIC index.
+ * Gaps (61-62, 79-80, 82-83, 85-86, 88-90) are
  * reserved positions in the vector table and intentionally absent here.
  */
 typedef enum IRQn_e
 {
+    MemoryManagement_IRQn = -12,
+    BusFault_IRQn = -11,
+    UsageFault_IRQn = -10,
+    SVCall_IRQn = -5,
+    PendSV_IRQn = -2,
+    SysTick_IRQn = -1,
     WWDG_IRQn = 0,
     PVD_IRQn = 1,
     TAMP_STAMP_IRQn = 2,

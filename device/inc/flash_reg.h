@@ -3,20 +3,21 @@
  * @brief Flash interface register definitions for the STM32F446xx family.
  *
  * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 3.7: Embedded Flash memory interface
- * registers.
+ * reference manual), section 3.8: Flash interface registers
+ * (the Embedded Flash memory interface chapter is 3).
  *
  * ACR's LATENCY field becomes relevant once RCC's PLL raises SYSCLK
  * past the 16 MHz HSI reset default: flash access time does not scale
  * with clock frequency, so wait states must be set to match the new
  * SYSCLK (and VOS range from pwr_reg.h) before switching RCC_CFGR.SW to
- * the PLL. RM0390 Table 15 gives the required LATENCY value per
- * frequency range. Omitting this step does not fault visibly; it
- * corrupts instruction fetch at the new speed.
+ * the PLL. RM0390 Table 5 (section 3.4.1) gives the required LATENCY
+ * value per frequency range and supply voltage, and says LATENCY must
+ * be correctly programmed for the clock in use; getting it wrong does not
+ * raise a fault, the flash simply cannot be read reliably at that speed.
  *
  * Field coverage is scoped to the clock bring-up path above, not flash
  * self-programming: FLASH_SR only defines EOP, WRPERR, and BSY (RM0390
- * also has OPERR/PGAERR/PGPERR/PGSERR), and FLASH_CR carries no bit
+ * also has OPERR/PGAERR/PGPERR/PGSERR/RDERR), and FLASH_CR carries no bit
  * macros at all (PG/SER/MER/STRT/LOCK/...), since this project does not
  * erase, program, or write option bytes to flash at runtime. Fill in
  * the remaining SR error bits and CR's programming bits if/when this
@@ -35,7 +36,7 @@
 #define FLASH_BASE (0x40023C00UL) ///< Flash interface peripheral base address
 
 /**
- * @brief Flash interface register map (RM0390 section 3.7).
+ * @brief Flash interface register map (RM0390 section 3.8).
  */
 typedef struct FlashRegisters_t
 {
@@ -45,32 +46,36 @@ typedef struct FlashRegisters_t
     volatile uint32_t SR;      ///< 0x0C: status register
     volatile uint32_t CR;      ///< 0x10: control register
     volatile uint32_t OPTCR;   ///< 0x14: option control register
-    volatile uint32_t OPTCR1;  ///< 0x18: option control register 1
+    volatile uint32_t OPTCR1;  ///< 0x18: option control register 1 (offset from ST's CMSIS header;
+                               ///< RM0390 Rev 6 names it but gives no offset)
 } FlashRegisters_t;
 
 #define FLASH ((FlashRegisters_t *)FLASH_BASE) ///< Pointer to the Flash interface register block
 
 /* --- FLASH_ACR bit definitions --- */
-#define FLASH_ACR_LATENCY_Pos (0U)                            ///< Bit position within FLASH_ACR
-#define FLASH_ACR_LATENCY_Msk (0xFU << FLASH_ACR_LATENCY_Pos) ///< bits 3:0, wait states
-#define FLASH_ACR_PRFTEN_Pos (8U)                             ///< Bit position within FLASH_ACR
-#define FLASH_ACR_PRFTEN (1U << FLASH_ACR_PRFTEN_Pos)         ///< WRITE - enable prefetch
-#define FLASH_ACR_ICEN_Pos (9U)                               ///< Bit position within FLASH_ACR
-#define FLASH_ACR_ICEN (1U << FLASH_ACR_ICEN_Pos)             ///< WRITE - enable instruction cache
+#define FLASH_ACR_LATENCY_Pos (0U) ///< Bit position within FLASH_ACR
+#define FLASH_ACR_LATENCY_Msk ((uint32_t)0xFU << FLASH_ACR_LATENCY_Pos) ///< bits 3:0, wait states
+#define FLASH_ACR_PRFTEN_Pos (8U)                               ///< Bit position within FLASH_ACR
+#define FLASH_ACR_PRFTEN ((uint32_t)1U << FLASH_ACR_PRFTEN_Pos) ///< WRITE - enable prefetch
+#define FLASH_ACR_ICEN_Pos (9U)                                 ///< Bit position within FLASH_ACR
+#define FLASH_ACR_ICEN ((uint32_t)1U << FLASH_ACR_ICEN_Pos)   ///< WRITE - enable instruction cache
 #define FLASH_ACR_DCEN_Pos (10U)                              ///< Bit position within FLASH_ACR
-#define FLASH_ACR_DCEN (1U << FLASH_ACR_DCEN_Pos)             ///< WRITE - enable data cache
+#define FLASH_ACR_DCEN ((uint32_t)1U << FLASH_ACR_DCEN_Pos)   ///< WRITE - enable data cache
 #define FLASH_ACR_ICRST_Pos (11U)                             ///< Bit position within FLASH_ACR
-#define FLASH_ACR_ICRST (1U << FLASH_ACR_ICRST_Pos)           ///< WRITE - reset instruction cache
+#define FLASH_ACR_ICRST ((uint32_t)1U << FLASH_ACR_ICRST_Pos) ///< WRITE - reset instruction cache
 #define FLASH_ACR_DCRST_Pos (12U)                             ///< Bit position within FLASH_ACR
-#define FLASH_ACR_DCRST (1U << FLASH_ACR_DCRST_Pos)           ///< WRITE - reset data cache
+#define FLASH_ACR_DCRST ((uint32_t)1U << FLASH_ACR_DCRST_Pos) ///< WRITE - reset data cache
 
 /* --- FLASH_SR bit definitions --- */
-#define FLASH_SR_EOP_Pos (0U)                       ///< Bit position within FLASH_SR
-#define FLASH_SR_EOP (1U << FLASH_SR_EOP_Pos)       ///< READ/WRITE 1 to clear - end of operation
-#define FLASH_SR_WRPERR_Pos (4U)                    ///< Bit position within FLASH_SR
-#define FLASH_SR_WRPERR (1U << FLASH_SR_WRPERR_Pos) ///< READ/WRITE 1 to clear - write protect error
-#define FLASH_SR_BSY_Pos (16U)                      ///< Bit position within FLASH_SR
-#define FLASH_SR_BSY (1U << FLASH_SR_BSY_Pos)       ///< READ only - flash busy with an operation
+#define FLASH_SR_EOP_Pos (0U) ///< Bit position within FLASH_SR
+#define FLASH_SR_EOP                                                                               \
+    ((uint32_t)1U << FLASH_SR_EOP_Pos) ///< READ/WRITE 1 to clear - end of operation
+#define FLASH_SR_WRPERR_Pos (4U)       ///< Bit position within FLASH_SR
+#define FLASH_SR_WRPERR                                                                            \
+    ((uint32_t)1U << FLASH_SR_WRPERR_Pos) ///< READ/WRITE 1 to clear - write protect error
+#define FLASH_SR_BSY_Pos (16U)            ///< Bit position within FLASH_SR
+#define FLASH_SR_BSY                                                                               \
+    ((uint32_t)1U << FLASH_SR_BSY_Pos) ///< READ only - flash busy with an operation
 
 /** @} */
 

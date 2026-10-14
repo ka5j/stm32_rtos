@@ -23,17 +23,21 @@ DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency)
     {
         flash->ACR = (flash->ACR & ~FLASH_ACR_LATENCY_Msk) | (latency << FLASH_ACR_LATENCY_Pos);
 
-        /* RM0390 requires the programmed latency be read back and
-         * confirmed before the clock change it is preparing for goes
-         * ahead: the write is not guaranteed to have been taken into
-         * account when the store retires. Proceeding on an unaccepted
-         * latency is exactly the case that corrupts instruction fetch
-         * silently once SYSCLK rises, so it is reported as a hardware
-         * fault rather than assumed to have worked.
+        /* RM0390 (3.4.1, "Increasing the CPU frequency") says to check
+         * that the new number of wait states is taken into account by
+         * reading FLASH_ACR, and notes a wait-state change "may not be
+         * effective straight away". So the programmed latency is read back
+         * and confirmed before the clock change it is preparing for goes
+         * ahead. Proceeding on an unaccepted latency is the case that
+         * makes flash reads unreliable once SYSCLK rises, with no fault
+         * raised, so it is reported as a hardware fault rather than
+         * assumed to have worked.
          *
-         * The GCOVR_EXCL_START/STOP region below is deliberate, and is
-         * the only coverage exclusion in this project - not a gap being
-         * papered over. Every other bounded wait here is host-testable
+         * The coverage-exclusion region below is deliberate, and is the
+         * only one in this project - not a gap being papered over. (Its
+         * marker names are not spelled out in this comment: gcovr matches
+         * them anywhere on a line, so doing so would open a second,
+         * never-closed region and make it warn.) Every other bounded wait here is host-testable
          * precisely because the flag it polls is a field distinct from
          * what the driver writes (see the Makefile's TEST_DRIVER_SOURCES
          * comment), so a test can hold that flag clear in a plain
@@ -51,6 +55,11 @@ DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency)
     }
 
     return status;
+}
+
+void flashEnableCaches(FlashRegisters_t *flash)
+{
+    flash->ACR |= FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN;
 }
 
 /** @} */

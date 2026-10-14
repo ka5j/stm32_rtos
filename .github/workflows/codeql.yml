@@ -1,11 +1,11 @@
 name: CodeQL
 
 # Static analysis via GitHub CodeQL. Runs both build passes so CodeQL
-# actually observes the register-layer code: `make all` alone only
-# compiles startup/ + app/src/main.c (a stub, `while(1){}`) - nothing
-# cross-compiled includes a core/inc or device/inc header yet. The
-# register headers are only exercised today via tests/unit/, compiled
-# natively by `make test`, so both passes run before analysis.
+# observes all of the code: `make all` cross-compiles startup/, app/ and
+# every driver and bsp source (the linker then garbage-collects what
+# main() never calls, but the compiler - and CodeQL - still sees it),
+# while `make test` compiles the same sources natively together with the
+# tests, so both flavours of the code are analysed.
 on:
   push:
     branches: [main, develop]

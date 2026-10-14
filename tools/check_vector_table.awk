@@ -4,6 +4,13 @@
 #
 # Cross-checks core/inc/nvic_reg.h's IRQn_e enum against
 # startup/startup_stm32f446re.s's vector table, position by position.
+# The first 16 vector words (initial SP and the Cortex-M4 core exceptions)
+# are architecturally fixed and checked against that fixed layout; the
+# negative IRQn_e entries (SVCall -5, PendSV -2, SysTick -1, and the three
+# fault handlers) are checked against the word they name (16 + IRQn), so a
+# swapped SVC/PendSV/SysTick slot - the three an RTOS depends on - fails
+# here as well.
+#
 # Catches the two silently drifting apart - a wrong IRQn value would
 # route a driver's NVIC enable/priority call to the wrong interrupt
 # line without a compiler or linker ever noticing.
@@ -21,13 +28,28 @@ BEGIN {
     CORE_WORDS = 16 # ARMv7-M: initial SP + 15 core exception vectors,
                      # fixed by the architecture, before any peripheral
                      # IRQ starts at word index 16 / IRQn 0.
+    EXPECTED_PERIPHERAL_SLOTS = 97 # the F446 has IRQ 0..96; a truncated or
+                                   # padded table must not pass just because
+                                   # the two files agree with each other.
+    # ARMv7-M core vector words, in order (a literal 0 is a reserved slot).
+    core[0] = "_estack";           core[1] = "Reset_Handler"
+    core[2] = "NMI_Handler";       core[3] = "HardFault_Handler"
+    core[4] = "MemManage_Handler"; core[5] = "BusFault_Handler"
+    core[6] = "UsageFault_Handler"
+    core[7] = "0"; core[8] = "0"; core[9] = "0"; core[10] = "0"
+    core[11] = "SVC_Handler";      core[12] = "DebugMon_Handler"
+    core[13] = "0";                core[14] = "PendSV_Handler"
+    core[15] = "SysTick_Handler"
+    # IRQn_e names that differ from their vector's handler name.
+    handlerFor["SVCall"] = "SVC_Handler"
+    handlerFor["MemoryManagement"] = "MemManage_Handler"
 }
 
 # ---- File 1: core/inc/nvic_reg.h - extract IRQn_e name/value pairs ----
 NR == FNR {
     if ($0 ~ /typedef enum IRQn_e/) { in_enum = 1; next }
     if (in_enum && $0 ~ /IRQn_e;/) { in_enum = 0; next }
-    if (in_enum && $0 ~ /_IRQn = [0-9]+,/) {
+    if (in_enum && $0 ~ /_IRQn = -?[0-9]+,/) {
         line = $0
         sub(/,.*/, "", line)
         sub(/^[ \t]+/, "", line)
@@ -35,8 +57,16 @@ NR == FNR {
         name = parts[1]
         sub(/_IRQn$/, "", name)
         val = parts[2] + 0
-        enumName[val] = name
-        enumCount++
+        if (val < 0) {
+            sysName[val] = name
+        } else {
+            if (val in enumName) {
+                printf "ERROR: nvic_reg.h defines IRQn %d twice (%s and %s)\n", val, enumName[val], name
+                enumDupes++
+            }
+            enumName[val] = name
+            enumCount++
+        }
     }
     next
 }
@@ -62,7 +92,32 @@ END {
     }
 
     peripheral_count = idx - CORE_WORDS
-    errors = 0
+    errors = enumDupes + 0
+
+    if (peripheral_count != EXPECTED_PERIPHERAL_SLOTS) {
+        printf "ERROR: the vector table has %d peripheral slots, the F446 has %d (IRQ 0..%d)\n", \
+            peripheral_count, EXPECTED_PERIPHERAL_SLOTS, EXPECTED_PERIPHERAL_SLOTS - 1
+        errors++
+    }
+
+    # The architecturally fixed core words.
+    for (c = 0; c < CORE_WORDS; c++) {
+        if (word[c] != core[c]) {
+            printf "ERROR: core vector word %d is %s, ARMv7-M requires %s\n", c, word[c], core[c]
+            errors++
+        }
+    }
+
+    # Every negative IRQn_e entry must name the core word it claims.
+    for (v in sysName) {
+        expected = (sysName[v] in handlerFor) ? handlerFor[sysName[v]] : sysName[v] "_Handler"
+        w = word[CORE_WORDS + v]
+        if (w != expected) {
+            printf "ERROR: IRQn_e %s_IRQn = %d implies vector word %d = %s, but it is %s\n", \
+                sysName[v], v, CORE_WORDS + v, expected, w
+            errors++
+        }
+    }
 
     for (p = 0; p < peripheral_count; p++) {
         w = word[CORE_WORDS + p]

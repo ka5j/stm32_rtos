@@ -1,32 +1,24 @@
 name: CI
 
-# Public-facing gate: build + docs + format + lint, on a GitHub-hosted
-# runner. Runs on every push to main/develop and every PR - this is the
-# badge/status a reviewer sees, and (via branch protection on main/
-# develop) what actually gates a merge. Nothing here touches real
-# hardware: on-target verification is manual, driven from the
-# development machine the board is attached to (make flash / make
-# debug), and the self-hosted-runner workflow that used to stand in for
-# it was removed - see CONTRIBUTING.md and SECURITY.md for why.
+# Public-facing gate: build + test + coverage + docs + format + lint +
+# version-consistency, on a GitHub-hosted runner. Runs on every push to
+# main/develop and every PR - this is the status a reviewer sees, and (via
+# branch protection on main/develop) what actually gates a merge. Nothing
+# here touches real hardware: on-target verification is manual, driven from
+# the development machine the board is attached to (make flash / make
+# debug) - see CONTRIBUTING.md and SECURITY.md.
 #
-# push is scoped to [main, develop], not every branch: a feature branch
-# gets its CI coverage entirely from pull_request once a PR is open
-# (CONTRIBUTING.md's branch convention - all feature work goes through a
-# PR into develop), so this avoids ever firing both push and pull_request
-# for the same commit in the common case. That matters beyond wasted
-# runner time: main/develop have required-status-check branch protection
-# (this workflow's own "build-and-check" context is one of the required
-# checks), and a cancelled run's conclusion can stick to a commit
-# alongside a later successful one - GitHub's required-check gate then
-# stays BLOCKED even though the same-named check also passed. A
-# cancel-in-progress concurrency group was tried here previously
-# specifically to dedupe the double-run; it was removed because it's
-# what produces that stuck-cancelled-run state, which is worse than the
-# wasted runner time it was solving. Restricting push here removes the
-# double-trigger for the case that matters (feature branches); the
-# residual case (pushing directly to develop while an open develop->main
-# PR exists) is rare and, without cancel-in-progress, both runs simply
-# complete normally instead of one landing as cancelled.
+# push is scoped to [main, develop], not every branch: a feature branch gets
+# its CI coverage entirely from pull_request once a PR is open (CONTRIBUTING.md's
+# branch convention), so push and pull_request never both fire for the same
+# commit in the common case. The residual case (pushing directly to develop
+# while a develop->main PR is open) is rare, and both runs simply complete.
+#
+# Do not add a cancel-in-progress concurrency group to dedupe those runs.
+# main/develop require this workflow's "build-and-check" status, and a
+# cancelled run's conclusion can stick to a commit alongside a later
+# successful one, leaving the required-check gate BLOCKED even though the
+# same-named check also passed.
 on:
   push:
     branches: [main, develop]
@@ -40,7 +32,7 @@ permissions:
 
 jobs:
   build-and-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A cold run (empty tool caches) takes a few minutes; this is a
     # generous ceiling so a hung download or step fails the job instead of
     # holding a required check pending for GitHub's 6-hour default.
@@ -62,8 +54,8 @@ jobs:
         # means an archive update can only make this step fail loudly
         # (package no longer available at that version) instead of quietly
         # changing which MISRA ruleset or formatting rules CI enforces.
-        # Bump these pins deliberately, the same way the Doxygen and Arm
-        # toolchain versions above are bumped by hand.
+        # Bump these pins deliberately, the same way the Arm toolchain
+        # and Doxygen versions (the setup steps above and below) are bumped by hand.
         run: |
           sudo apt-get update
           sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
@@ -83,11 +75,22 @@ jobs:
       - name: make all
         run: make all
 
+      # The release workflow builds -O2; some warnings (-Wmaybe-uninitialized,
+      # for one) only appear with optimisation, so build it here as well and
+      # not for the first time at release.
+      - name: make all BUILD=release
+        run: make all BUILD=release
+
       - name: make format-check
         run: make format-check
 
       - name: make test
         run: make test
+
+      - name: make test SANITIZE=1
+        # The same suite under AddressSanitizer + UndefinedBehaviorSanitizer.
+        # See the Makefile's SANITIZE note for why UBSan matters to the drivers.
+        run: make test SANITIZE=1
 
       - name: Install gcovr 8.6 (pinned, for make coverage)
         # pip, not apt, since gcovr isn't in Ubuntu's archive at a useful
@@ -114,76 +117,15 @@ jobs:
         # push rather than only at release time.
         run: make check-version
 
-      - name: Check touched source files have a Doxygen @file block
-        # `make docs` only enforces per-member documentation on a file once
-        # it has at least one Doxygen comment (e.g. @file) - a file with
-        # zero doc comments is otherwise invisible to that gate. This check
-        # closes that gap by requiring @file on every touched source file,
-        # which is also what activates the per-member checking in the first
-        # place. Same PR-diff approach as the test-coverage check below.
-        if: github.event_name == 'pull_request'
-        run: |
-          git fetch origin "${{ github.event.pull_request.base.ref }}"
-          BASE="origin/${{ github.event.pull_request.base.ref }}"
-          missing=0
-
-          changed=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- \
-            'core/inc/*.h' 'device/inc/*.h' \
-            'drivers/inc/*.h' 'drivers/src/*.c' \
-            'api/inc/*.h' 'api/src/*.c' \
-            'bsp/inc/*.h' 'bsp/src/*.c' \
-            'rtos/kernel/inc/*.h' 'rtos/kernel/src/*.c' \
-            'rtos/api/inc/*.h' 'rtos/api/src/*.c' \
-            'app/src/*.c' | awk '{print $2}')
-          for f in $changed; do
-            if ! grep -q '@file' "$f"; then
-              echo "::error file=$f::Missing Doxygen @file block - make docs won't check this file at all without one"
-              missing=1
-            fi
-          done
-
-          exit $missing
-
-      - name: Check new modules have unit tests
+      - name: Check touched files have @file blocks and unit tests
         # PR-only: needs the PR's base branch to diff against, which a plain
-        # push doesn't have. Runs on every PR regardless of target branch,
-        # so this applies to feature->develop and develop->main alike.
+        # push doesn't have. Applies to feature->develop and develop->main
+        # alike. The logic lives in tools/check_pr_files.sh so the same check
+        # runs locally (`make check-pr BASE=origin/develop`); see
+        # CONTRIBUTING.md for what it enforces and why.
         if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          git fetch origin "${{ github.event.pull_request.base.ref }}"
-          BASE="origin/${{ github.event.pull_request.base.ref }}"
-          missing=0
-
-          # .c files added OR modified under drivers/, api/, bsp/, rtos/ (and
-          # app/, except main.c - the entry point, not logic worth a
-          # dedicated unit test) need a matching tests/unit/test_<name>.c.
-          # Modified (not just added) matters here: several .c files in this
-          # repo started as empty scaffolding in the initial commit, so
-          # filling one in shows up as a modification, not an addition.
-          added_c=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- \
-            'drivers/*.c' 'api/*.c' 'bsp/*.c' 'rtos/*.c' 'app/*.c' | awk '{print $2}')
-          for f in $added_c; do
-            if [ "$f" = "app/src/main.c" ]; then
-              continue
-            fi
-            base=$(basename "$f" .c)
-            if [ ! -f "tests/unit/test_${base}.c" ]; then
-              echo "::error file=$f::New module $f has no matching tests/unit/test_${base}.c"
-              missing=1
-            fi
-          done
-
-          # *_reg.h files added OR modified under core/inc, device/inc
-          # (register data, no .c file to match 1:1) must be #include'd by
-          # some test.
-          added_reg=$(git diff --name-status --diff-filter=AM "$BASE"...HEAD -- \
-            'core/inc/*_reg.h' 'device/inc/*_reg.h' | awk '{print $2}')
-          for f in $added_reg; do
-            base=$(basename "$f")
-            if ! grep -rl "\"$base\"" tests/unit/ >/dev/null 2>&1; then
-              echo "::error file=$f::New register header $f is not included by any file in tests/unit/"
-              missing=1
-            fi
-          done
-
-          exit $missing
+          git fetch origin "$BASE_REF"
+          make check-pr BASE="origin/$BASE_REF"

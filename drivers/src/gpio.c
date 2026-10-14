@@ -75,7 +75,6 @@ GpioResetValues_t gpioPortResetValues(const GpioRegisters_t *port)
     if (port == GPIOA)
     {
         values.MODER = GPIOA_MODER_RESET;
-        values.OSPEEDR = GPIOA_OSPEEDR_RESET;
         values.PUPDR = GPIOA_PUPDR_RESET;
     }
     else if (port == GPIOB)
@@ -94,11 +93,15 @@ GpioResetValues_t gpioPortResetValues(const GpioRegisters_t *port)
 
 void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin)
 {
+    gpioDeinitToReset(port, pin, gpioPortResetValues(port));
+}
+
+void gpioDeinitToReset(GpioRegisters_t *port, GpioPin_e pin, GpioResetValues_t reset)
+{
     uint32_t pin_pos = (uint32_t)pin;
     uint32_t field_shift = pin_pos * 2U;
     uint32_t afr_shift = (pin_pos & 0x7U) * 4U;
     uint32_t pin_field = 0x3U << field_shift;
-    GpioResetValues_t reset = gpioPortResetValues(port);
 
     port->MODER = (port->MODER & ~pin_field) | (reset.MODER & pin_field);
     port->OTYPER &= ~(0x1U << pin_pos);
@@ -107,15 +110,11 @@ void gpioDeinit(GpioRegisters_t *port, GpioPin_e pin)
 
     if (pin_pos < 8U)
     {
-        /* afr_shift = (pin_pos & 0x7U) * 4U is bounded to [0,28] by the mask -
-         * cppcheck's MISRA addon can't see that through this branch and flags
-         * it based on 0xFU's narrow essential type instead. */
-        // cppcheck-suppress misra-c2012-12.2
-        port->AFRL &= ~(0xFU << afr_shift);
+        port->AFRL &= ~((uint32_t)0xFU << afr_shift);
     }
     else
     {
-        port->AFRH &= ~(0xFU << afr_shift);
+        port->AFRH &= ~((uint32_t)0xFU << afr_shift);
     }
 }
 
@@ -138,15 +137,11 @@ DriverStatus_e gpioSetAlternateFunction(GpioRegisters_t *port, GpioPin_e pin, ui
 
         if (pin_pos < 8U)
         {
-            /* afr_shift = (pin_pos & 0x7U) * 4U is bounded to [0,28] by the mask -
-             * cppcheck's MISRA addon can't see that through this branch and flags
-             * it based on 0xFU/af's narrow essential type instead. */
-            // cppcheck-suppress misra-c2012-12.2
-            port->AFRL = (port->AFRL & ~(0xFU << afr_shift)) | (af << afr_shift);
+            port->AFRL = (port->AFRL & ~((uint32_t)0xFU << afr_shift)) | (af << afr_shift);
         }
         else
         {
-            port->AFRH = (port->AFRH & ~(0xFU << afr_shift)) | (af << afr_shift);
+            port->AFRH = (port->AFRH & ~((uint32_t)0xFU << afr_shift)) | (af << afr_shift);
         }
     }
 

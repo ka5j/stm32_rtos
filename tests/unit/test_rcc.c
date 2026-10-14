@@ -560,6 +560,29 @@ void test_rcc_driver_bus_prescaler_config_writes_all_three_fields(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~owned_mask, rcc.CFGR & ~owned_mask);
 }
 
+/** A reconfiguration replaces the previous prescalers rather than OR-ing
+ *  the new ones into them: HPRE, PPRE1 and PPRE2 start at all-1s (the
+ *  largest dividers, as left by an earlier call) and must end at exactly the
+ *  requested values - HPRE /1 (0b0000), APB1 /4 (0b101), APB2 /2 (0b100). An
+ *  OR would leave all three at all-1s. */
+void test_rcc_driver_bus_prescaler_config_replaces_previous_prescalers(void)
+{
+    uint32_t owned_mask = RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk;
+    RccRegisters_t rcc = {.CFGR = 0xFFFFFFFFU};
+
+    DriverStatus_e status =
+        rccBusPrescalerConfig(&rcc, RCC_CFGR_HPRE_DIV1, RCC_CFGR_PPRE_DIV4, RCC_CFGR_PPRE_DIV2);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_HPRE_DIV1,
+                            (rcc.CFGR & RCC_CFGR_HPRE_Msk) >> RCC_CFGR_HPRE_Pos);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_PPRE_DIV4,
+                            (rcc.CFGR & RCC_CFGR_PPRE1_Msk) >> RCC_CFGR_PPRE1_Pos);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_PPRE_DIV2,
+                            (rcc.CFGR & RCC_CFGR_PPRE2_Msk) >> RCC_CFGR_PPRE2_Pos);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~owned_mask, rcc.CFGR & ~owned_mask);
+}
+
 /** Every one of HPRE's 9 documented values must independently report OK
  *  and land in CFGR.HPRE - rccValidateHpre()'s chained != comparisons
  *  short-circuit at a different clause for each value, so a single
@@ -720,18 +743,20 @@ void test_rcc_driver_sysclk_switch_times_out_when_sws_never_matches(void)
     TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_PLL, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
 }
 
-/** A valid call touches CFGR.SW only, leaving every other CFGR bit
- *  (SWS and any HPRE/PPRE/MCO configuration a caller already applied via
- *  rccBusPrescalerConfig()) untouched. Unlike the 0xFFFFFFFFU-preload
- *  idiom used elsewhere (flashSetLatency()/pwrSetVoltageScale()), SWS
- *  cannot simply be preloaded to all-1s here: the switch only reports OK
- *  once SWS reads back as the requested source, so SWS is preset to that
- *  value specifically and every other bit (including SW, which the call
- *  is expected to overwrite) is preset to all-1s instead. */
+/** A valid call replaces CFGR.SW and touches nothing else, leaving every
+ *  other CFGR bit (SWS and any HPRE/PPRE/MCO configuration a caller already
+ *  applied via rccBusPrescalerConfig()) untouched. SW starts at all-1s - a
+ *  stale previous source - so the call has to clear the old value, not just
+ *  OR the new one in: SW ending at exactly PLL (0b10) rules out an OR
+ *  (0b11 | 0b10 would stay 0b11). Unlike the 0xFFFFFFFFU-preload idiom used
+ *  elsewhere (flashSetLatency()/pwrSetVoltageScale()), SWS cannot simply be
+ *  preloaded to all-1s: the switch only reports OK once SWS reads back as
+ *  the requested source, so SWS is preset to that value specifically and
+ *  every other bit, SW included, is preset to all-1s. */
 void test_rcc_driver_sysclk_switch_touches_only_sw_field(void)
 {
-    uint32_t initial_cfgr = (0xFFFFFFFFU & ~RCC_CFGR_SW_Msk & ~RCC_CFGR_SWS_Msk)
-                            | (RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos);
+    uint32_t initial_cfgr =
+        (0xFFFFFFFFU & ~RCC_CFGR_SWS_Msk) | (RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SWS_Pos);
     RccRegisters_t rcc = {.CR = RCC_CR_PLLRDY, .CFGR = initial_cfgr};
     FlashRegisters_t flash = {0};
 
@@ -748,15 +773,19 @@ void test_rcc_driver_sysclk_switch_touches_only_sw_field(void)
  *  simulating a prior switch to a faster source) is deferred until after
  *  CFGR.SWS confirms the switch (preset here to match the target
  *  immediately) - OK, and ACR.LATENCY ends at the new, lower value only
- *  because the switch actually completed. */
+ *  because the switch actually completed. CFGR.SW starts at PLL, the source
+ *  being left (the BSP's switch-back case), and must end at HSI. */
 void test_rcc_driver_sysclk_switch_lowers_latency_only_after_switch_confirms(void)
 {
-    RccRegisters_t rcc = {.CR = RCC_CR_HSIRDY, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+    RccRegisters_t rcc = {.CR = RCC_CR_HSIRDY,
+                          .CFGR = (RCC_CFGR_SYSCLK_PLL << RCC_CFGR_SW_Pos)
+                                  | (RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos)};
     FlashRegisters_t flash = {.ACR = 5U};
 
     DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, RCC_CFGR_SYSCLK_HSI, 0U);
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CFGR_SYSCLK_HSI, (rcc.CFGR & RCC_CFGR_SW_Msk) >> RCC_CFGR_SW_Pos);
     TEST_ASSERT_EQUAL_HEX32(0U, flash.ACR & FLASH_ACR_LATENCY_Msk);
 }
 
@@ -778,4 +807,214 @@ void test_rcc_driver_sysclk_switch_defers_lowering_latency_when_switch_times_out
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
     TEST_ASSERT_EQUAL_HEX32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
+}
+
+/** The accepted edges of every PLL parameter are really accepted and land in their own field:
+ *  M 2 and 63, N 50 and 432, and every PLLP divisor including DIV8. A boundary written as
+ *  `<=`/`>=` instead of `<`/`>` would reject one of these. */
+void test_rcc_driver_pll_config_accepts_range_edges(void)
+{
+    static const struct
+    {
+        uint32_t m;
+        uint32_t n;
+        uint32_t p;
+    } cases[] = {
+        {2U, 50U, RCC_PLLCFGR_PLLP_DIV2},
+        {63U, 432U, RCC_PLLCFGR_PLLP_DIV4},
+        {2U, 432U, RCC_PLLCFGR_PLLP_DIV6},
+        {63U, 50U, RCC_PLLCFGR_PLLP_DIV8},
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        RccRegisters_t rcc = {0};
+
+        DriverStatus_e status =
+            rccPllConfig(&rcc, RCC_PLLCFGR_PLLSRC_HSE, cases[i].m, cases[i].n, cases[i].p);
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+        TEST_ASSERT_EQUAL_UINT32(cases[i].m,
+                                 (rcc.PLLCFGR & RCC_PLLCFGR_PLLM_Msk) >> RCC_PLLCFGR_PLLM_Pos);
+        TEST_ASSERT_EQUAL_UINT32(cases[i].n,
+                                 (rcc.PLLCFGR & RCC_PLLCFGR_PLLN_Msk) >> RCC_PLLCFGR_PLLN_Pos);
+        TEST_ASSERT_EQUAL_UINT32(cases[i].p,
+                                 (rcc.PLLCFGR & RCC_PLLCFGR_PLLP_Msk) >> RCC_PLLCFGR_PLLP_Pos);
+    }
+}
+
+/** HSI disable waits for its ready flag to follow the ON bit down: with the flag already
+ *  clear it succeeds, clears only its own ON bit and leaves every other CR bit as it was. */
+void test_rcc_driver_hsi_disable_succeeds_and_preserves_other_cr_bits(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU & ~RCC_CR_HSIRDY,
+                          .CFGR = RCC_CFGR_SYSCLK_HSE << RCC_CFGR_SWS_Pos};
+    uint32_t before = rcc.CR;
+
+    DriverStatus_e status = rccHsiDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(before & ~RCC_CR_HSION, rcc.CR);
+}
+
+/** HSI disable reports a timeout when the ready flag never drops, with the ON bit cleared
+ *  and every other CR bit untouched - a stale ready flag must not be mistaken for a stopped clock.
+ */
+void test_rcc_driver_hsi_disable_times_out_when_ready_never_clears(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU, .CFGR = RCC_CFGR_SYSCLK_HSE << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHsiDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_CR_HSION, rcc.CR);
+}
+
+/** HSE disable waits for its ready flag to follow the ON bit down: with the flag already
+ *  clear it succeeds, clears only its own ON bit and leaves every other CR bit as it was. */
+void test_rcc_driver_hse_disable_succeeds_and_preserves_other_cr_bits(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU & ~RCC_CR_HSERDY,
+                          .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+    uint32_t before = rcc.CR;
+
+    DriverStatus_e status = rccHseDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(before & ~RCC_CR_HSEON, rcc.CR);
+}
+
+/** HSE disable reports a timeout when the ready flag never drops, with the ON bit cleared
+ *  and every other CR bit untouched - a stale ready flag must not be mistaken for a stopped clock.
+ */
+void test_rcc_driver_hse_disable_times_out_when_ready_never_clears(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccHseDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_CR_HSEON, rcc.CR);
+}
+
+/** PLL disable waits for its ready flag to follow the ON bit down: with the flag already
+ *  clear it succeeds, clears only its own ON bit and leaves every other CR bit as it was. */
+void test_rcc_driver_pll_disable_succeeds_and_preserves_other_cr_bits(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU & ~RCC_CR_PLLRDY,
+                          .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+    uint32_t before = rcc.CR;
+
+    DriverStatus_e status = rccPllDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(before & ~RCC_CR_PLLON, rcc.CR);
+}
+
+/** PLL disable reports a timeout when the ready flag never drops, with the ON bit cleared
+ *  and every other CR bit untouched - a stale ready flag must not be mistaken for a stopped clock.
+ */
+void test_rcc_driver_pll_disable_times_out_when_ready_never_clears(void)
+{
+    RccRegisters_t rcc = {.CR = 0xFFFFFFFFU, .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+
+    DriverStatus_e status = rccPllDisable(&rcc);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_TIMEOUT, status);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_CR_PLLON, rcc.CR);
+}
+
+/* --- review follow-ups: register preservation and stale state --- */
+
+/** rccPllConfig with PLLSRC_HSI must clear the PLLSRC bit (a previous HSE config left it set),
+ *  with M/N/P placed and PLLQ/PLLR preserved. */
+void test_rcc_driver_pll_config_hsi_source_clears_pllsrc(void)
+{
+    RccRegisters_t rcc = {.PLLCFGR = 0xFFFFFFFFU};
+
+    DriverStatus_e status =
+        rccPllConfig(&rcc, RCC_PLLCFGR_PLLSRC_HSI, 8U, 360U, RCC_PLLCFGR_PLLP_DIV2);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, rcc.PLLCFGR & RCC_PLLCFGR_PLLSRC);
+    TEST_ASSERT_EQUAL_UINT32(8U, (rcc.PLLCFGR & RCC_PLLCFGR_PLLM_Msk) >> RCC_PLLCFGR_PLLM_Pos);
+    TEST_ASSERT_EQUAL_UINT32(360U, (rcc.PLLCFGR & RCC_PLLCFGR_PLLN_Msk) >> RCC_PLLCFGR_PLLN_Pos);
+    TEST_ASSERT_EQUAL_HEX32(0U, rcc.PLLCFGR & RCC_PLLCFGR_PLLP_Msk);
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU
+                                & ~(RCC_PLLCFGR_PLLSRC | RCC_PLLCFGR_PLLM_Msk | RCC_PLLCFGR_PLLN_Msk
+                                    | RCC_PLLCFGR_PLLP_Msk),
+                            rcc.PLLCFGR
+                                & ~(RCC_PLLCFGR_PLLSRC | RCC_PLLCFGR_PLLM_Msk | RCC_PLLCFGR_PLLN_Msk
+                                    | RCC_PLLCFGR_PLLP_Msk));
+}
+
+/** rccHseEnable in crystal mode (bypass 0) must clear a stale HSEBYP left by an earlier bypass use.
+ */
+void test_rcc_driver_hse_enable_crystal_mode_clears_stale_bypass(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSEBYP | RCC_CR_HSERDY};
+
+    DriverStatus_e status = rccHseEnable(&rcc, 0U);
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, status);
+    TEST_ASSERT_EQUAL_HEX32(0U, rcc.CR & RCC_CR_HSEBYP);
+    TEST_ASSERT_EQUAL_HEX32(RCC_CR_HSEON, rcc.CR & RCC_CR_HSEON);
+}
+
+/** The three enables set only their own ON bit: every other CR bit (the other oscillators, CSS) is
+ * kept. */
+void test_rcc_driver_enables_preserve_other_cr_bits(void)
+{
+    RccRegisters_t hsi = {.CR = 0xA5A5A5A5U | RCC_CR_HSIRDY};
+    RccRegisters_t hse = {.CR = (0xA5A5A5A5U | RCC_CR_HSERDY) & ~(RCC_CR_HSEON | RCC_CR_HSEBYP)};
+    RccRegisters_t pll = {.CR = (0xA5A5A5A5U | RCC_CR_PLLRDY) & ~RCC_CR_PLLON};
+    uint32_t hsi_before = hsi.CR;
+    uint32_t hse_before = hse.CR;
+    uint32_t pll_before = pll.CR;
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, rccHsiEnable(&hsi));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, rccHseEnable(&hse, RCC_CR_HSEBYP));
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, rccPllEnable(&pll));
+
+    TEST_ASSERT_EQUAL_HEX32(hsi_before | RCC_CR_HSION, hsi.CR);
+    TEST_ASSERT_EQUAL_HEX32(hse_before | RCC_CR_HSEBYP | RCC_CR_HSEON, hse.CR);
+    TEST_ASSERT_EQUAL_HEX32(pll_before | RCC_CR_PLLON, pll.CR);
+}
+
+/** rccHseDisable allows an enabled-but-inactive PLL (it documents that the caller sequences that):
+ *  PLLON set with SWS = HSI must not be treated as a reason to refuse. */
+void test_rcc_driver_hse_disable_ignores_enabled_inactive_pll(void)
+{
+    RccRegisters_t rcc = {.CR = RCC_CR_HSEON | RCC_CR_PLLON,
+                          .PLLCFGR = RCC_PLLCFGR_PLLSRC_HSE,
+                          .CFGR = RCC_CFGR_SYSCLK_HSI << RCC_CFGR_SWS_Pos};
+
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, rccHseDisable(&rcc));
+    TEST_ASSERT_BITS_HIGH(RCC_CR_PLLON, rcc.CR);
+}
+
+/** rccSysclkSwitch reports NOT_INITIALIZED for a source whose ready bit is clear, for HSI and HSE
+ *  too (and each source checks its own ready bit, not another's), without touching CFGR.SW. */
+void test_rcc_driver_sysclk_switch_checks_the_requested_sources_own_ready_bit(void)
+{
+    static const struct
+    {
+        uint32_t source;
+        uint32_t other_ready;
+    } cases[] = {
+        {RCC_CFGR_SYSCLK_HSI, RCC_CR_HSERDY | RCC_CR_PLLRDY},
+        {RCC_CFGR_SYSCLK_HSE, RCC_CR_HSIRDY | RCC_CR_PLLRDY},
+        {RCC_CFGR_SYSCLK_PLL, RCC_CR_HSIRDY | RCC_CR_HSERDY},
+    };
+
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        RccRegisters_t rcc = {.CR = cases[i].other_ready};
+        FlashRegisters_t flash = {0};
+
+        DriverStatus_e status = rccSysclkSwitch(&rcc, &flash, cases[i].source, 0U);
+
+        TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_NOT_INITIALIZED, status);
+        TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & RCC_CFGR_SW_Msk);
+    }
 }

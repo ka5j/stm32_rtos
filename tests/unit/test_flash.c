@@ -72,3 +72,53 @@ void test_flash_driver_set_latency_read_back_accepts_every_encoding(void)
         TEST_ASSERT_EQUAL_HEX32(latency, flash.ACR & FLASH_ACR_LATENCY_Msk);
     }
 }
+
+/* --- flashEnableCaches --- */
+
+/** flashEnableCaches() sets exactly PRFTEN, ICEN and DCEN, and not the cache-reset bits. */
+void test_flash_driver_enable_caches_sets_prefetch_and_both_caches(void)
+{
+    FlashRegisters_t flash = {0};
+
+    flashEnableCaches(&flash);
+
+    TEST_ASSERT_EQUAL_HEX32(FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN, flash.ACR);
+    TEST_ASSERT_EQUAL_HEX32(0U, flash.ACR & (FLASH_ACR_ICRST | FLASH_ACR_DCRST));
+}
+
+/** flashEnableCaches() is a read-modify-write: it keeps whatever LATENCY was programmed. */
+void test_flash_driver_enable_caches_preserves_latency(void)
+{
+    FlashRegisters_t flash = {.ACR = 5U};
+
+    flashEnableCaches(&flash);
+
+    TEST_ASSERT_EQUAL_HEX32(5U, flash.ACR & FLASH_ACR_LATENCY_Msk);
+    TEST_ASSERT_EQUAL_HEX32(FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN | 5U, flash.ACR);
+}
+
+/** flashSetLatency() after flashEnableCaches() does not clear the cache bits (order-independent).
+ */
+void test_flash_driver_set_latency_preserves_cache_enable_bits(void)
+{
+    FlashRegisters_t flash = {0};
+
+    flashEnableCaches(&flash);
+    TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, flashSetLatency(&flash, 5U));
+
+    TEST_ASSERT_EQUAL_HEX32(FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN | 5U, flash.ACR);
+}
+
+/* --- review follow-ups --- */
+
+/** flashEnableCaches keeps every other ACR bit (including the cache-reset bits) as it was. */
+void test_flash_driver_enable_caches_preserves_every_other_acr_bit(void)
+{
+    uint32_t others = 0xFFFFFFFFU & ~(FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN);
+    FlashRegisters_t flash = {.ACR = others};
+
+    flashEnableCaches(&flash);
+
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU, flash.ACR);
+    TEST_ASSERT_EQUAL_HEX32(others, flash.ACR & others);
+}
