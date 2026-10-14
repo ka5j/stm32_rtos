@@ -1,126 +1,129 @@
-# Contributing / Conventions
+# Contributing
 
-Solo-project conventions for `stm32_rtos`, documented to remain consistent as the driver/API/BSP/RTOS layers are developed. This is the reference for naming, layering, documentation, and the local development workflow; it is not a guide for external contributors.
+Conventions and workflow for `stm32_rtos`. The reasons behind them are in
+[Design notes](docs/DESIGN.md).
 
-## Layering rule
+## Layering
 
-```
-core/, device/  (register structs)
-      ↓
-   drivers/       (register-level driver logic)
-      ↓
-    bsp/          (board support: clock bring-up, pin/peripheral mapping)
-      ↓
-    api/          (peripheral-facing API: led_on(), debug_print(); uses bsp/)
-      ↓
-    app/          (task code)
-```
+A layer includes headers only from itself and the layers below it (see the
+[layer diagram](docs/ARCHITECTURE.md#layers)). `drivers/` never includes
+`bsp/` or `api/`; `app/` includes only `api/` and `rtos/api/`. If code needs
+to reach two layers down, the layer in between is missing something; add it
+there.
 
-`rtos/kernel/` and `rtos/api/` form a parallel stack consumed by `app/` alongside `api/`/`bsp/` — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the complete diagram. The rule: **a layer may include headers only from itself or the layers below it.** `drivers/` never includes `bsp/` or `api/`, and `bsp/` never includes `api/`. `api/` builds on `bsp/` and never reaches past it into `drivers/` or `core/`/`device/` directly. `app/` includes only from `api/` and `rtos/api/`, never `drivers/` or `rtos/kernel/` directly. If a file needs to reach two layers down, that indicates the intermediate layer is missing functionality; it is not a reason to bypass it.
+Include headers by bare name (`#include "rcc_reg.h"`). Every `inc/`
+directory is on the include path. Never use a root-relative path.
 
-## Naming conventions
+## Naming
 
-**Types** — PascalCase with a suffix indicating category; the tag name matches the typedef:
-- Structs: `Foo_t` (e.g. `GpioRegisters_t`) — `typedef struct Foo_t { ... } Foo_t;`, not an anonymous `struct { ... }`.
-- Enums: `Foo_e` (e.g. `DriverStatus_e`).
+| Kind            | Convention                                    | Example                    |
+| --------------- | --------------------------------------------- | -------------------------- |
+| Struct          | `Name_t`, tag equal to typedef                | `typedef struct GpioRegisters_t {...} GpioRegisters_t;` |
+| Enum            | `Name_e`                                      | `DriverStatus_e`           |
+| Function        | camelCase, module prefix                      | `rccPllConfig()`           |
+| Macro           | `SCREAMING_SNAKE_CASE`                        | `RCC_CR_HSEON`             |
+| Register field  | `<PERIPH>_<REG>_<FIELD>`, plus `_Pos`/`_Msk`  | `RCC_CFGR_SW_Msk`          |
+| Register header | `<peripheral>_reg.h` in `core/inc`, `device/inc` | `gpio_reg.h`            |
+| Include guard   | `#ifndef FOO_H` ... `#endif /* FOO_H */`      |                            |
 
-**Functions** — camelCase, with consistent internal capitalization.
+Register bit and mask macros cast before shifting, `((uint32_t)1U << n)`
+(see [MISRA deviations](docs/DESIGN.md#misra-c2012-deviations)).
 
-**Macros** — `SCREAMING_SNAKE_CASE`. Register field macros follow `<PERIPH>_<REG>_<FIELD>_Pos` / `_Msk`, matching the pattern established in `rcc_reg.h`.
+## Drivers
 
-**Files** — `<peripheral>_reg.h` for register headers (`core/inc/`, `device/inc/`); plain `<peripheral>.h`/`.c`, with no suffix, for driver/API files.
+- Take the peripheral's register block as a parameter.
+- Return `DriverStatus_e` where the call can fail, `void` where it cannot.
+- Make a register parameter `const` only if the call leaves the peripheral
+  unchanged.
 
-**Include guards** — `#ifndef FOO_H` / `#define FOO_H` / `#endif /* FOO_H */`. The trailing comment on `#endif` is required, not optional. Register headers already follow this convention; it extends to `drivers/`, `api/`, `bsp/`, and `app/`.
-
-## Include-path convention
-
-Use bare filenames resolved via the Makefile's `-I` search paths (e.g. `#include "rcc_reg.h"`), **not** root-relative paths (`#include "device/inc/rcc_reg.h"`). Every `inc/` directory in the project is already on the include path; a root-relative include is redundant and was the reason an earlier commit had to add `.` to `INC_DIRS` unnecessarily. Because every `inc/` directory is on every compile's include path, a bare include of a header from the wrong layer (say `app/` including a `device/` register header) resolves without complaint: the layering rule above is a convention checked in review, not something the build or CI enforces. If a bare include fails to resolve, the header is simply not in an `inc/` directory; do not fully qualify the path to work around it.
+See [Register blocks as parameters](docs/DESIGN.md#register-blocks-as-parameters),
+[Error contract](docs/DESIGN.md#error-contract) and
+[const register parameters](docs/DESIGN.md#const-register-parameters).
 
 ## Documentation (Doxygen)
 
-Every public function requires `@brief`/`@param`/`@return`. `@return` must enumerate every `DriverStatus_e` value the function can return and the condition producing each, not merely state that a status is returned. Every public struct/enum requires a `@brief`. Preconditions and postconditions not evident from the signature belong in `@pre`/`@post`.
+`make docs` fails on any warning, including a missing `@param`. Each new
+file starts with a `@file` block. Without one Doxygen does not check the
+file at all, and CI rejects the pull request.
 
-**Coverage caveat**: `make docs` enforces coverage on a file only once it contains at least one Doxygen comment (e.g. an `@file` block). A file with no doc comments is invisible to the gate — it will not fail the build, but it is also not being checked. Add the `@file`/`@brief` header to a new file as the first step, before adding other content, so the gate covers the file from the outset. CI enforces this directly as well (see below); a pull request that omits it fails the build regardless of local practice.
+**Functions**
+- `@brief`: one line saying what the function does.
+- `@param` for every parameter.
+- `@retval` for each `DriverStatus_e` value returned, with its condition.
+  Use `@return` only for non-status results.
+- `@pre` and `@post` for ordering contracts.
+- `@warning` for hazards a caller can trip over.
+- `@note` sparingly.
 
-**Topics grouping**: the generated documentation site (Doxygen's "Topics" page) is organized by architectural layer rather than raw file listing. [docs/groups.dox](docs/groups.dox) declares the group hierarchy and mirrors [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)'s layer diagram exactly, including groups for layers that do not yet exist (declared there as a naming reference, not yet instantiated as live `@defgroup`s). When a new layer receives its first source file (e.g. `api/inc/led.h` for the future peripheral API layer), add that layer's `@defgroup` to `groups.dox` using the name already reserved for it, then wrap the new file's struct/macro/function definitions in `@addtogroup <group_id>` / `@{` ... `@}` so they join the group. Do not repeat `@ingroup` on every individual member.
+**Header content**
+- Each driver header gives one `@code` example of the usual call sequence.
 
-Within `core/inc/`/`device/inc/`, grouping goes one level deeper: `core_peripherals`/`device_peripherals` are parent groups, and every individual peripheral gets its own `@defgroup <peripheral>_registers` nested under the appropriate parent (`@ingroup core_peripherals` or `@ingroup device_peripherals`) - e.g. `mpu_registers`, `gpio_registers`. A register header wraps its content in `@addtogroup <peripheral>_registers`, not the broader parent group directly. If a single header defines more than one architecturally distinct register block (e.g. `scb_reg.h` defines both `ScbRegisters_t` and the separate `FpuRegisters_t`), give each block its own subgroup and its own `@addtogroup` region within the file - open, close, and reopen as needed at the natural boundaries between each block's content; do not lump architecturally distinct peripherals into one group just because they share a file. See `core/inc/scb_reg.h` for the pattern (`scb_registers` and `fpu_registers` interleaved in one file) and any other `core/inc`/`device/inc` header for the single-peripheral case.
+**Text**
+- Details cover only what a caller cannot infer from the signature.
+- Link to Design notes with `@see` instead of restating the reasoning.
+- No indented prose. Markdown treats four spaces as a code block. Use `-`
+  or `1.` lists.
 
-## Error-handling contract
+**Grouping**
+- Each file joins its group with `@addtogroup <id>` / `@{` ... `@}` around
+  its definitions. Groups are declared in `docs/groups.dox`, one per layer
+  and one per peripheral.
 
-Every driver function that can fail returns `DriverStatus_e` (defined in `drivers/inc/driver_status.h`), a small, closed set of failure *categories* (`DRIVER_STATUS_ERR_INVALID_PARAM`, `_NOT_INITIALIZED`, `_TIMEOUT`, `_HW_FAULT`, `_BUSY`, `_UNSUPPORTED`) used for control-flow decisions at the call site. This is the required pattern for all new driver code. Compare explicitly:
+**Register headers**
+- Group each register's macros with `@name <REG> (offset 0xNN)` and
+  `@{` ... `@}`.
+- Give each macro's `///<` comment its bits and its access type, as
+  `\regaccess{rw}`, `ro`, `wo`, `rc_w0` or `rc_w1`.
 
-```c
-DriverStatus_e status = rccGpioClockEnable(RCC, GPIOA);
-if (status != DRIVER_STATUS_OK) { /* handle */ }
-```
+## Tests
 
-Do not use `if (status)` / `if (!status)`; this relies implicitly on the numeric values of the enum (`DRIVER_STATUS_OK` is 1 and `DRIVER_STATUS_UNINITIALIZED` is 0, so `if (status)` is true for success) rather than an explicit comparison, and breaks silently if the enum is reordered.
+Every driver, BSP or API `.c` has a `tests/unit/test_<name>.c`, and every
+register header is included by a test.
 
-**Every driver function takes its peripheral's register block as a parameter** (e.g. `gpioInit(GpioRegisters_t *port, ...)`, `rccGpioClockEnable(RccRegisters_t *rcc, const GpioRegisters_t *port)`), never reaching for a hardware macro (`GPIOA`, `RCC`, ...) internally - including for a peripheral that is a hardware singleton, like RCC, where only one instance will ever exist. This is what makes a driver's logic host-testable off-target (see the Makefile's `TEST_DRIVER_SOURCES` comment and `tests/unit/test_rcc.c`/`test_gpio.c`): a test passes a plain in-memory struct standing in for real hardware. This project prioritizes that testability - the 100%-coverage gate in `make coverage` depends on it - over the convention vendor HAL/LL code uses for singleton peripherals (operating on the fixed global instance directly with no parameter), since that convention exists specifically because HAL/LL has no host-side test infrastructure to inject a fake register block into. When a driver needs to identify one instance among several real hardware instances of the same peripheral (e.g. which GPIO port), pass the existing register-block pointer that already identifies it (`GPIOA`, `GPIOB`, ...) rather than inventing a parallel enum - see `rcc.c`'s `rccGpioClockBit()` helper.
+- `tests/unit/test_runner.c` owns `main()` and must declare and `RUN_TEST()`
+  every test. `make test` fails if one is missing.
+- Drivers and the BSP must stay at 100% line and branch coverage. Read
+  [Host testing and its limits](docs/DESIGN.md#host-testing-and-its-limits)
+  before excluding anything.
 
-Module-specific failure detail (which check failed, on which peripheral) belongs in a per-module detail enum, not the shared status enum. Do not add peripheral-specific values to `DriverStatus_e` itself. Introduce the tier-2 design (per-module detail codes returned alongside status) once a driver requires that granularity; do not build it speculatively before then.
+## Workflow
 
-Mark fallible functions `__attribute__((warn_unused_result))` so an ignored return value is a compiler error rather than a silent bug.
+One-time setup: `make hooks`. The pre-commit hook then runs
+`format-check`, `test`, `lint`, `docs` and `all` on the working tree
+(not just what is staged).
 
-## Concurrency
+| Command                   | Use                                                        |
+| ------------------------- | ---------------------------------------------------------- |
+| `make format`             | Apply `.clang-format`. Never hand-format.                  |
+| `make lint`               | cppcheck + MISRA. Run `tools/install_cppcheck.sh` once for CI's version. |
+| `make test SANITIZE=1`    | The suite under ASan and UBSan, as CI runs it.             |
+| `make coverage`           | 100% line and branch gate (CI only, not the hook).         |
+| `make check-pr`           | CI's pull-request file checks, against `BASE` (default `origin/develop`). |
 
-There is no kernel yet, so nothing in `drivers/` is protected against being called from two tasks, or from a task and an interrupt handler, at once. When tasks and interrupts exist, the safe and unsafe sets are:
+The full command list is in the [README](README.md#make-commands).
 
-- **Single store, safe to call concurrently on distinct bits:** `gpioWritePin()` (one BSRR write), `nvicEnableIrq()`, `nvicDisableIrq()`, `nvicSetPending()`, `nvicClearPending()` (write-1-to-act registers), `nvicSetPriority()` (one byte store), and the pure reads (`gpioReadPin()`, `nvicGetPriority()`, every `*Wait*`/`uartFlush()` poll).
-- **Read-modify-write on a shared register, needs the caller to serialise:** every `rcc*ClockEnable/Disable()` (the ENR registers are shared by every peripheral on the bus), the RCC CR/CFGR/PLLCFGR writers, `pwrSetVoltageScale()`, `pwrEnableOverdrive()`, `flashSetLatency()`, `flashEnableCaches()`, `gpioInit()`, `gpioDeinit()`, `gpioSetAlternateFunction()`, `uartInit()`, and `nvicSetSystemHandlerPriority()` (SHPR3 is shared by PendSV and SysTick).
-- **Single owner only:** `gpioTogglePin()` (read ODR then write BSRR), `uartReceiveByte()`/`uartReceive()` (the SR-then-DR sequence is what clears the error flags), `systickInit()`.
+## CI
 
-The kernel's critical-section helpers (planned: PRIMASK/BASEPRI) are the intended way to serialise the second group; until they exist, configure peripherals from one context, before the scheduler starts.
+`ci.yml` runs on every pull request and on pushes to `main` and `develop`.
 
-## CI-enforced checks on new/modified files
+- **Build:** debug and release builds.
+- **Checks:** format, test (plain and sanitized), coverage, lint, docs,
+  version, and the pull-request file checks.
+- **Other workflows:**
+  - `codeql.yml` runs static analysis;
+  - `pages.yml` publishes the docs from `main`;
+  - `release.yml` publishes a release from a `vX.Y.Z` tag.
 
-Two checks run in `ci.yml` that are not evident from running `make docs`/`make test` locally. Both live in `tools/check_pr_files.sh`, so `make check-pr BASE=origin/develop` runs exactly what CI will before you push. Both diff the pull request against its base branch, so they run only on `pull_request` events (a plain push has no base to compare against), and both apply identically regardless of target branch — a feature branch's PR into `develop` and a `develop`→`main` PR are checked the same way. Both checks cover *modified* files, not only newly added ones, since several files in this repository began as empty scaffolding in the initial commit; populating one is a modification, not a new file.
+The trust boundaries for each workflow are described in
+[SECURITY.md](SECURITY.md).
 
-1. **Doxygen `@file` block** — every source file touched under `core/inc/`, `device/inc/`, `drivers/`, `api/`, `bsp/`, `rtos/`, or `app/src/` requires one, or `make docs` cannot check it at all (see the coverage caveat above).
-2. **Matching unit test** — every `.c` file touched under `drivers/`, `api/`, `bsp/`, or `rtos/` (except `app/src/main.c`, the entry point) requires a `tests/unit/test_<name>.c`. Every `*_reg.h` touched under `core/inc`/`device/inc` must be `#include`d by at least one file in `tests/unit/`. CI does not enforce a 1:1 naming rule for this, but the repository convention is one test file per register header (`test_<peripheral>_reg.c`, e.g. `gpio_reg.h` → `test_gpio_reg.c`). All test files are aggregated into a single `run_tests` binary by `tests/unit/test_runner.c`, which owns `main()`/`setUp()`/`tearDown()`; Unity permits only one definition of each per binary, so individual test files declare no `main()` of their own. Reaching each test therefore needs a hand-written `extern` declaration and a `RUN_TEST()` call in that file, and a test missing either one still compiles and still passes — it simply never runs. `make test` runs `tools/check_test_registration.awk` to catch that, since nothing else does: `make coverage` would notice for a driver test, but its filter is `drivers/src` and `bsp/src` only, so for the `test_<peripheral>_reg.c` files a forgotten registration is otherwise completely silent.
+## Branches and pull requests
 
-## `const` on a register-block parameter
-
-A register-block parameter is `const` when the function's effect on that peripheral is nil — it observes and nothing changes. `gpioReadPin()` reading IDR, `uartFlush()` reading SR, and `pwrWaitVoltageScaleReady()` reading CSR all qualify. `const` here is a claim about the *hardware*, not just about the pointer: it tells a caller the call is repeatable and reorderable with respect to the peripheral.
-
-So a read with a side effect does not get `const`, however read-shaped it looks. `uartReceiveByte()` is the case to know: it reads DR, and reading DR clears SR.RXNE along with the ORE/NE/FE/PE error flags. It took `const UartRegisters_t *` for one revision on the grounds that it never writes through the pointer, which is true and beside the point — the peripheral moves underneath it. It is now non-`const`, and the reasoning is recorded in its doc comment so it does not get "cleaned up" back.
-
-## Testing and its limits
-
-Host tests run driver logic against a plain in-memory register struct. That works because of the rule in the error-handling contract above — every driver takes its register block as a parameter — and because of a second property worth naming: for every bounded hardware wait in this project, the flag being polled is a *different field* from the one the driver writes. `rccHsiEnable()` writes CR.HSION and polls CR.HSIRDY; `pwrWaitVoltageScaleReady()` polls CSR.VOSRDY against a scale written to CR. A test can hold the ready flag clear in the fake struct and exercise the timeout path with no hardware and no timer.
-
-Code that breaks that property is not host-testable, and there is currently exactly one instance: `flashSetLatency()`'s read-back check compares ACR against the value it just wrote to ACR, and an in-memory struct always agrees with itself. That region is marked `GCOVR_EXCL_START`/`GCOVR_EXCL_STOP` so `make coverage` can still gate at 100%, with the reasoning in the code. Before adding a second exclusion, be sure the branch is genuinely unreachable off-target rather than merely untested — the gate is only worth having if 100% means the tests actually exercise the code.
-
-**What host tests cannot tell you**: that the hardware accepts what the driver writes. Every driver in `drivers/` currently holds 100% line and branch coverage and *none of it has executed on silicon* — `app/src/main.c` is an empty loop, so the linker garbage-collects every driver out of the image. That gap is not theoretical. The PWR voltage-scale sequencing shipped inverted for a full release: `rccSysclkSwitch()` applied the scale after requiring PLLRDY, but RM0390 section 5.1.3 permits CR.VOS to be written only while the PLL is *off*, and CSR.VOSRDY only reports the regulator settled once the PLL is *on*. Both halves were wrong, both were covered by passing tests, and a struct in host memory has no opinion about either rule. Treat the reference manual, not the test suite, as the authority on ordering and writability constraints.
-
-## CI triggers and branch conventions
-
-`ci.yml` runs on every `pull_request` (any target branch) and every `push` to `main`/`develop` specifically, not every branch: `make all`, `make format-check`, `make test`, `make coverage`, `make lint`, `make docs`, `make check-version`, in that order. `make coverage` is CI-only, not part of the pre-commit hook's five checks - it recompiles `TEST_DRIVER_SOURCES` with instrumentation, a real (if fast) extra compile pass, so it stays out of the hook's every-commit path and lives only in CI. On `pull_request` events specifically, the two diff-based checks above also run, since only a pull request has a base branch to diff against.
-
-`push` is scoped to `main`/`develop` rather than every branch so that a feature branch's CI coverage comes entirely from `pull_request` once a PR is open, never both: `main`/`develop` have required-status-check branch protection (`build-and-check` and `Analyze (c-cpp)`, per [SECURITY.md](SECURITY.md)), and a `push`+`pull_request` double-trigger on the same commit used to be deduped with a `cancel-in-progress` concurrency group - that was removed because a cancelled run's conclusion sticks to the commit alongside a later successful one, leaving the required-check gate permanently `BLOCKED` even though the same-named check also passed. Scoping `push` removes the double-trigger for the case that matters; the residual case (pushing directly to `develop` while an open `develop`→`main` PR exists) is rare, and without `cancel-in-progress` both runs simply complete normally instead of one landing as cancelled.
-
-There is deliberately no hardware-in-the-loop workflow. An earlier `hil.yml` ran `make all` → `make flash` → a smoke test on a self-hosted runner with a Nucleo-F446RE attached, gated behind `workflow_dispatch` so that fork or push code could never execute on that physical machine automatically. It was removed rather than finished: its smoke-test step was never written (it ended in `exit 1`, so the workflow failed by construction on every run), and the board is attached to the development machine anyway, which makes the self-hosted runner a trust boundary the project was carrying for no benefit it was actually collecting.
-
-On-target verification is therefore manual for now. `make flash` programs the board and verifies the write landed; `make debug` attaches GDB for inspecting runtime state by hand. Neither asserts anything about runtime behaviour, and nothing currently does — see "Testing and its limits" above for what that costs. Revisit an automated on-target check once there is behaviour worth asserting against: today `app/src/main.c` is an empty loop and every driver and `bspClockInit()` is garbage-collected out of the image for want of a caller, so such a check could only confirm boot-time core registers. Once `main` calls `bspClockInit()` and drives the LED or emits a UART heartbeat, a real smoke test has something to observe.
-
-`pages.yml` is also restricted to `main`, for a related but distinct reason: it builds `make docs` and publishes `docs/html/` to GitHub Pages (<https://ka5j.github.io/stm32_rtos/>), so the published site always reflects the last tagged release (`PROJECT_NUMBER` is bumped only on a `develop`→`main` release PR — see [docs/VERSIONING.md](docs/VERSIONING.md)), not in-progress `develop` work, and a pull request from an untrusted fork cannot publish to it. Nothing under `docs/html/` is committed; `pages.yml` rebuilds it in the runner on every execution and passes it to GitHub's Pages deploy action directly.
-
-`release.yml` runs when a `vX.Y.Z` tag is pushed: it checks the tag, the Doxyfile's `PROJECT_NUMBER` and `CHANGELOG.md`'s newest release all name the same version and that the tagged commit is on `main`, builds the firmware (`BUILD=release`), and creates the GitHub Release with that version's changelog section as its notes and the `.elf`/`.bin`/`.hex`/`.map`, a size report and `SHA256SUMS` attached. On a pull request that touches the release pipeline's own files it runs the same steps without publishing, so the first real execution is not an actual release. The release steps are in [docs/VERSIONING.md](docs/VERSIONING.md).
-
-`codeql.yml` runs GitHub CodeQL static analysis on every push/PR to `main`/`develop` and weekly on a schedule. This project's actual supply-chain surface is the third-party Actions the workflows use, all pinned to commit SHAs rather than mutable tags, not a C package manager, since none is used. These pins are bumped manually. See [SECURITY.md](SECURITY.md) for the complete trust-boundary reasoning behind all four workflows (`ci.yml`, `codeql.yml`, `pages.yml`, `release.yml`) and the pinning practice.
-
-**Branch convention:** feature/topic branches are merged via pull request into `develop`. `develop` reaches `main` only at release points, through a `release/vX.Y.Z` pull request (and each release is followed by a sync PR back into `develop`), not on every merge. See [docs/VERSIONING.md](docs/VERSIONING.md) for release criteria and version numbering.
-
-## Formatting
-
-`.clang-format` is enforced via `make format-check` (CI and pre-commit hook); do not hand-format. Run `make format` to apply formatting automatically before committing.
-
-## Local development workflow
-
-One-time setup per clone:
-```sh
-make hooks   # git config core.hooksPath .githooks
-```
-
-After setup, `git commit` runs `format-check` → `test` → `lint` → `docs` → `all` automatically before the commit is created, matching the checks CI runs remotely. The hook checks the *working tree*, not the staged content, so with `git add -p` an unstaged edit can make it pass or fail on code that is not in the commit; and it runs everything even for a docs-only change, which takes a while. `git commit --no-verify` skips it for a commit you are content to leave to CI (the same checks run there on every pull request). `make lint` is the one gate where a local pass is not a reliable preview of CI's: CI pins cppcheck 2.13.0 and other versions disagree about MISRA findings (a ternary expression passed under cppcheck 2.21 and failed CI under 2.13.0 with `misra-c2012-10.6`). Run `tools/install_cppcheck.sh` once to build the pinned version; `make lint` then picks it up automatically, and prints a warning whenever the cppcheck it is using is a different version. Standalone commands: `make format`, `make format-check`, `make test`, `make lint`, `make docs`, `make all`, `make check-version`, `make flash`; `make check-pr` previews CI's pull-request file checks; `make test SANITIZE=1` runs the suite under ASan and UBSan, as CI does; `make coverage` is run by CI (see "CI triggers and branch conventions" below) and works locally too; it clears stale `.gcda` counters itself before each run.
+- Work on a topic branch and merge it into `develop` by pull request.
+- Split unrelated changes into separate pull requests. When they touch the
+  same files, stack them and merge bottom-up with merge commits. Never
+  squash: squashing the bottom of a stack disconnects the rest.
+- `develop` reaches `main` only through a release pull request (see
+  [Versioning](docs/VERSIONING.md)).
+- Add a `CHANGELOG.md` entry under `[Unreleased]` for every user-visible
+  change.
