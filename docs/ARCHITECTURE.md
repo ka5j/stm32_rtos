@@ -15,7 +15,7 @@ flowchart TD
     rapi["rtos/api/<br/>tasks, semaphores, queues"]
     bsp["bsp/<br/>board support"]
     kernel["rtos/kernel/<br/>scheduler, context switch"]
-    drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI"]
+    drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI, IWDG"]
     regs["core/ + device/<br/>register structs"]
     app --> api
     app --> rapi
@@ -41,8 +41,8 @@ the rule; review does.
 
 ```
 core/inc/        Cortex-M4 core registers: MPU, NVIC, SCB/FPU, SysTick
-device/inc/      STM32F446 registers: EXTI, Flash, GPIO, IWDG, PWR, RCC,
-                 SYSCFG, USART/UART, WWDG
+device/inc/      STM32F446 registers: DBGMCU, EXTI, Flash, GPIO, IWDG, PWR,
+                 RCC, SYSCFG, USART/UART, WWDG
 drivers/         Drivers and the DriverStatus_e error contract
 bsp/             NUCLEO-F446RE support (180 MHz clock bring-up)
 api/, rtos/      Reserved for the peripheral API and the kernel

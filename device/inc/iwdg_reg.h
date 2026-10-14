@@ -46,6 +46,18 @@ typedef struct IwdgRegisters_t
 #define IWDG_PR_PR_Msk ((uint32_t)0x7U << IWDG_PR_PR_Pos)
 /** @} */
 
+/** @name PR values
+ *  7 also divides by 256; IWDG_PR_DIV256 is the one value used for it.
+ *  @{ */
+#define IWDG_PR_DIV4 (0x0U)   ///< LSI / 4
+#define IWDG_PR_DIV8 (0x1U)   ///< LSI / 8
+#define IWDG_PR_DIV16 (0x2U)  ///< LSI / 16
+#define IWDG_PR_DIV32 (0x3U)  ///< LSI / 32
+#define IWDG_PR_DIV64 (0x4U)  ///< LSI / 64
+#define IWDG_PR_DIV128 (0x5U) ///< LSI / 128
+#define IWDG_PR_DIV256 (0x6U) ///< LSI / 256
+/** @} */
+
 /** @name RLR - reload (0x08)
  *  @{ */
 #define IWDG_RLR_RL_Pos (0U) ///< Bits 11:0

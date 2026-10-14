@@ -51,8 +51,8 @@ flags, so its parameter is non-`const` on purpose.
 
 ## Poll-count timeouts
 
-Every hardware wait (HSIRDY, HSERDY, PLLRDY, SWS, VOSRDY, ODRDY, ODSWRDY, and
-UART TXE/TC/RXNE) is a bounded number of register polls, not a wall-clock
+Every hardware wait (HSIRDY, HSERDY, PLLRDY, SWS, VOSRDY, ODRDY, ODSWRDY, IWDG
+PVU/RVU, and UART TXE/TC/RXNE) is a bounded number of register polls, not a wall-clock
 timeout.
 
 - During clock bring-up there is no timebase yet: SysTick's reload depends on
@@ -87,13 +87,16 @@ contexts at once. When tasks and interrupts exist:
 - **Safe on distinct bits:** single stores such as `gpioWritePin()` (BSRR),
   `nvicEnableIrq()`/`nvicDisableIrq()`/`nvicSetPending()`/`nvicClearPending()`
   (write-1-to-act), `nvicSetPriority()` (one byte), `extiClearPending()`
-  (write-1-to-clear), and pure reads.
+  (write-1-to-clear), `iwdgRefresh()` (one key write), and pure reads.
 - **Caller must serialise:** read-modify-writes of shared registers, which
   covers every `rcc*Clock*()`, the RCC CR/CFGR/PLLCFGR writers, the PWR and
   Flash functions, `gpioInit()`/`gpioDeinit()`/`gpioSetAlternateFunction()`,
   `uartInit()`, `nvicSetSystemHandlerPriority()` (SHPR3 holds both
-  PendSV and SysTick), `faultEnable()` (SHCSR, CCR), and every other EXTI
-  function (EXTICR, RTSR/FTSR, IMR, SWIER).
+  PendSV and SysTick), `faultEnable()` (SHCSR, CCR), every other EXTI
+  function (EXTICR, RTSR/FTSR, IMR, SWIER), `rccClearResetFlags()` (CSR),
+  and `iwdgFreezeInDebug()` (APB1_FZ).
+- **One context, once:** `iwdgStart()`. Its key sequence must not be
+  interleaved with a refresh, which would relock PR and RLR.
 - **Single owner only:** `gpioTogglePin()`, `uartReceiveByte()`/
   `uartReceive()` (the SR-then-DR read clears the error flags), and
   `systickInit()`.
@@ -134,8 +137,8 @@ cppcheck 2.13.0 because other versions report different findings.
   reach memory-mapped hardware in standard C.
 - **2.5, 2.3, 2.4** (unused macro/type/tag) are suppressed per register
   header that models more than its current users need, and **8.7**
-  (external linkage used in one file) on `gpio.c` and `uart.c`, which have no
-  second caller yet. Remove each one once the last unused item gets a user.
+  (external linkage used in one file) on `gpio.c`, `uart.c` and `iwdg.c`,
+  which have no second caller yet. Remove each one once the last unused item gets a user.
 - **12.2** (shift range) is never suppressed. `1U` is an 8-bit essential
   type, so every bit macro is written `((uint32_t)1U << n)`.
 - Any inline `// cppcheck-suppress` states its reason beside it.

@@ -76,6 +76,10 @@
  *  @ingroup device_peripherals
  *  @brief System configuration: EXTI routing and I/O compensation. */
 
+/** @defgroup dbgmcu_registers DBGMCU
+ *  @ingroup device_peripherals
+ *  @brief MCU debug component: peripheral freeze while the core is halted. */
+
 /** @defgroup uart_registers USART/UART
  *  @ingroup device_peripherals
  *  @brief USART1-3/6 and UART4-5. */
@@ -121,6 +125,10 @@
 /** @defgroup exti_driver EXTI
  *  @ingroup driver_layer
  *  @brief GPIO-to-line routing, edge triggers, interrupt mask and pending bits. */
+
+/** @defgroup iwdg_driver IWDG
+ *  @ingroup driver_layer
+ *  @brief Independent watchdog start, refresh and debug freeze. */
 
 /** @defgroup fault_driver Fault
  *  @ingroup driver_layer

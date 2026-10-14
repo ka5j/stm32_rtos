@@ -1018,3 +1018,26 @@ void test_rcc_driver_sysclk_switch_checks_the_requested_sources_own_ready_bit(vo
         TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & RCC_CFGR_SW_Msk);
     }
 }
+
+/* --- rccResetFlags / rccClearResetFlags --- */
+
+/** Returns only the reset-cause flags, not LSION/LSIRDY or RMVF. */
+void test_rcc_driver_reset_flags_masks_to_cause_flags(void)
+{
+    RccRegisters_t rcc = {.CSR = 0xFFFFFFFFU};
+
+    TEST_ASSERT_EQUAL_HEX32(0xFE000000U, rccResetFlags(&rcc));
+
+    rcc.CSR = RCC_CSR_IWDGRSTF | RCC_CSR_PINRSTF | RCC_CSR_LSION | RCC_CSR_LSIRDY;
+    TEST_ASSERT_EQUAL_HEX32(RCC_CSR_IWDGRSTF | RCC_CSR_PINRSTF, rccResetFlags(&rcc));
+}
+
+/** Clearing sets RMVF and keeps LSION. */
+void test_rcc_driver_clear_reset_flags_sets_rmvf(void)
+{
+    RccRegisters_t rcc = {.CSR = RCC_CSR_LSION};
+
+    rccClearResetFlags(&rcc);
+
+    TEST_ASSERT_EQUAL_HEX32(RCC_CSR_LSION | RCC_CSR_RMVF, rcc.CSR);
+}
