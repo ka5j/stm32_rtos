@@ -84,7 +84,8 @@ The system is structured in layers, starting from boot (linker script and startu
 | `make format-check` | Non-mutating formatting check; fails if any tracked file would be reformatted                      |
 | `make lint`         | Run `cppcheck` (including a MISRA C:2012 subset via `--addon=misra`) across the project; fails on any finding. Uses the CI-pinned cppcheck if `tools/install_cppcheck.sh` has installed it, and warns if the cppcheck it finds differs from CI's |
 | `make docs`         | Run Doxygen; fails if any documented file has undocumented members ([details](CONTRIBUTING.md))     |
-| `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity, then cross-check `core/inc/nvic_reg.h` against the startup vector table and every test function against its registration in `test_runner.c`; fails on any test failure or mismatch |
+| `make test`         | Compile and run host-side unit tests (`tests/unit/`) against Unity, then cross-check `core/inc/nvic_reg.h` against the startup vector table and every test function against its registration in `test_runner.c`; fails on any test failure or mismatch. `make test SANITIZE=1` runs the same suite under AddressSanitizer and UndefinedBehaviorSanitizer (CI does this too) |
+| `make check-pr`     | Run CI's pull-request file checks locally against `BASE` (default `origin/develop`): every touched source file has a Doxygen `@file` block, every touched driver/bsp/api/rtos `.c` has a `tests/unit/test_<name>.c`, every touched `*_reg.h` is included by a test |
 | `make check-version` | Fail if the Doxyfile's `PROJECT_NUMBER` and `CHANGELOG.md`'s newest release disagree; `TAG=vX.Y.Z` also checks a tag against them |
 | `make coverage`     | Recompile `TEST_DRIVER_SOURCES` and their tests with coverage instrumentation, clear stale `.gcda` counters, run them, then fail (via `gcovr`) if line or branch coverage drops below 100% |
 
