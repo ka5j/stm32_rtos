@@ -8,6 +8,22 @@ specifically.
 
 ## [Unreleased]
 
+### Changed
+
+- `Doxyfile`: cut from the 1079-line default template to the 20-odd
+  settings that differ from Doxygen's defaults, each commented
+  (`doxygen -x` confirms the effective configuration changed only where
+  intended). Adds call and caller graphs, and a `\regaccess{}` alias for
+  register access types.
+- Generated docs use doxygen-awesome-css v2.5.0 (MIT), vendored in
+  `docs/theme/` with its dark-mode toggle and code copy button, plus
+  `docs/theme/project.css` for project styles. No network access is needed
+  to build the docs.
+- `docs/groups.dox`: the ASCII table that rendered as preformatted text is
+  replaced by a short description, and the group briefs are one line each.
+  Its header is now a plain comment rather than an `@file` block, which drops
+  a file page whose "source" link pointed at a page Doxygen never generates.
+
 ## [0.1.6] - 2026-10-14
 
 Not verified on hardware: every driver and `bspClockInit()` is covered by
