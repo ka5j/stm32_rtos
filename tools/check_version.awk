@@ -1,24 +1,11 @@
 #!/usr/bin/awk -f
 #
-# check_version.awk
+# Checks that the Doxyfile's PROJECT_NUMBER, CHANGELOG.md's newest release
+# heading and, if given, the git tag name the same version (see
+# docs/VERSIONING.md). [Unreleased] is skipped, so it holds between releases
+# too. Run by `make check-version` and the release workflow. POSIX awk.
 #
-# Cross-checks the three places a release version is recorded: the Doxyfile's
-# PROJECT_NUMBER, the newest released heading in CHANGELOG.md (the first
-# "## [X.Y.Z]" below "## [Unreleased]"), and - when given - the git tag.
-# docs/VERSIONING.md requires all three to agree at a release and nothing
-# else watches them: they are edited by hand in different files, so a missed
-# one ships a release whose generated docs or changelog name the wrong
-# version.
-#
-# Between releases the check still holds, because PROJECT_NUMBER names the
-# last version that shipped and "[Unreleased]" is skipped, so it is safe to
-# run on every PR.
-#
-# Usage: awk -v tag=vX.Y.Z -f tools/check_version.awk Doxyfile CHANGELOG.md
-#        (omit -v tag=... to compare only the Doxyfile and CHANGELOG)
-#
-# Written for POSIX awk (no gawk-only extensions - macOS ships the BWK
-# "one true awk", not gawk, and this must run there too).
+# Usage: awk [-v tag=vX.Y.Z] -f tools/check_version.awk Doxyfile CHANGELOG.md
 
 FILENAME ~ /Doxyfile$/ && $1 == "PROJECT_NUMBER" && $2 == "=" {
     doxyfile = $3

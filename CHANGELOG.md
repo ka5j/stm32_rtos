@@ -38,6 +38,13 @@ specifically.
 - The README no longer calls the driver layer complete: EXTI, IWDG and WWDG
   have register headers but no driver.
 
+- Build and boot files keep only short what/why comments: the Makefile (383
+  comment lines down to 43), `startup_stm32f446re.s`, the linker
+  script and the headers of the `tools/` scripts. Rationale now points to
+  Design notes. Comments only: the Makefile and tools are unchanged with
+  comment lines removed, the startup object's sections are byte-identical,
+  and the firmware image is byte-identical.
+
 - Driver and BSP docs rewritten (`drivers/`, `bsp/`):
   - one-line briefs, and a `@retval` table for every status a function can
     return, replacing stacked `@return` prose;

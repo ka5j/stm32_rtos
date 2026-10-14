@@ -1,23 +1,12 @@
 #!/bin/sh
 #
-# install_cppcheck.sh
-#
-# Builds and installs the exact cppcheck version CI uses, into a per-user
-# prefix (no sudo, nothing outside $PREFIX is touched). `make lint` picks it
-# up automatically once it is there.
-#
-# Why this exists: different cppcheck versions report different MISRA
-# findings. CI pins 2.13.0 (.github/workflows/ci.yml); Homebrew and most
-# distros ship something newer, and a newer cppcheck can pass code that
-# 2.13.0 rejects - a `cond ? A : B` expression passed locally under 2.21 and
-# failed CI under 2.13.0 (misra-c2012-10.6), costing a CI cycle. Homebrew
-# has no formula for an older cppcheck, so it is built from source.
+# Builds the cppcheck version CI pins (2.13.0) into a per-user prefix, with
+# no sudo; `make lint` then uses it automatically. Other versions report
+# different MISRA findings, and Homebrew has no older formula.
 #
 # Usage: tools/install_cppcheck.sh [PREFIX]
 #        PREFIX defaults to $HOME/.local/share/cppcheck-2.13.0
-#
-# Needs: git, a C++ compiler, make, python3 (cppcheck's MISRA addon is a
-# Python script). Takes a few minutes. When CI's pin changes, update
+# Needs git, a C++ compiler, make and python3. When CI's pin changes, update
 # VERSION and COMMIT here and CPPCHECK_CI_VERSION in the Makefile.
 
 set -eu

@@ -1,18 +1,10 @@
 #!/usr/bin/awk -f
 #
-# changelog_section.awk
-#
-# Prints the body of one release's section of CHANGELOG.md - everything
-# between its "## [X.Y.Z]" heading and the next "## [" heading, without the
-# heading itself. Used by the release workflow to turn the changelog entry
-# into the GitHub Release notes, so the notes cannot drift from the
-# changelog. Exits 1, printing nothing useful, if the version has no
-# heading or an empty section, so a release is never published with blank
-# notes.
+# Prints one release's CHANGELOG.md section body (without its heading), for
+# the GitHub Release notes. Exits 1 if the section is missing or empty, so a
+# release is never published with blank notes. POSIX awk.
 #
 # Usage: awk -v version=X.Y.Z -f tools/changelog_section.awk CHANGELOG.md
-#
-# Written for POSIX awk (no gawk-only extensions).
 
 /^## \[/ {
     in_section = (index($0, "## [" version "]") == 1)
