@@ -38,26 +38,30 @@ typedef struct PwrRegisters_t
 #define PWR ((PwrRegisters_t *)PWR_BASE) ///< Pointer to the PWR register block
 
 /* --- PWR_CR bit definitions --- */
-#define PWR_CR_LPDS_Pos (0U)                    ///< Bit position within PWR_CR
-#define PWR_CR_LPDS (1U << PWR_CR_LPDS_Pos)     ///< WRITE - low-power regulator in Stop mode
-#define PWR_CR_PDDS_Pos (1U)                    ///< Bit position within PWR_CR
-#define PWR_CR_PDDS (1U << PWR_CR_PDDS_Pos)     ///< WRITE - power down instead of Stop on deepsleep
-#define PWR_CR_CWUF_Pos (2U)                    ///< Bit position within PWR_CR
-#define PWR_CR_CWUF (1U << PWR_CR_CWUF_Pos)     ///< WRITE 1 to clear - clear wakeup flag
-#define PWR_CR_CSBF_Pos (3U)                    ///< Bit position within PWR_CR
-#define PWR_CR_CSBF (1U << PWR_CR_CSBF_Pos)     ///< WRITE 1 to clear - clear standby flag
-#define PWR_CR_PVDE_Pos (4U)                    ///< Bit position within PWR_CR
-#define PWR_CR_PVDE (1U << PWR_CR_PVDE_Pos)     ///< WRITE - enable programmable voltage detector
-#define PWR_CR_PLS_Pos (5U)                     ///< Bit position within PWR_CR
-#define PWR_CR_PLS_Msk (0x7U << PWR_CR_PLS_Pos) ///< bits 7:5, PVD threshold level
-#define PWR_CR_DBP_Pos (8U)                     ///< Bit position within PWR_CR
-#define PWR_CR_DBP (1U << PWR_CR_DBP_Pos)       ///< WRITE - disable backup domain write protection
-#define PWR_CR_VOS_Pos (14U)                    ///< Bit position within PWR_CR
-#define PWR_CR_VOS_Msk (0x3U << PWR_CR_VOS_Pos) ///< bits 15:14, regulator voltage scaling
-#define PWR_CR_ODEN_Pos (16U)                   ///< Bit position within PWR_CR
-#define PWR_CR_ODEN (1U << PWR_CR_ODEN_Pos)     ///< WRITE - enable over-drive mode
-#define PWR_CR_ODSWEN_Pos (17U)                 ///< Bit position within PWR_CR
-#define PWR_CR_ODSWEN (1U << PWR_CR_ODSWEN_Pos) ///< WRITE - switch regulator to over-drive
+#define PWR_CR_LPDS_Pos (0U)                          ///< Bit position within PWR_CR
+#define PWR_CR_LPDS ((uint32_t)1U << PWR_CR_LPDS_Pos) ///< WRITE - low-power regulator in Stop mode
+#define PWR_CR_PDDS_Pos (1U)                          ///< Bit position within PWR_CR
+#define PWR_CR_PDDS                                                                                \
+    ((uint32_t)1U << PWR_CR_PDDS_Pos) ///< WRITE - power down instead of Stop on deepsleep
+#define PWR_CR_CWUF_Pos (2U)          ///< Bit position within PWR_CR
+#define PWR_CR_CWUF ((uint32_t)1U << PWR_CR_CWUF_Pos) ///< WRITE 1 to clear - clear wakeup flag
+#define PWR_CR_CSBF_Pos (3U)                          ///< Bit position within PWR_CR
+#define PWR_CR_CSBF ((uint32_t)1U << PWR_CR_CSBF_Pos) ///< WRITE 1 to clear - clear standby flag
+#define PWR_CR_PVDE_Pos (4U)                          ///< Bit position within PWR_CR
+#define PWR_CR_PVDE                                                                                \
+    ((uint32_t)1U << PWR_CR_PVDE_Pos) ///< WRITE - enable programmable voltage detector
+#define PWR_CR_PLS_Pos (5U)           ///< Bit position within PWR_CR
+#define PWR_CR_PLS_Msk ((uint32_t)0x7U << PWR_CR_PLS_Pos) ///< bits 7:5, PVD threshold level
+#define PWR_CR_DBP_Pos (8U)                               ///< Bit position within PWR_CR
+#define PWR_CR_DBP                                                                                 \
+    ((uint32_t)1U << PWR_CR_DBP_Pos) ///< WRITE - disable backup domain write protection
+#define PWR_CR_VOS_Pos (14U)         ///< Bit position within PWR_CR
+#define PWR_CR_VOS_Msk ((uint32_t)0x3U << PWR_CR_VOS_Pos) ///< bits 15:14, regulator voltage scaling
+#define PWR_CR_ODEN_Pos (16U)                             ///< Bit position within PWR_CR
+#define PWR_CR_ODEN ((uint32_t)1U << PWR_CR_ODEN_Pos)     ///< WRITE - enable over-drive mode
+#define PWR_CR_ODSWEN_Pos (17U)                           ///< Bit position within PWR_CR
+#define PWR_CR_ODSWEN                                                                              \
+    ((uint32_t)1U << PWR_CR_ODSWEN_Pos) ///< WRITE - switch regulator to over-drive
 
 /* --- PWR_CR.VOS field values (RM0390 section 5.4.1; section 3.4.1's note gives each scale's
  * maximum HCLK) --- */
@@ -66,18 +70,20 @@ typedef struct PwrRegisters_t
 #define PWR_CR_VOS_SCALE1 (0x3U) ///< VOS field value: scale 1 - highest max SYSCLK
 
 /* --- PWR_CSR bit definitions --- */
-#define PWR_CSR_WUF_Pos (0U)                        ///< Bit position within PWR_CSR
-#define PWR_CSR_WUF (1U << PWR_CSR_WUF_Pos)         ///< READ only - wakeup event occurred
-#define PWR_CSR_SBF_Pos (1U)                        ///< Bit position within PWR_CSR
-#define PWR_CSR_SBF (1U << PWR_CSR_SBF_Pos)         ///< READ only - standby mode entered
-#define PWR_CSR_PVDO_Pos (2U)                       ///< Bit position within PWR_CSR
-#define PWR_CSR_PVDO (1U << PWR_CSR_PVDO_Pos)       ///< READ only - VDD below PVD threshold
-#define PWR_CSR_VOSRDY_Pos (14U)                    ///< Bit position within PWR_CSR
-#define PWR_CSR_VOSRDY (1U << PWR_CSR_VOSRDY_Pos)   ///< READ only - voltage scaling switch complete
-#define PWR_CSR_ODRDY_Pos (16U)                     ///< Bit position within PWR_CSR
-#define PWR_CSR_ODRDY (1U << PWR_CSR_ODRDY_Pos)     ///< READ only - over-drive mode ready
-#define PWR_CSR_ODSWRDY_Pos (17U)                   ///< Bit position within PWR_CSR
-#define PWR_CSR_ODSWRDY (1U << PWR_CSR_ODSWRDY_Pos) ///< READ only - over-drive switch complete
+#define PWR_CSR_WUF_Pos (0U)                            ///< Bit position within PWR_CSR
+#define PWR_CSR_WUF ((uint32_t)1U << PWR_CSR_WUF_Pos)   ///< READ only - wakeup event occurred
+#define PWR_CSR_SBF_Pos (1U)                            ///< Bit position within PWR_CSR
+#define PWR_CSR_SBF ((uint32_t)1U << PWR_CSR_SBF_Pos)   ///< READ only - standby mode entered
+#define PWR_CSR_PVDO_Pos (2U)                           ///< Bit position within PWR_CSR
+#define PWR_CSR_PVDO ((uint32_t)1U << PWR_CSR_PVDO_Pos) ///< READ only - VDD below PVD threshold
+#define PWR_CSR_VOSRDY_Pos (14U)                        ///< Bit position within PWR_CSR
+#define PWR_CSR_VOSRDY                                                                             \
+    ((uint32_t)1U << PWR_CSR_VOSRDY_Pos) ///< READ only - voltage scaling switch complete
+#define PWR_CSR_ODRDY_Pos (16U)          ///< Bit position within PWR_CSR
+#define PWR_CSR_ODRDY ((uint32_t)1U << PWR_CSR_ODRDY_Pos) ///< READ only - over-drive mode ready
+#define PWR_CSR_ODSWRDY_Pos (17U)                         ///< Bit position within PWR_CSR
+#define PWR_CSR_ODSWRDY                                                                            \
+    ((uint32_t)1U << PWR_CSR_ODSWRDY_Pos) ///< READ only - over-drive switch complete
 
 /** @} */
 

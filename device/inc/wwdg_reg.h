@@ -37,22 +37,25 @@ typedef struct WwdgRegisters_t
 #define WWDG ((WwdgRegisters_t *)WWDG_BASE) ///< Pointer to the WWDG register block
 
 /* --- WWDG_CR bit definitions --- */
-#define WWDG_CR_T_Pos (0U)                     ///< Bit position within WWDG_CR
-#define WWDG_CR_T_Msk (0x7FU << WWDG_CR_T_Pos) ///< bits 6:0, 7-bit down-counter
-#define WWDG_CR_WDGA_Pos (7U)                  ///< Bit position within WWDG_CR
-#define WWDG_CR_WDGA (1U << WWDG_CR_WDGA_Pos) ///< WRITE - activate the watchdog (cannot be cleared)
+#define WWDG_CR_T_Pos (0U)                               ///< Bit position within WWDG_CR
+#define WWDG_CR_T_Msk ((uint32_t)0x7FU << WWDG_CR_T_Pos) ///< bits 6:0, 7-bit down-counter
+#define WWDG_CR_WDGA_Pos (7U)                            ///< Bit position within WWDG_CR
+#define WWDG_CR_WDGA                                                                               \
+    ((uint32_t)1U << WWDG_CR_WDGA_Pos) ///< WRITE - activate the watchdog (cannot be cleared)
 
 /* --- WWDG_CFR bit definitions --- */
-#define WWDG_CFR_W_Pos (0U)                             ///< Bit position within WWDG_CFR
-#define WWDG_CFR_W_Msk (0x7FU << WWDG_CFR_W_Pos)        ///< bits 6:0, 7-bit window value
-#define WWDG_CFR_WDGTB_Pos (7U)                         ///< Bit position within WWDG_CFR
-#define WWDG_CFR_WDGTB_Msk (0x3U << WWDG_CFR_WDGTB_Pos) ///< bits 8:7, timer base prescaler
+#define WWDG_CFR_W_Pos (0U)                                ///< Bit position within WWDG_CFR
+#define WWDG_CFR_W_Msk ((uint32_t)0x7FU << WWDG_CFR_W_Pos) ///< bits 6:0, 7-bit window value
+#define WWDG_CFR_WDGTB_Pos (7U)                            ///< Bit position within WWDG_CFR
+#define WWDG_CFR_WDGTB_Msk                                                                         \
+    ((uint32_t)0x3U << WWDG_CFR_WDGTB_Pos)              ///< bits 8:7, timer base prescaler
 #define WWDG_CFR_EWI_Pos (9U)                           ///< Bit position within WWDG_CFR
-#define WWDG_CFR_EWI (1U << WWDG_CFR_EWI_Pos)           ///< WRITE - enable early-wakeup interrupt
+#define WWDG_CFR_EWI ((uint32_t)1U << WWDG_CFR_EWI_Pos) ///< WRITE - enable early-wakeup interrupt
 
 /* --- WWDG_SR bit definitions --- */
-#define WWDG_SR_EWIF_Pos (0U)                 ///< Bit position within WWDG_SR
-#define WWDG_SR_EWIF (1U << WWDG_SR_EWIF_Pos) ///< READ/WRITE 0 to clear - early-wakeup flag
+#define WWDG_SR_EWIF_Pos (0U) ///< Bit position within WWDG_SR
+#define WWDG_SR_EWIF                                                                               \
+    ((uint32_t)1U << WWDG_SR_EWIF_Pos) ///< READ/WRITE 0 to clear - early-wakeup flag
 
 /** @} */
 

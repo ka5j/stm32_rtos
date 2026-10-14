@@ -92,6 +92,17 @@ specifically.
 
 ### Changed
 
+- `core/inc/*_reg.h`, `device/inc/*_reg.h`: every bit and mask macro now
+  casts its constant before shifting, `((uint32_t)1U << X_Pos)` instead of
+  `(1U << X_Pos)`. `1U` has the essential type of an 8-bit unsigned, so
+  `1U << 17U` is a real MISRA C:2012 Rule 12.2 violation, not the
+  cppcheck limitation the old comments called it; with the cast the rule
+  passes under CI's cppcheck 2.13.0. That removes all 50 inline
+  `// cppcheck-suppress misra-c2012-12.2` comments from `drivers/` and
+  `bsp/`, and the comments that justified them. Generated code is
+  unchanged. The Makefile's lint notes now say the rule is deliberately
+  not suppressed anywhere.
+
 - Docs and comments only, from the full review: claims the code or the
   manual did not back are corrected or removed. `rccBusPrescalerConfig()`
   no longer says its fields "take effect immediately and synchronously"

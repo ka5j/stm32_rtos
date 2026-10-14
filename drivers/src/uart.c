@@ -91,12 +91,6 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
     uint32_t brr = 0U;
     DriverStatus_e status = uartComputeBrr(pclk_hz, baud, &brr);
 
-    /* Every USART_CR1/USART_CR2_STOP value below is a fixed, tested
-     * compile-time bit value (device/inc/uart_reg.h), not a runtime-
-     * computed shift - cppcheck's MISRA addon can't bound a shift
-     * through a macro expansion like this and flags every reference to
-     * it; see drivers/src/rcc.c's matching comment on rccHseEnable() for
-     * the same finding on the same class of macro. */
     if (status == DRIVER_STATUS_OK)
     {
         /* USART_CR2_STOP_0_5/_1_5 are architecturally real (RM0390) but
@@ -110,7 +104,6 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         if ((parity_enable != 0U) && (parity_enable != USART_CR1_PCE))
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
@@ -119,7 +112,6 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         if ((parity_select != 0U) && (parity_select != USART_CR1_PS))
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
@@ -146,14 +138,12 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
          * on is 7 data bits plus parity and would overwrite DR bit 7 with
          * the parity bit. The 9th bit is parity, not data, so transmit/
          * receive stay uint8_t - see uart.h's file-level comment. */
-        // cppcheck-suppress misra-c2012-12.2
         uint32_t cr1_mask = USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
                             | USART_CR1_TE | USART_CR1_RE;
         uint32_t frame_length = 0U;
 
         if (parity_enable != 0U)
         {
-            // cppcheck-suppress misra-c2012-12.2
             frame_length = USART_CR1_M;
         }
 
@@ -161,18 +151,15 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
          * reconfiguration of an already-running instance does not change
          * them underneath an in-flight frame - see uartInit()'s doc
          * comment. */
-        // cppcheck-suppress misra-c2012-12.2
         uart->CR1 &= ~USART_CR1_UE;
 
         uart->BRR = brr;
-        // cppcheck-suppress misra-c2012-12.2
         uart->CR2 = (uart->CR2 & ~USART_CR2_STOP_Msk) | (stop_bits << USART_CR2_STOP_Pos);
         uart->CR1 =
             (uart->CR1 & ~cr1_mask) | frame_length | parity_enable | parity_select | direction;
 
         /* UE set last, after every other field is already correct - see
          * this function's own doc comment. */
-        // cppcheck-suppress misra-c2012-12.2
         uart->CR1 |= USART_CR1_UE;
     }
 
@@ -228,7 +215,6 @@ static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag,
 
 DriverStatus_e uartFlush(const UartRegisters_t *uart, uint32_t timeout)
 {
-    // cppcheck-suppress misra-c2012-12.2
     return uartWaitSrFlag(uart, USART_SR_TC, timeout);
 }
 

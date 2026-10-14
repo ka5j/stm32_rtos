@@ -59,66 +59,70 @@ typedef struct UartRegisters_t
 #define USART6 ((UartRegisters_t *)USART6_BASE) ///< Pointer to the USART6 register block
 
 /* --- USART_SR bit definitions --- */
-#define USART_SR_PE_Pos (0U)                ///< Bit position within USART_SR
-#define USART_SR_PE (1U << USART_SR_PE_Pos) ///< READ only - parity error
-#define USART_SR_FE_Pos (1U)                ///< Bit position within USART_SR
-#define USART_SR_FE (1U << USART_SR_FE_Pos) ///< READ only - framing error
-#define USART_SR_NE_Pos (2U)                ///< Bit position within USART_SR
+#define USART_SR_PE_Pos (0U)                          ///< Bit position within USART_SR
+#define USART_SR_PE ((uint32_t)1U << USART_SR_PE_Pos) ///< READ only - parity error
+#define USART_SR_FE_Pos (1U)                          ///< Bit position within USART_SR
+#define USART_SR_FE ((uint32_t)1U << USART_SR_FE_Pos) ///< READ only - framing error
+#define USART_SR_NE_Pos (2U)                          ///< Bit position within USART_SR
 #define USART_SR_NE                                                                                \
-    (1U << USART_SR_NE_Pos)   ///< READ only - noise detected flag (RM0390 calls this bit NF)
+    ((uint32_t)1U                                                                                  \
+     << USART_SR_NE_Pos)      ///< READ only - noise detected flag (RM0390 calls this bit NF)
 #define USART_SR_ORE_Pos (3U) ///< Bit position within USART_SR
-#define USART_SR_ORE (1U << USART_SR_ORE_Pos)   ///< READ only - overrun error
-#define USART_SR_IDLE_Pos (4U)                  ///< Bit position within USART_SR
-#define USART_SR_IDLE (1U << USART_SR_IDLE_Pos) ///< READ only - idle line detected
-#define USART_SR_RXNE_Pos (5U)                  ///< Bit position within USART_SR
+#define USART_SR_ORE ((uint32_t)1U << USART_SR_ORE_Pos)   ///< READ only - overrun error
+#define USART_SR_IDLE_Pos (4U)                            ///< Bit position within USART_SR
+#define USART_SR_IDLE ((uint32_t)1U << USART_SR_IDLE_Pos) ///< READ only - idle line detected
+#define USART_SR_RXNE_Pos (5U)                            ///< Bit position within USART_SR
 #define USART_SR_RXNE                                                                              \
-    (1U << USART_SR_RXNE_Pos) ///< READ/WRITE 0 to clear (RM0390: rc_w0); also cleared by a DR read
-#define USART_SR_TC_Pos (6U)  ///< Bit position within USART_SR
-#define USART_SR_TC (1U << USART_SR_TC_Pos)   ///< READ/WRITE 0 to clear - transmission complete
-#define USART_SR_TXE_Pos (7U)                 ///< Bit position within USART_SR
-#define USART_SR_TXE (1U << USART_SR_TXE_Pos) ///< READ only, clears on DR write
+    ((uint32_t)1U                                                                                  \
+     << USART_SR_RXNE_Pos)   ///< READ/WRITE 0 to clear (RM0390: rc_w0); also cleared by a DR read
+#define USART_SR_TC_Pos (6U) ///< Bit position within USART_SR
+#define USART_SR_TC                                                                                \
+    ((uint32_t)1U << USART_SR_TC_Pos) ///< READ/WRITE 0 to clear - transmission complete
+#define USART_SR_TXE_Pos (7U)         ///< Bit position within USART_SR
+#define USART_SR_TXE ((uint32_t)1U << USART_SR_TXE_Pos) ///< READ only, clears on DR write
 
 /* --- USART_BRR bit definitions --- */
 #define USART_BRR_DIV_FRACTION_Pos (0U) ///< Bit position within USART_BRR
-#define USART_BRR_DIV_FRACTION_Msk (0xFU << USART_BRR_DIV_FRACTION_Pos) ///< bits 3:0
+#define USART_BRR_DIV_FRACTION_Msk ((uint32_t)0xFU << USART_BRR_DIV_FRACTION_Pos) ///< bits 3:0
 #define USART_BRR_DIV_MANTISSA_Pos (4U) ///< Bit position within USART_BRR
-#define USART_BRR_DIV_MANTISSA_Msk (0xFFFU << USART_BRR_DIV_MANTISSA_Pos) ///< bits 15:4
+#define USART_BRR_DIV_MANTISSA_Msk ((uint32_t)0xFFFU << USART_BRR_DIV_MANTISSA_Pos) ///< bits 15:4
 
 /* --- USART_CR1 bit definitions --- */
-#define USART_CR1_SBK_Pos (0U)                        ///< Bit position within USART_CR1
-#define USART_CR1_SBK (1U << USART_CR1_SBK_Pos)       ///< WRITE - send break
-#define USART_CR1_RWU_Pos (1U)                        ///< Bit position within USART_CR1
-#define USART_CR1_RWU (1U << USART_CR1_RWU_Pos)       ///< READ/WRITE - receiver wakeup
-#define USART_CR1_RE_Pos (2U)                         ///< Bit position within USART_CR1
-#define USART_CR1_RE (1U << USART_CR1_RE_Pos)         ///< WRITE - receiver enable
-#define USART_CR1_TE_Pos (3U)                         ///< Bit position within USART_CR1
-#define USART_CR1_TE (1U << USART_CR1_TE_Pos)         ///< WRITE - transmitter enable
-#define USART_CR1_IDLEIE_Pos (4U)                     ///< Bit position within USART_CR1
-#define USART_CR1_IDLEIE (1U << USART_CR1_IDLEIE_Pos) ///< WRITE - IDLE interrupt enable
-#define USART_CR1_RXNEIE_Pos (5U)                     ///< Bit position within USART_CR1
-#define USART_CR1_RXNEIE (1U << USART_CR1_RXNEIE_Pos) ///< WRITE - RXNE interrupt enable
-#define USART_CR1_TCIE_Pos (6U)                       ///< Bit position within USART_CR1
-#define USART_CR1_TCIE (1U << USART_CR1_TCIE_Pos)     ///< WRITE - TC interrupt enable
-#define USART_CR1_TXEIE_Pos (7U)                      ///< Bit position within USART_CR1
-#define USART_CR1_TXEIE (1U << USART_CR1_TXEIE_Pos)   ///< WRITE - TXE interrupt enable
-#define USART_CR1_PEIE_Pos (8U)                       ///< Bit position within USART_CR1
-#define USART_CR1_PEIE (1U << USART_CR1_PEIE_Pos)     ///< WRITE - PE interrupt enable
-#define USART_CR1_PS_Pos (9U)                         ///< Bit position within USART_CR1
-#define USART_CR1_PS (1U << USART_CR1_PS_Pos)         ///< WRITE, 0=even 1=odd - parity selection
-#define USART_CR1_PCE_Pos (10U)                       ///< Bit position within USART_CR1
-#define USART_CR1_PCE (1U << USART_CR1_PCE_Pos)       ///< WRITE - parity control enable
-#define USART_CR1_WAKE_Pos (11U)                      ///< Bit position within USART_CR1
-#define USART_CR1_WAKE (1U << USART_CR1_WAKE_Pos)     ///< WRITE, 0=idle line 1=address mark
-#define USART_CR1_M_Pos (12U)                         ///< Bit position within USART_CR1
-#define USART_CR1_M (1U << USART_CR1_M_Pos)           ///< WRITE, 0=8 data bits 1=9 data bits
-#define USART_CR1_UE_Pos (13U)                        ///< Bit position within USART_CR1
-#define USART_CR1_UE (1U << USART_CR1_UE_Pos)         ///< WRITE - USART enable
-#define USART_CR1_OVER8_Pos (15U)                     ///< Bit position within USART_CR1
-#define USART_CR1_OVER8 (1U << USART_CR1_OVER8_Pos)   ///< WRITE, 0=16x oversampling 1=8x
+#define USART_CR1_SBK_Pos (0U)                                  ///< Bit position within USART_CR1
+#define USART_CR1_SBK ((uint32_t)1U << USART_CR1_SBK_Pos)       ///< WRITE - send break
+#define USART_CR1_RWU_Pos (1U)                                  ///< Bit position within USART_CR1
+#define USART_CR1_RWU ((uint32_t)1U << USART_CR1_RWU_Pos)       ///< READ/WRITE - receiver wakeup
+#define USART_CR1_RE_Pos (2U)                                   ///< Bit position within USART_CR1
+#define USART_CR1_RE ((uint32_t)1U << USART_CR1_RE_Pos)         ///< WRITE - receiver enable
+#define USART_CR1_TE_Pos (3U)                                   ///< Bit position within USART_CR1
+#define USART_CR1_TE ((uint32_t)1U << USART_CR1_TE_Pos)         ///< WRITE - transmitter enable
+#define USART_CR1_IDLEIE_Pos (4U)                               ///< Bit position within USART_CR1
+#define USART_CR1_IDLEIE ((uint32_t)1U << USART_CR1_IDLEIE_Pos) ///< WRITE - IDLE interrupt enable
+#define USART_CR1_RXNEIE_Pos (5U)                               ///< Bit position within USART_CR1
+#define USART_CR1_RXNEIE ((uint32_t)1U << USART_CR1_RXNEIE_Pos) ///< WRITE - RXNE interrupt enable
+#define USART_CR1_TCIE_Pos (6U)                                 ///< Bit position within USART_CR1
+#define USART_CR1_TCIE ((uint32_t)1U << USART_CR1_TCIE_Pos)     ///< WRITE - TC interrupt enable
+#define USART_CR1_TXEIE_Pos (7U)                                ///< Bit position within USART_CR1
+#define USART_CR1_TXEIE ((uint32_t)1U << USART_CR1_TXEIE_Pos)   ///< WRITE - TXE interrupt enable
+#define USART_CR1_PEIE_Pos (8U)                                 ///< Bit position within USART_CR1
+#define USART_CR1_PEIE ((uint32_t)1U << USART_CR1_PEIE_Pos)     ///< WRITE - PE interrupt enable
+#define USART_CR1_PS_Pos (9U)                                   ///< Bit position within USART_CR1
+#define USART_CR1_PS ((uint32_t)1U << USART_CR1_PS_Pos) ///< WRITE, 0=even 1=odd - parity selection
+#define USART_CR1_PCE_Pos (10U)                         ///< Bit position within USART_CR1
+#define USART_CR1_PCE ((uint32_t)1U << USART_CR1_PCE_Pos)   ///< WRITE - parity control enable
+#define USART_CR1_WAKE_Pos (11U)                            ///< Bit position within USART_CR1
+#define USART_CR1_WAKE ((uint32_t)1U << USART_CR1_WAKE_Pos) ///< WRITE, 0=idle line 1=address mark
+#define USART_CR1_M_Pos (12U)                               ///< Bit position within USART_CR1
+#define USART_CR1_M ((uint32_t)1U << USART_CR1_M_Pos)       ///< WRITE, 0=8 data bits 1=9 data bits
+#define USART_CR1_UE_Pos (13U)                              ///< Bit position within USART_CR1
+#define USART_CR1_UE ((uint32_t)1U << USART_CR1_UE_Pos)     ///< WRITE - USART enable
+#define USART_CR1_OVER8_Pos (15U)                           ///< Bit position within USART_CR1
+#define USART_CR1_OVER8 ((uint32_t)1U << USART_CR1_OVER8_Pos) ///< WRITE, 0=16x oversampling 1=8x
 
 /* --- USART_CR2 bit definitions --- */
-#define USART_CR2_STOP_Pos (12U)                        ///< Bit position within USART_CR2
-#define USART_CR2_STOP_Msk (0x3U << USART_CR2_STOP_Pos) ///< bits 13:12: 00=1 01=0.5 10=2 11=1.5
+#define USART_CR2_STOP_Pos (12U) ///< Bit position within USART_CR2
+#define USART_CR2_STOP_Msk                                                                         \
+    ((uint32_t)0x3U << USART_CR2_STOP_Pos) ///< bits 13:12: 00=1 01=0.5 10=2 11=1.5
 
 /* --- USART_CR2_STOP field values --- */
 #define USART_CR2_STOP_1 (0x0U) ///< STOP field value: 1 stop bit

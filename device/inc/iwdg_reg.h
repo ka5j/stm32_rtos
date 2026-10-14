@@ -54,18 +54,18 @@ typedef struct IwdgRegisters_t
 #define IWDG_KEY_START (0xCCCCU)         ///< WRITE to KR - start the watchdog counting
 
 /* --- IWDG_PR bit definitions --- */
-#define IWDG_PR_PR_Pos (0U)                     ///< Bit position within IWDG_PR
-#define IWDG_PR_PR_Msk (0x7U << IWDG_PR_PR_Pos) ///< bits 2:0, prescaler divider selection
+#define IWDG_PR_PR_Pos (0U)                               ///< Bit position within IWDG_PR
+#define IWDG_PR_PR_Msk ((uint32_t)0x7U << IWDG_PR_PR_Pos) ///< bits 2:0, prescaler divider selection
 
 /* --- IWDG_RLR bit definitions --- */
-#define IWDG_RLR_RL_Pos (0U)                        ///< Bit position within IWDG_RLR
-#define IWDG_RLR_RL_Msk (0xFFFU << IWDG_RLR_RL_Pos) ///< bits 11:0, 12-bit reload value
+#define IWDG_RLR_RL_Pos (0U)                                  ///< Bit position within IWDG_RLR
+#define IWDG_RLR_RL_Msk ((uint32_t)0xFFFU << IWDG_RLR_RL_Pos) ///< bits 11:0, 12-bit reload value
 
 /* --- IWDG_SR bit definitions --- */
-#define IWDG_SR_PVU_Pos (0U)                ///< Bit position within IWDG_SR
-#define IWDG_SR_PVU (1U << IWDG_SR_PVU_Pos) ///< READ only - PR write still in progress
-#define IWDG_SR_RVU_Pos (1U)                ///< Bit position within IWDG_SR
-#define IWDG_SR_RVU (1U << IWDG_SR_RVU_Pos) ///< READ only - RLR write still in progress
+#define IWDG_SR_PVU_Pos (0U)                          ///< Bit position within IWDG_SR
+#define IWDG_SR_PVU ((uint32_t)1U << IWDG_SR_PVU_Pos) ///< READ only - PR write still in progress
+#define IWDG_SR_RVU_Pos (1U)                          ///< Bit position within IWDG_SR
+#define IWDG_SR_RVU ((uint32_t)1U << IWDG_SR_RVU_Pos) ///< READ only - RLR write still in progress
 
 /** @} */
 
