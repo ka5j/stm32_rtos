@@ -106,6 +106,10 @@ specifically.
 
 ### Changed
 
+- `app/src/main.c`: dropped the unreachable `return 0;` after the infinite
+  loop (MISRA C:2012 Rule 2.1). `tests/unit/test_nvic.c`: removed a
+  duplicate `COUNT_OF` definition. No behaviour change.
+
 - Docs and comments only: comments that narrated how the code used to be
   now say how it is, in `uart.c`, `uart.h`, `iwdg_reg.h`, `startup`, the
   Makefile, `ci.yml`, `test_pwr.c` and the README Status intro; the reasons

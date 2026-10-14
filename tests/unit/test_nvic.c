@@ -30,8 +30,6 @@ static const IRQn_e invalid_irqs[] = {SysTick_IRQn, PendSV_IRQn, MemoryManagemen
  *  vector table, listed in nvic_reg.h). IRQn_e names none of them. */
 static const uint32_t reserved_irqs[] = {61U, 62U, 79U, 80U, 82U, 83U, 85U, 86U, 88U, 89U, 90U};
 
-#define COUNT_OF(a) (sizeof(a) / sizeof((a)[0]))
-
 /* A non-zero pattern in every write-1-to-act word, so a driver that read-modify-writes
  * (`ICER |= bit`, which on silicon would write back every enabled line and disable them all)
  * leaves the pattern's bits behind and is caught; a plain `= bit` leaves exactly one bit. */
