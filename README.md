@@ -32,9 +32,11 @@ This table is the single source of truth for project status.
 | Application (`app/`)                        | `main()` is an empty loop                                  |
 | Tooling (build, lint, tests, docs, CI)      | Done                                                       |
 
-**Not yet verified on hardware.** Drivers and the BSP have 100% line and
-branch coverage on the host. Because `main()` calls nothing, the linker drops
-all of them, so none has run on the chip. See
+**Hardware:** the drivers, `bspClockInit()` and the fault handler pass the
+on-target smoke test (`make smoke-flash`) on a NUCLEO-F446RE, in debug and
+release builds. On the host, drivers and the BSP have 100% line and branch
+coverage. UART receive is not checked on the board, since it needs a sender,
+and `main()` is still an empty loop. See
 [Host testing and its limits](docs/DESIGN.md#host-testing-and-its-limits).
 
 **Known limitations:**
@@ -106,6 +108,8 @@ Read [Contributing](CONTRIBUTING.md) before changing code.
 | `make flash`          | Build if needed, program and verify over ST-LINK, then reset         |
 | `make erase`          | Mass-erase the chip                                                  |
 | `make debug`          | Start OpenOCD, attach GDB, load the ELF and halt at reset            |
+| `make smoke`          | Build the on-target smoke test, `build/smoke.elf`                    |
+| `make smoke-flash`    | Flash the smoke test; it reports PASS/FAIL on the VCP (115200 8N1)   |
 | `make test`           | Build and run the host unit tests, plus the vector-table and test-registration checks; `SANITIZE=1` adds ASan and UBSan |
 | `make coverage`       | Run the tests instrumented; fail below 100% line or branch coverage of `drivers/` and `bsp/` |
 | `make lint`           | cppcheck with the MISRA C:2012 addon; fail on any finding            |
