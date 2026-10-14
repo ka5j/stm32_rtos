@@ -40,6 +40,8 @@ specifically.
 
 - `docs/groups.dox`: the ASCII table that rendered as preformatted text is
   replaced by a short description, and the group briefs are one line each.
+  Its header is now a plain comment rather than an `@file` block, which drops
+  a file page whose "source" link pointed at a page Doxygen never generates.
 
 ## [0.1.6] - 2026-10-14
 
