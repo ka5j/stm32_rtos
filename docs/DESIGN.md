@@ -87,14 +87,17 @@ contexts at once. When tasks and interrupts exist:
 - **Safe on distinct bits:** single stores such as `gpioWritePin()` (BSRR),
   `nvicEnableIrq()`/`nvicDisableIrq()`/`nvicSetPending()`/`nvicClearPending()`
   (write-1-to-act), `nvicSetPriority()` (one byte), `extiClearPending()`
-  (write-1-to-clear), `iwdgRefresh()` (one key write), and pure reads.
+  (write-1-to-clear), `iwdgRefresh()` (one key write), `wwdgRefresh()` and
+  `wwdgClearEarlyWakeup()` (one store each), and pure reads.
 - **Caller must serialise:** read-modify-writes of shared registers, which
   covers every `rcc*Clock*()`, the RCC CR/CFGR/PLLCFGR writers, the PWR and
   Flash functions, `gpioInit()`/`gpioDeinit()`/`gpioSetAlternateFunction()`,
   `uartInit()`, `nvicSetSystemHandlerPriority()` (SHPR3 holds both
   PendSV and SysTick), `faultEnable()` (SHCSR, CCR), every other EXTI
   function (EXTICR, RTSR/FTSR, IMR, SWIER), `rccClearResetFlags()` (CSR),
-  and `iwdgFreezeInDebug()` (APB1_FZ).
+  `rccWwdgClockEnable()`/`rccWwdgClockDisable()` (APB1ENR),
+  `wwdgStart()` and `wwdgEnableEarlyWakeup()` (CFR), and
+  `iwdgFreezeInDebug()`/`wwdgFreezeInDebug()` (APB1_FZ).
 - **One context, once:** `iwdgStart()`. Its key sequence must not be
   interleaved with a refresh, which would relock PR and RLR.
 - **Single owner only:** `gpioTogglePin()`, `uartReceiveByte()`/

@@ -127,6 +127,28 @@ void test_rcc_driver_usart2_clock_disable_clears_bit_only(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_APB1ENR_USART2EN, rcc.APB1ENR);
 }
 
+/* --- rccWwdgClockEnable / rccWwdgClockDisable --- */
+
+/** Sets WWDGEN without touching any other APB1ENR bit. */
+void test_rcc_driver_wwdg_clock_enable_sets_bit_only(void)
+{
+    RccRegisters_t rcc = {.APB1ENR = 0xFFFFFFFFU & ~RCC_APB1ENR_WWDGEN};
+
+    rccWwdgClockEnable(&rcc);
+
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU, rcc.APB1ENR);
+}
+
+/** Clears WWDGEN without touching any other APB1ENR bit. */
+void test_rcc_driver_wwdg_clock_disable_clears_bit_only(void)
+{
+    RccRegisters_t rcc = {.APB1ENR = 0xFFFFFFFFU};
+
+    rccWwdgClockDisable(&rcc);
+
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_APB1ENR_WWDGEN, rcc.APB1ENR);
+}
+
 /* --- rccSyscfgClockEnable / rccSyscfgClockDisable --- */
 
 /** Sets SYSCFGEN without touching any other APB2ENR bit. */

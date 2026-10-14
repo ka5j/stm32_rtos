@@ -18,5 +18,6 @@ void test_dbgmcu_reg_literal_pins(void)
     TEST_ASSERT_EQUAL_HEX32(0x04, offsetof(DbgmcuRegisters_t, CR));
     TEST_ASSERT_EQUAL_HEX32(0x08, offsetof(DbgmcuRegisters_t, APB1_FZ));
     TEST_ASSERT_EQUAL_HEX32(0x0C, offsetof(DbgmcuRegisters_t, APB2_FZ));
+    TEST_ASSERT_EQUAL_HEX32(0x00000800U, DBGMCU_APB1_FZ_DBG_WWDG_STOP);
     TEST_ASSERT_EQUAL_HEX32(0x00001000U, DBGMCU_APB1_FZ_DBG_IWDG_STOP);
 }

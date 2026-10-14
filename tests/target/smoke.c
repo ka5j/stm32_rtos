@@ -12,10 +12,16 @@
  * Readable text is itself a result: the baud rate is generated from PCLK1,
  * so garbage on the port means the clock tree is not what bsp.h says.
  *
- * The IWDG check spans two boots. If every check passes, the first boot
- * stops refreshing the watchdog and expects a reset. The second boot sees
- * RCC_CSR.IWDGRSTF, reports `PASS iwdg_reset_cause`, and finishes normally.
- * A full pass is therefore two reports, the second after the IWDG reset.
+ * The watchdog checks need resets, so a full run is three boots, told apart
+ * by the reset cause in RCC_CSR:
+ * 1. First boot: every check, then the IWDG is started and starved.
+ * 2. After the IWDG reset: `PASS iwdg_reset_cause`, every check, then the
+ *    WWDG is started and refreshed above its window.
+ * 3. After the WWDG reset: `PASS wwdg_reset_cause`, every check, then LD2
+ *    blinks.
+ *
+ * A boot provokes the next reset only if all its checks passed, so a slow
+ * blink after the third report means the whole chain passed.
  *
  * `make smoke-flash SMOKE_FAULT=1` ends with a deliberate divide by zero
  * instead of blinking. Fault_Handler then records it; halt and read
@@ -30,6 +36,7 @@
 #include "rcc.h"
 #include "systick.h"
 #include "uart.h"
+#include "wwdg.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -48,6 +55,10 @@
 /** IWDG timeout: LSI / 32, reload 100, so 69-190 ms over the LSI's range. */
 #define SMOKE_IWDG_PRESCALER (IWDG_PR_DIV32)
 #define SMOKE_IWDG_RELOAD (100U)
+/** WWDG: PCLK1 / 4096 / 8 is 728 us a count, so 0x7F to the 0x40 early wakeup is 45.9 ms. */
+#define SMOKE_WWDG_PRESCALER (WWDG_CFR_WDGTB_DIV8)
+#define SMOKE_WWDG_WINDOW (0x5FU)
+#define SMOKE_WWDG_COUNTER (0x7FU)
 /** The NVIC check's interrupt: one nothing else uses. */
 #define SMOKE_SPARE_IRQ (TIM7_IRQn)
 
@@ -55,6 +66,7 @@ static volatile uint32_t ticks;
 static volatile uint32_t spare_irq_count;
 static volatile uint32_t exti5_count;
 static volatile uint32_t exti13_count;
+static volatile uint32_t wwdg_ewi_count;
 static uint32_t checks_run;
 static uint32_t checks_failed;
 /** Set if any console write timed out; the report may then be incomplete. */
@@ -85,6 +97,16 @@ static void extiCountLine(uint32_t line, volatile uint32_t *count)
         && (extiClearPending(EXTI, line) == DRIVER_STATUS_OK))
     {
         (*count)++;
+    }
+}
+
+/** Refresh the WWDG from its early wakeup at 0x40, inside the window. */
+void WWDG_IRQHandler(void)
+{
+    wwdgClearEarlyWakeup(WWDG);
+    if (wwdgRefresh(WWDG, SMOKE_WWDG_COUNTER) == DRIVER_STATUS_OK)
+    {
+        wwdg_ewi_count++;
     }
 }
 
@@ -487,38 +509,55 @@ static void waitMs(uint32_t ms, uint32_t refresh_ms)
     }
 }
 
-/**
- * First boot: start the IWDG and show that refreshing holds it off.
- * Second boot (after the IWDG reset that main() provokes): report the cause.
- */
-static void checkIwdg(uint32_t reset_flags)
+/** Where this boot sits in the watchdog chain, from the reset cause. */
+typedef enum SmokeBoot_e
 {
-    DriverStatus_e status;
+    SMOKE_BOOT_FIRST,      ///< Anything but a watchdog reset
+    SMOKE_BOOT_AFTER_IWDG, ///< The IWDG reset that the first boot provoked
+    SMOKE_BOOT_AFTER_WWDG, ///< The WWDG reset that the second boot provoked
+} SmokeBoot_e;
 
-    if ((reset_flags & RCC_CSR_IWDGRSTF) != 0U)
+static SmokeBoot_e smokeBoot(uint32_t reset_flags)
+{
+    SmokeBoot_e boot = SMOKE_BOOT_FIRST;
+
+    if ((reset_flags & RCC_CSR_WWDGRSTF) != 0U)
     {
-        check("iwdg_reset_cause", true, "flags", reset_flags);
+        boot = SMOKE_BOOT_AFTER_WWDG;
+    }
+    else if ((reset_flags & RCC_CSR_IWDGRSTF) != 0U)
+    {
+        boot = SMOKE_BOOT_AFTER_IWDG;
     }
     else
     {
-        /* OpenOCD sets the freeze bits itself when it attaches: clear ours
-         * first, so the read-back shows this driver's write. */
-        DBGMCU->APB1_FZ &= ~DBGMCU_APB1_FZ_DBG_IWDG_STOP;
-        iwdgFreezeInDebug(DBGMCU);
-        check("iwdg_freeze_in_debug", (DBGMCU->APB1_FZ & DBGMCU_APB1_FZ_DBG_IWDG_STOP) != 0U,
-              "APB1_FZ", DBGMCU->APB1_FZ);
-
-        status = iwdgStart(IWDG, SMOKE_IWDG_PRESCALER, SMOKE_IWDG_RELOAD);
-        check("iwdg_start", status == DRIVER_STATUS_OK, "status", (uint32_t)status);
-        /* PR and RLR read back only if the unlock key was accepted. */
-        check("iwdg_pr_rlr_readback",
-              (IWDG->PR == SMOKE_IWDG_PRESCALER) && (IWDG->RLR == SMOKE_IWDG_RELOAD), "RLR",
-              IWDG->RLR);
-
-        /* 300 ms is longer than the longest timeout: still running proves the refreshes. */
-        waitMs(300U, 20U);
-        check("iwdg_refresh_keeps_alive", true, "", 0U);
+        /* Power-on, pin or software reset: start the chain. */
     }
+
+    return boot;
+}
+
+/** Start the IWDG and show that refreshing holds it off. */
+static void checkIwdg(void)
+{
+    DriverStatus_e status;
+
+    /* OpenOCD sets the freeze bits itself when it attaches: clear ours
+     * first, so the read-back shows this driver's write. */
+    DBGMCU->APB1_FZ &= ~DBGMCU_APB1_FZ_DBG_IWDG_STOP;
+    iwdgFreezeInDebug(DBGMCU);
+    check("iwdg_freeze_in_debug", (DBGMCU->APB1_FZ & DBGMCU_APB1_FZ_DBG_IWDG_STOP) != 0U, "APB1_FZ",
+          DBGMCU->APB1_FZ);
+
+    status = iwdgStart(IWDG, SMOKE_IWDG_PRESCALER, SMOKE_IWDG_RELOAD);
+    check("iwdg_start", status == DRIVER_STATUS_OK, "status", (uint32_t)status);
+    /* PR and RLR read back only if the unlock key was accepted. */
+    check("iwdg_pr_rlr_readback",
+          (IWDG->PR == SMOKE_IWDG_PRESCALER) && (IWDG->RLR == SMOKE_IWDG_RELOAD), "RLR", IWDG->RLR);
+
+    /* 300 ms is longer than the longest timeout: still running proves the refreshes. */
+    waitMs(300U, 20U);
+    check("iwdg_refresh_keeps_alive", true, "", 0U);
 }
 
 /** Stop refreshing and wait well past the timeout; returning means the IWDG never fired. */
@@ -533,6 +572,59 @@ static void starveIwdg(void)
     check("iwdg_reset_on_starvation", false, "", 0U);
 }
 
+/**
+ * Start the WWDG, refreshed from its early-wakeup interrupt, and show that
+ * this holds it off for 200 ms: four early wakeups, 45.9 ms apart.
+ */
+static void checkWwdg(void)
+{
+    DriverStatus_e status;
+
+    rccWwdgClockEnable(RCC);
+    DBGMCU->APB1_FZ &= ~DBGMCU_APB1_FZ_DBG_WWDG_STOP;
+    wwdgFreezeInDebug(DBGMCU);
+    check("wwdg_freeze_in_debug", (DBGMCU->APB1_FZ & DBGMCU_APB1_FZ_DBG_WWDG_STOP) != 0U, "APB1_FZ",
+          DBGMCU->APB1_FZ);
+
+    status = wwdgStart(WWDG, SMOKE_WWDG_PRESCALER, SMOKE_WWDG_WINDOW, SMOKE_WWDG_COUNTER);
+    check("wwdg_start", status == DRIVER_STATUS_OK, "status", (uint32_t)status);
+    check("wwdg_cfr_readback",
+          (WWDG->CFR & (WWDG_CFR_W_Msk | WWDG_CFR_WDGTB_Msk))
+              == (SMOKE_WWDG_WINDOW | (SMOKE_WWDG_PRESCALER << WWDG_CFR_WDGTB_Pos)),
+          "CFR", WWDG->CFR);
+
+    wwdgEnableEarlyWakeup(WWDG);
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = nvicEnableIrq(NVIC, WWDG_IRQn);
+    }
+
+    waitMs(200U, 0U);
+    check("wwdg_early_wakeup_refreshes", (status == DRIVER_STATUS_OK) && (wwdg_ewi_count == 4U),
+          "wakeups", wwdg_ewi_count);
+}
+
+/**
+ * Refresh with the counter above the window, which must reset the chip at
+ * once. The early-wakeup refreshes keep running, so returning means the
+ * window was not enforced.
+ */
+static void violateWwdgWindow(void)
+{
+    print("wwdg: refreshing above the window, a reset is due at once\r\n");
+    if (uartFlush(USART2, SMOKE_UART_TIMEOUT) != DRIVER_STATUS_OK)
+    {
+        console_failed = true;
+    }
+    /* The second refresh comes microseconds after the first, at 0x7F > 0x5F. */
+    if ((wwdgRefresh(WWDG, SMOKE_WWDG_COUNTER) == DRIVER_STATUS_OK)
+        && (wwdgRefresh(WWDG, SMOKE_WWDG_COUNTER) == DRIVER_STATUS_OK))
+    {
+        waitMs(100U, 0U);
+    }
+    check("wwdg_reset_on_early_refresh", false, "", 0U);
+}
+
 /* --- main --------------------------------------------------------------- */
 
 int main(void)
@@ -542,6 +634,7 @@ int main(void)
     uint32_t next_toggle;
     /* Read first: they accumulate across resets until cleared. */
     uint32_t reset_flags = rccResetFlags(RCC);
+    SmokeBoot_e boot = smokeBoot(reset_flags);
 
     rccClearResetFlags(RCC);
     faultEnable(SCB);
@@ -563,7 +656,20 @@ int main(void)
     checkNvic();
     checkSystick();
     checkExti();
-    checkIwdg(reset_flags);
+
+    switch (boot)
+    {
+        case SMOKE_BOOT_FIRST:
+            checkIwdg();
+            break;
+        case SMOKE_BOOT_AFTER_IWDG:
+            check("iwdg_reset_cause", true, "flags", reset_flags);
+            checkWwdg();
+            break;
+        default:
+            check("wwdg_reset_cause", true, "flags", reset_flags);
+            break;
+    }
 
     print(checks_failed == 0U ? "SMOKE PASS " : "SMOKE FAIL ");
     printDec(checks_run - checks_failed);
@@ -571,10 +677,21 @@ int main(void)
     printDec(checks_run);
     print("\r\n");
 
-    /* Only after a clean first boot, so a failure stays on the console. */
-    if (((reset_flags & RCC_CSR_IWDGRSTF) == 0U) && (checks_failed == 0U))
+    /* The next reset only after a clean boot, so a failure stays on the console. */
+    if (checks_failed == 0U)
     {
-        starveIwdg();
+        if (boot == SMOKE_BOOT_FIRST)
+        {
+            starveIwdg();
+        }
+        else if (boot == SMOKE_BOOT_AFTER_IWDG)
+        {
+            violateWwdgWindow();
+        }
+        else
+        {
+            /* End of the chain. */
+        }
     }
 
 #if SMOKE_FAULT
@@ -597,7 +714,8 @@ int main(void)
     next_toggle = ticks + blink_ms;
     for (;;)
     {
-        /* The IWDG still runs if the first boot failed; a refresh is harmless otherwise. */
+        /* The IWDG still runs if the first boot failed; a refresh is harmless otherwise.
+         * A running WWDG is refreshed by its early-wakeup handler. */
         iwdgRefresh(IWDG);
         if ((int32_t)(ticks - next_toggle) >= 0)
         {

@@ -46,7 +46,11 @@ typedef struct WwdgRegisters_t
 #define WWDG_CFR_WDGTB_Pos (7U) ///< Bits 8:7
 /** \regaccess{rw} Timer base: PCLK1 / 4096 / 2^WDGTB. */
 #define WWDG_CFR_WDGTB_Msk ((uint32_t)0x3U << WWDG_CFR_WDGTB_Pos)
-#define WWDG_CFR_EWI_Pos (9U) ///< Bit 9
+#define WWDG_CFR_WDGTB_DIV1 (0x0U) ///< WDGTB value: PCLK1 / 4096
+#define WWDG_CFR_WDGTB_DIV2 (0x1U) ///< WDGTB value: PCLK1 / 4096 / 2
+#define WWDG_CFR_WDGTB_DIV4 (0x2U) ///< WDGTB value: PCLK1 / 4096 / 4
+#define WWDG_CFR_WDGTB_DIV8 (0x3U) ///< WDGTB value: PCLK1 / 4096 / 8
+#define WWDG_CFR_EWI_Pos (9U)      ///< Bit 9
 /** \regaccess{rs} Enable the early-wakeup interrupt; only a reset clears it. */
 #define WWDG_CFR_EWI ((uint32_t)1U << WWDG_CFR_EWI_Pos)
 /** @} */

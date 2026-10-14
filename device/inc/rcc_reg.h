@@ -237,6 +237,9 @@ typedef struct RccRegisters_t
 /** @name APB1ENR - APB1 clock enable (0x40)
  *  Every bit is \regaccess{rw}.
  *  @{ */
+#define RCC_APB1ENR_WWDGEN_Pos (11U) ///< Bit 11
+/** WWDG clock; required before any WWDG register access. */
+#define RCC_APB1ENR_WWDGEN ((uint32_t)1U << RCC_APB1ENR_WWDGEN_Pos)
 #define RCC_APB1ENR_USART2EN_Pos (17U) ///< Bit 17
 /** USART2 clock. */
 #define RCC_APB1ENR_USART2EN ((uint32_t)1U << RCC_APB1ENR_USART2EN_Pos)

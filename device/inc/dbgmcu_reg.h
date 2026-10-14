@@ -3,8 +3,8 @@
  * @brief DBGMCU registers: the MCU debug component (RM0390, debug support
  *        chapter, DBGMCU).
  *
- * Only what the drivers use is modelled: the block layout and the watchdog
- * freeze bits of APB1_FZ. These registers are reset by power-on only, not by
+ * Only what the drivers use is modelled: the block layout and the two
+ * watchdog freeze bits of APB1_FZ. These registers are reset by power-on only, not by
  * a system reset, so a freeze bit survives a watchdog reset.
  */
 #ifndef DBGMCU_REG_H
@@ -32,6 +32,9 @@ typedef struct DbgmcuRegisters_t
 
 /** @name APB1_FZ - APB1 freeze (0x08)
  *  @{ */
+#define DBGMCU_APB1_FZ_DBG_WWDG_STOP_Pos (11U) ///< Bit 11
+/** \regaccess{rw} Stop the WWDG counter while the core is halted. */
+#define DBGMCU_APB1_FZ_DBG_WWDG_STOP ((uint32_t)1U << DBGMCU_APB1_FZ_DBG_WWDG_STOP_Pos)
 #define DBGMCU_APB1_FZ_DBG_IWDG_STOP_Pos (12U) ///< Bit 12
 /** \regaccess{rw} Stop the IWDG counter while the core is halted. */
 #define DBGMCU_APB1_FZ_DBG_IWDG_STOP ((uint32_t)1U << DBGMCU_APB1_FZ_DBG_IWDG_STOP_Pos)

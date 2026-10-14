@@ -74,6 +74,14 @@ void rccUsart2ClockEnable(RccRegisters_t *rcc);
  *  @param rcc RCC block (e.g. RCC). */
 void rccUsart2ClockDisable(RccRegisters_t *rcc);
 
+/** @brief Enable the WWDG's clock; needed before any WWDG access.
+ *  @param rcc RCC block (e.g. RCC). */
+void rccWwdgClockEnable(RccRegisters_t *rcc);
+
+/** @brief Disable the WWDG's clock. Once the WWDG is started, only a reset stops it.
+ *  @param rcc RCC block (e.g. RCC). */
+void rccWwdgClockDisable(RccRegisters_t *rcc);
+
 /** @brief Enable SYSCFG's clock; needed before any SYSCFG access (e.g. EXTI routing).
  *  @param rcc RCC block (e.g. RCC). */
 void rccSyscfgClockEnable(RccRegisters_t *rcc);
