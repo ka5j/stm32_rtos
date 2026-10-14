@@ -1,43 +1,32 @@
 /**
  * @file nvic.c
- * @brief NVIC driver implementation - see nvic.h for the public API and
- *        nvic_reg.h/scb_reg.h for the register definitions this operates
- *        on.
+ * @brief NVIC driver implementation (API in nvic.h).
  */
 #include "nvic.h"
 
 #include <stddef.h>
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup nvic_driver
  * @{
  */
 
 /**
- * @brief Reject an IRQn that does not name a real device interrupt.
+ * @brief Accept only a real device interrupt.
  *
- * IRQn_e is a signed enum, so the system exceptions are negative, and C
- * does not constrain an enum-typed parameter to its enumerators. A
- * negative value would index ISER/IP below their start, and a value above
- * the last device interrupt would index past what this chip implements
- * (IP[] holds 240 bytes but the F446 has 97 lines). The reserved
- * positions inside the range are rejected too: they have no vector (the
- * table holds a zero there), so enabling one and then pending it would
- * take an exception through address 0.
+ * Negative values (system exceptions) and values past ::FMPI2C1_Error_IRQn
+ * would index outside the implemented banks. Reserved positions have no
+ * vector, so pending one would jump through address 0.
  *
- * @param irqn Candidate interrupt number.
- * @return DRIVER_STATUS_OK if irqn is in 0 to ::FMPI2C1_Error_IRQn and
- *         not a reserved position.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM otherwise.
+ * @param irqn Candidate interrupt.
+ * @retval DRIVER_STATUS_OK                0 to ::FMPI2C1_Error_IRQn and not reserved.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM Otherwise.
  */
 static DriverStatus_e nvicValidateIrq(IRQn_e irqn)
 {
-    /* Reserved vector-table positions inside 0 to FMPI2C1_Error_IRQn, one
-     * bit per position, indexed by ISER word (position / 32). They are the
-     * zero slots in startup's vector table (nvic_reg.h lists them): 61-62,
-     * 79-80, 82-83, 85-86 and 88-90. tools/check_vector_table.awk
-     * cross-checks IRQn_e against that table but cannot see this mask, so
-     * a change to the reserved set must be made in both places. */
+    /* One bit per reserved position (61-62, 79-80, 82-83, 85-86, 88-90), by
+     * ISER word. tools/check_vector_table.awk cannot see this mask: keep it in
+     * step with the vector table by hand (test_nvic.c checks every position). */
     static const uint32_t reserved_mask[4] = {
         0x00000000U, /* 0-31: none */
         0x60000000U, /* 32-63: 61, 62 */
@@ -64,13 +53,8 @@ static DriverStatus_e nvicValidateIrq(IRQn_e irqn)
 }
 
 /**
- * @brief Compiler-only barrier: nothing the caller wrote before this call
- *        may be reordered after it, and nothing after before it.
- *
- * Costs no instruction. ISER is memory-mapped, but ordinary stores to
- * variables an interrupt handler will read could otherwise be moved past
- * the enable if this file were ever inlined or built with LTO, which
- * CMSIS' __NVIC_EnableIRQ() guards against the same way.
+ * @brief Compiler barrier: stops stores being reordered across the ISER write
+ *        (as CMSIS `__NVIC_EnableIRQ()` does). Emits no instruction.
  */
 static inline void nvicCompilerBarrier(void)
 {
@@ -78,15 +62,8 @@ static inline void nvicCompilerBarrier(void)
 }
 
 /**
- * @brief Make a just-written NVIC change take effect before the next
- *        instruction: DSB then ISB on the target, a compiler barrier on
- *        the host (where there is no NVIC to synchronise).
- *
- * CMSIS' __NVIC_DisableIRQ() does exactly this. Without it the write to
- * ICER can still be in the write buffer when the caller continues, so an
- * interrupt that was pending can be taken *after* nvicDisableIrq()
- * returned - breaking the usual "disable, then touch state the ISR also
- * uses" pattern.
+ * @brief DSB then ISB on the target (a compiler barrier on the host), so a
+ *        disabled interrupt cannot be taken after nvicDisableIrq() returns.
  */
 static inline void nvicSyncBarrier(void)
 {
@@ -209,10 +186,7 @@ DriverStatus_e nvicSetSystemHandlerPriority(ScbRegisters_t *scb, IRQn_e irqn, ui
     uint32_t pos = 0U;
     uint32_t msk = 0U;
 
-    /* Each handler's priority is one byte of SHPR1-3; picking the word and
-     * byte lane by switch keeps the register access to named struct members
-     * and the lane to the SCB_SHPRx_PRI_n macros, rather than computing an
-     * address from the exception number. */
+    /* Pick the SHPR word and byte by name rather than computing an address. */
     switch (irqn)
     {
         case MemoryManagement_IRQn:

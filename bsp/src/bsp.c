@@ -1,7 +1,6 @@
 /**
  * @file bsp.c
- * @brief Board support package implementation - see bsp.h for the public
- *        API and the clock configuration it implements.
+ * @brief Board support implementation (API in bsp.h).
  */
 #include "bsp.h"
 
@@ -16,11 +15,8 @@ DriverStatus_e bspClockInit(RccRegisters_t *rcc, PwrRegisters_t *pwr, FlashRegis
 
     rccPwrClockEnable(rcc);
 
-    /* HSE comes up first: it is the step most likely to fail on a board
-     * (no MCO from the ST-LINK, solder bridges), and bailing out here
-     * leaves the regulator untouched. Neither it nor the VOS write needs
-     * the other to have happened - both only need the PLL to still be off
-     * - so the order relative to rcc.h's step list does not matter. */
+    /* HSE first: it is the step most likely to fail on a board (no ST-LINK
+     * MCO, solder bridges), and failing here leaves the regulator untouched. */
     status = rccHseEnable(rcc, RCC_CR_HSEBYP);
 
     if (status == DRIVER_STATUS_OK)

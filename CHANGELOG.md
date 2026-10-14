@@ -38,6 +38,17 @@ specifically.
 - The README no longer calls the driver layer complete: EXTI, IWDG and WWDG
   have register headers but no driver.
 
+- Driver and BSP docs rewritten (`drivers/`, `bsp/`):
+  - one-line briefs, and a `@retval` table for every status a function can
+    return, replacing stacked `@return` prose;
+  - `@pre`, `@warning` and `@note` where they apply, and a `@code` example in
+    every driver header;
+  - `rcc.h`'s nine-step bring-up as a numbered list;
+  - rationale moved to Design notes and linked rather than repeated.
+
+  Each driver is now its own Topics subgroup under Drivers. Comments only:
+  every driver and BSP source preprocesses to the same tokens as before.
+
 - Register headers (`core/inc/`, `device/inc/`): each register's macros are
   a Doxygen member group titled with the register name and offset, so the
   reference shows one table per register. Every field states its bits and

@@ -1,29 +1,19 @@
 /**
  * @file gpio.c
- * @brief GPIO peripheral driver implementation - see gpio.h for the public
- *        API and gpio_reg.h for the register definitions this operates on.
+ * @brief GPIO driver implementation (API in gpio.h).
  */
 #include "gpio.h"
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup gpio_driver
  * @{
  */
 
 /**
- * @brief Reject a pin value outside GpioPin_e's 0-15 domain.
- *
- * GpioPin_e names the sixteen valid pins, but C does not constrain an
- * enum-typed parameter to its enumerators - a caller can cast any
- * integer in. Every field this driver touches is indexed by `pin * 2`
- * (MODER/OSPEEDR/PUPDR), `pin` (OTYPER/IDR/ODR/BSRR) or
- * `(pin & 7) * 4` (AFRL/AFRH), so an out-of-range value produces a
- * shift of 32 or more on a uint32_t, which is undefined behaviour
- * rather than a merely wrong register write.
- *
- * @param pin Candidate pin number.
- * @return DRIVER_STATUS_OK if pin is one of ::GPIO_PIN_0 .. ::GPIO_PIN_15.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM otherwise.
+ * @brief Reject a pin outside 0-15, which would shift by 32 or more.
+ * @param pin Candidate pin.
+ * @retval DRIVER_STATUS_OK                @p pin is 0-15.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM Otherwise.
  */
 static DriverStatus_e gpioValidatePin(GpioPin_e pin)
 {
@@ -60,8 +50,7 @@ DriverStatus_e gpioInit(GpioRegisters_t *port, GpioPin_e pin, uint32_t mode, uin
         port->OSPEEDR = (port->OSPEEDR & ~(0x3U << field_shift)) | (ospeed << field_shift);
         port->PUPDR = (port->PUPDR & ~(0x3U << field_shift)) | (pupd << field_shift);
 
-        /* MODER last - see gpioInit()'s @pre in gpio.h: AFR must already hold
-         * the right function before this switches the pin into AF mode. */
+        /* MODER last, so an AF pin never switches mode before its AFR is set. */
         port->MODER = (port->MODER & ~(0x3U << field_shift)) | (mode << field_shift);
     }
 

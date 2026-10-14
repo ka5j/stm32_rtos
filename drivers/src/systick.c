@@ -1,12 +1,11 @@
 /**
  * @file systick.c
- * @brief SysTick driver implementation - see systick.h for the public API
- *        and systick_reg.h for the register definitions this operates on.
+ * @brief SysTick driver implementation (API in systick.h).
  */
 #include "systick.h"
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup systick_driver
  * @{
  */
 
@@ -21,9 +20,7 @@ DriverStatus_e systickInit(SysTickRegisters_t *systick, uint32_t core_hz, uint32
     }
     else
     {
-        /* core_hz / tick_hz is 0 when tick_hz > core_hz, and that is
-         * rejected below as a reload of 0 rather than wrapping to
-         * 0xFFFFFFFF here. */
+        /* tick_hz > core_hz gives 0 clocks, rejected below. */
         uint32_t period_clocks = core_hz / tick_hz;
 
         if (period_clocks < 2U)
