@@ -8,6 +8,13 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-14
+
+Not verified on hardware: every driver and `bspClockInit()` is covered by
+host tests (100% line and branch), but `main()` is still an empty loop, so
+none of it has executed on the board. The register layer, startup file and
+vector table were checked against RM0390/PM0214 by review, not on silicon.
+
 ### Added
 
 - `tools/check_pr_files.sh` and `make check-pr [BASE=origin/develop]`: the
@@ -1338,7 +1345,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/ka5j/stm32_rtos/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/ka5j/stm32_rtos/compare/v0.1.2...v0.1.3
