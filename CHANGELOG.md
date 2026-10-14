@@ -60,6 +60,31 @@ specifically.
     the rising edge and ignores the falling one, and falling-only does the
     reverse.
 
+- IWDG driver (`drivers/inc/iwdg.h`):
+  - `iwdgStart()` starts the watchdog, then sets its prescaler and reload.
+    Starting comes first because PR and RLR only take a value while the LSI
+    runs, and starting the IWDG is what turns the LSI on. It waits for
+    SR.PVU/RVU to clear before refreshing, so the new reload is in the
+    counter on return.
+  - `iwdgRefresh()` writes the reload key.
+  - `iwdgFreezeInDebug()` stops the counter while a debugger halts the core.
+  - `IWDG_PR_DIV*` values join `iwdg_reg.h`, and `dbgmcu_reg.h` models the
+    debug freeze register.
+- `rccResetFlags()` and `rccClearResetFlags()` read and clear the reset
+  cause in RCC_CSR.
+- The smoke test checks the IWDG across two boots, and both pass in debug
+  and release:
+  - **First boot (28/28):** PR and RLR read back after the unlock key, and
+    300 ms of 20 ms refreshes hold off a 69-190 ms timeout. Refreshes then
+    stop.
+  - **Second boot (25/25):** reports `RCC_CSR.IWDGRSTF`.
+
+  The flags confirmed that PINRSTF accompanies an IWDG reset. A GDB session
+  held the core halted for 2 s with the freeze bit set, and nothing reset.
+  As a control, the same hold with the bit cleared reset the chip under the
+  debugger. OpenOCD sets the freeze bits itself when it attaches, so the
+  smoke test clears the bit before checking the driver's write.
+
 ### Changed
 
 - The link fails on any section `linker/STM32F446RE.ld` does not name

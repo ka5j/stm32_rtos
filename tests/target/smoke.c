@@ -12,6 +12,11 @@
  * Readable text is itself a result: the baud rate is generated from PCLK1,
  * so garbage on the port means the clock tree is not what bsp.h says.
  *
+ * The IWDG check spans two boots. If every check passes, the first boot
+ * stops refreshing the watchdog and expects a reset. The second boot sees
+ * RCC_CSR.IWDGRSTF, reports `PASS iwdg_reset_cause`, and finishes normally.
+ * A full pass is therefore two reports, the second after the IWDG reset.
+ *
  * `make smoke-flash SMOKE_FAULT=1` ends with a deliberate divide by zero
  * instead of blinking. Fault_Handler then records it; halt and read
  * `p/x faultRecord` in GDB.
@@ -20,6 +25,7 @@
 #include "exti.h"
 #include "fault.h"
 #include "gpio.h"
+#include "iwdg.h"
 #include "nvic.h"
 #include "rcc.h"
 #include "systick.h"
@@ -39,6 +45,9 @@
 #define SMOKE_TICK_HZ (1000U)
 /** HSI frequency, the reset clock (RM0390 section 6.2.2). */
 #define SMOKE_HSI_HZ (16000000U)
+/** IWDG timeout: LSI / 32, reload 100, so 69-190 ms over the LSI's range. */
+#define SMOKE_IWDG_PRESCALER (IWDG_PR_DIV32)
+#define SMOKE_IWDG_RELOAD (100U)
 /** The NVIC check's interrupt: one nothing else uses. */
 #define SMOKE_SPARE_IRQ (TIM7_IRQn)
 
@@ -462,6 +471,68 @@ static void checkExti(void)
     }
 }
 
+/** Busy-wait @p ms SysTick ticks, refreshing the IWDG every @p refresh_ms (0: never). */
+static void waitMs(uint32_t ms, uint32_t refresh_ms)
+{
+    uint32_t start = ticks;
+    uint32_t last_refresh = start;
+
+    while ((ticks - start) < ms)
+    {
+        if ((refresh_ms != 0U) && ((ticks - last_refresh) >= refresh_ms))
+        {
+            iwdgRefresh(IWDG);
+            last_refresh = ticks;
+        }
+    }
+}
+
+/**
+ * First boot: start the IWDG and show that refreshing holds it off.
+ * Second boot (after the IWDG reset that main() provokes): report the cause.
+ */
+static void checkIwdg(uint32_t reset_flags)
+{
+    DriverStatus_e status;
+
+    if ((reset_flags & RCC_CSR_IWDGRSTF) != 0U)
+    {
+        check("iwdg_reset_cause", true, "flags", reset_flags);
+    }
+    else
+    {
+        /* OpenOCD sets the freeze bits itself when it attaches: clear ours
+         * first, so the read-back shows this driver's write. */
+        DBGMCU->APB1_FZ &= ~DBGMCU_APB1_FZ_DBG_IWDG_STOP;
+        iwdgFreezeInDebug(DBGMCU);
+        check("iwdg_freeze_in_debug", (DBGMCU->APB1_FZ & DBGMCU_APB1_FZ_DBG_IWDG_STOP) != 0U,
+              "APB1_FZ", DBGMCU->APB1_FZ);
+
+        status = iwdgStart(IWDG, SMOKE_IWDG_PRESCALER, SMOKE_IWDG_RELOAD);
+        check("iwdg_start", status == DRIVER_STATUS_OK, "status", (uint32_t)status);
+        /* PR and RLR read back only if the unlock key was accepted. */
+        check("iwdg_pr_rlr_readback",
+              (IWDG->PR == SMOKE_IWDG_PRESCALER) && (IWDG->RLR == SMOKE_IWDG_RELOAD), "RLR",
+              IWDG->RLR);
+
+        /* 300 ms is longer than the longest timeout: still running proves the refreshes. */
+        waitMs(300U, 20U);
+        check("iwdg_refresh_keeps_alive", true, "", 0U);
+    }
+}
+
+/** Stop refreshing and wait well past the timeout; returning means the IWDG never fired. */
+static void starveIwdg(void)
+{
+    print("iwdg: refresh stopped, a reset is due within 190 ms\r\n");
+    if (uartFlush(USART2, SMOKE_UART_TIMEOUT) != DRIVER_STATUS_OK)
+    {
+        console_failed = true;
+    }
+    waitMs(1000U, 0U);
+    check("iwdg_reset_on_starvation", false, "", 0U);
+}
+
 /* --- main --------------------------------------------------------------- */
 
 int main(void)
@@ -469,7 +540,10 @@ int main(void)
     DriverStatus_e clock_status;
     uint32_t blink_ms = 500U;
     uint32_t next_toggle;
+    /* Read first: they accumulate across resets until cleared. */
+    uint32_t reset_flags = rccResetFlags(RCC);
 
+    rccClearResetFlags(RCC);
     faultEnable(SCB);
     clock_status = bspClockInit(RCC, PWR, FLASH);
 
@@ -481,18 +555,27 @@ int main(void)
         }
     }
 
-    print("\r\nstm32_rtos smoke test\r\n");
+    print("\r\nstm32_rtos smoke test, reset flags ");
+    printHex(reset_flags);
+    print("\r\n");
     checkClocks(clock_status);
     checkGpio();
     checkNvic();
     checkSystick();
     checkExti();
+    checkIwdg(reset_flags);
 
     print(checks_failed == 0U ? "SMOKE PASS " : "SMOKE FAIL ");
     printDec(checks_run - checks_failed);
     print("/");
     printDec(checks_run);
     print("\r\n");
+
+    /* Only after a clean first boot, so a failure stays on the console. */
+    if (((reset_flags & RCC_CSR_IWDGRSTF) == 0U) && (checks_failed == 0U))
+    {
+        starveIwdg();
+    }
 
 #if SMOKE_FAULT
     {
@@ -514,6 +597,8 @@ int main(void)
     next_toggle = ticks + blink_ms;
     for (;;)
     {
+        /* The IWDG still runs if the first boot failed; a refresh is harmless otherwise. */
+        iwdgRefresh(IWDG);
         if ((int32_t)(ticks - next_toggle) >= 0)
         {
             gpioTogglePin(GPIOA, GPIO_PIN_5);
