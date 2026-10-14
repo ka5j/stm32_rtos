@@ -92,8 +92,8 @@ register header is included by a test.
 ## Workflow
 
 One-time setup: `make hooks`. The pre-commit hook then runs
-`format-check`, `test`, `lint`, `docs` and `all` on the working tree
-(not just what is staged).
+`format-check`, `test`, `lint`, `docs`, `all` and `smoke` on the working
+tree (not just what is staged).
 
 | Command                   | Use                                                        |
 | ------------------------- | ---------------------------------------------------------- |

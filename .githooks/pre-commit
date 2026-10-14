@@ -19,4 +19,7 @@ make docs
 echo "[pre-commit] make all"
 make all
 
+echo "[pre-commit] make smoke"
+make smoke
+
 echo "[pre-commit] all checks passed"

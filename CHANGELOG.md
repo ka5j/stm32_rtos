@@ -48,6 +48,12 @@ specifically.
   `Reset_Handler` does not apply `.rel.iplt`) and the debug and note
   sections that are not loaded. The firmware image is byte-identical in
   both builds.
+- `make format` and `make format-check` use clang-format 18, the version
+  CI pins, from Homebrew's keg-only `llvm@18` when it is installed. They
+  warn when they fall back to another version, as `make lint` already does
+  for cppcheck. Before, a Mac with a newer default clang-format could
+  pass or fail differently from CI.
+- The pre-commit hook also builds the smoke image, as CI does.
 
 ### Fixed
 

@@ -183,11 +183,28 @@ BASE ?= origin/develop
 check-pr:
 	tools/check_pr_files.sh $(BASE)
 
+# CI uses clang-format 18, and other major versions format differently.
+# Homebrew's llvm@18 is keg-only (not on PATH), so look for it there first.
+CLANG_FORMAT_CI_MAJOR := 18
+CLANG_FORMAT_PINNED   := $(firstword $(wildcard /opt/homebrew/opt/llvm@18/bin/clang-format \
+                                                /usr/local/opt/llvm@18/bin/clang-format))
+CLANG_FORMAT          ?= $(if $(CLANG_FORMAT_PINNED),$(CLANG_FORMAT_PINNED),clang-format)
+FORMAT_FILES           = $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
+
+define check-clang-format-version
+	@v=$$($(CLANG_FORMAT) --version | sed -n 's/.*version \([0-9]*\).*/\1/p'); \
+	if [ "$$v" != "$(CLANG_FORMAT_CI_MAJOR)" ]; then \
+	  echo "make $@: warning: clang-format $$v is not CI's $(CLANG_FORMAT_CI_MAJOR), so the result may differ from CI - install clang-format 18 (macOS: brew install llvm@18)" >&2; \
+	fi
+endef
+
 format:
-	clang-format -i $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
+	$(check-clang-format-version)
+	$(CLANG_FORMAT) -i $(FORMAT_FILES)
 
 format-check:
-	clang-format --dry-run --Werror $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
+	$(check-clang-format-version)
+	$(CLANG_FORMAT) --dry-run --Werror $(FORMAT_FILES)
 
 # CI pins cppcheck 2.13.0, and other versions report different MISRA findings.
 # tools/install_cppcheck.sh builds it into CPPCHECK_PINNED, which lint then uses.
