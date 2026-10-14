@@ -55,9 +55,12 @@ LDSCRIPT := linker/STM32F446RE.ld
 
 # -nostartfiles: Reset_Handler does crt0's job, and linking crt0 pulled in
 # newlib stubs that warned on every link. With the link silent,
-# --fatal-warnings makes any new linker warning an error. Nothing runs
-# .init_array, so C constructors are unsupported.
+# --fatal-warnings makes any new linker warning an error.
+# --orphan-handling=error: a section the linker script does not name fails
+# the link instead of being placed by heuristic. Nothing runs .init_array,
+# so a C constructor is one of those.
 LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections -Wl,--fatal-warnings \
+           -Wl,--orphan-handling=error \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map \
            -nostartfiles --specs=nosys.specs
 

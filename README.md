@@ -46,7 +46,8 @@ all of them, so none has run on the chip. See
 - **Startup:**
   - it never sets `SCB->VTOR`, which is fine when booting from flash at
     `0x08000000`;
-  - nothing runs `.init_array`, so C constructors would not run;
+  - nothing runs `.init_array`, so C constructors are unsupported; the
+    link fails on one rather than leaving it uncalled;
   - stack overflow is not detected at run time.
 - **RCC:**
   - `rccPllConfig()` does not check the VCO frequency limits, and
