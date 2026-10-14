@@ -70,12 +70,12 @@ and `main()` is still an empty loop. See
 | [Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) | building, `make debug` | CI uses 15.2.rel1 |
 | GNU Make, a host `cc` | everything; `make test`, `make coverage` | |
 | [OpenOCD](https://openocd.org/), `nc` | `make flash`, `erase`, `debug` | |
-| `clang-format` 18 | `make format-check` | Other versions can format differently from CI |
+| `clang-format` 18 | `make format-check` | Other versions can format differently from CI; `make` warns, and finds Homebrew's keg-only `llvm@18` by itself |
 | `cppcheck` 2.13.0 | `make lint` | Other versions report different MISRA findings; `tools/install_cppcheck.sh` builds 2.13.0 without sudo and `make lint` uses it automatically |
 | Doxygen 1.18.0, Graphviz | `make docs` | Distribution packages are usually too old; without Graphviz the diagrams are silently dropped |
 | `gcovr` 8.6 | `make coverage` | Needs Python 3.10 or newer |
 
-On macOS: `brew install clang-format cppcheck doxygen graphviz gcovr`.
+On macOS: `brew install llvm@18 cppcheck doxygen graphviz gcovr`.
 
 > **macOS 27:** the Command Line Tools' default SDK breaks host linking
 > (`tapi error: malformed file`), which stops `make test`, `make coverage`
