@@ -335,7 +335,7 @@ CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cp
 # Only checks .c files cppcheck discovers under $(SRC_DIRS) (headers are
 # checked in the context of whichever .c includes them, not standalone).
 #
-# Three kinds of suppression here, deliberately handled differently:
+# Two kinds of suppression here, deliberately handled differently, and one rule that is deliberately not suppressed (3):
 #
 # 1. Scoped to specific files, not disabled project-wide, and each one
 #    verified needed under CI's pinned cppcheck (a newer cppcheck reports
@@ -387,15 +387,17 @@ CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cp
 #    `(volatile uint32_t *)some_runtime_value` cast in a plain .c file
 #    still gets flagged.
 #
-# 3. Inline `// cppcheck-suppress misra-c2012-12.2` comments, each with
-#    its reason in the surrounding comment (see pwr.c's pwrSetVoltageScale()
-#    for the canonical one): cppcheck's MISRA addon cannot bound a shift
-#    through a macro such as `1U << X_Pos`, which every register flag
-#    macro here is. They sit on the exact line the addon flags, not on the
-#    whole statement, so a multi-line statement needs its flagged
-#    argument on the line directly after the comment. --suppress=
-#    missingIncludeSystem below just silences cppcheck's note that it did
-#    not look inside <stdint.h>/<stddef.h>.
+# 3. misra-c2012-12.2 (shift count must be in range for the operand's
+#    essential type) is not suppressed anywhere, and must stay that way.
+#    `1U` has the essential type of an 8-bit unsigned, so `1U << 17U` is a
+#    genuine violation; every register bit and mask macro therefore casts
+#    its constant first, `((uint32_t)1U << X_Pos)`, which is a 32-bit
+#    operand. A new macro written as a bare `1U << n` for n >= 8 fails
+#    lint, which is the check doing its job. Any other inline
+#    `// cppcheck-suppress` needs its reason in the comment beside it.
+#
+#    --suppress=missingIncludeSystem below just silences cppcheck's note
+#    that it did not look inside <stdint.h>/<stddef.h>.
 # ------------------------------------------------------------------------
 lint:
 	@v=$$($(CPPCHECK) --version | awk '{print $$2}'); \

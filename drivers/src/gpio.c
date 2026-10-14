@@ -110,15 +110,11 @@ void gpioDeinitToReset(GpioRegisters_t *port, GpioPin_e pin, GpioResetValues_t r
 
     if (pin_pos < 8U)
     {
-        /* afr_shift = (pin_pos & 0x7U) * 4U is bounded to [0,28] by the mask -
-         * cppcheck's MISRA addon can't see that through this branch and flags
-         * it based on 0xFU's narrow essential type instead. */
-        // cppcheck-suppress misra-c2012-12.2
-        port->AFRL &= ~(0xFU << afr_shift);
+        port->AFRL &= ~((uint32_t)0xFU << afr_shift);
     }
     else
     {
-        port->AFRH &= ~(0xFU << afr_shift);
+        port->AFRH &= ~((uint32_t)0xFU << afr_shift);
     }
 }
 
@@ -141,15 +137,11 @@ DriverStatus_e gpioSetAlternateFunction(GpioRegisters_t *port, GpioPin_e pin, ui
 
         if (pin_pos < 8U)
         {
-            /* afr_shift = (pin_pos & 0x7U) * 4U is bounded to [0,28] by the mask -
-             * cppcheck's MISRA addon can't see that through this branch and flags
-             * it based on 0xFU/af's narrow essential type instead. */
-            // cppcheck-suppress misra-c2012-12.2
-            port->AFRL = (port->AFRL & ~(0xFU << afr_shift)) | (af << afr_shift);
+            port->AFRL = (port->AFRL & ~((uint32_t)0xFU << afr_shift)) | (af << afr_shift);
         }
         else
         {
-            port->AFRH = (port->AFRH & ~(0xFU << afr_shift)) | (af << afr_shift);
+            port->AFRH = (port->AFRH & ~((uint32_t)0xFU << afr_shift)) | (af << afr_shift);
         }
     }
 

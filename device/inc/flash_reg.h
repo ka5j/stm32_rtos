@@ -53,26 +53,29 @@ typedef struct FlashRegisters_t
 #define FLASH ((FlashRegisters_t *)FLASH_BASE) ///< Pointer to the Flash interface register block
 
 /* --- FLASH_ACR bit definitions --- */
-#define FLASH_ACR_LATENCY_Pos (0U)                            ///< Bit position within FLASH_ACR
-#define FLASH_ACR_LATENCY_Msk (0xFU << FLASH_ACR_LATENCY_Pos) ///< bits 3:0, wait states
-#define FLASH_ACR_PRFTEN_Pos (8U)                             ///< Bit position within FLASH_ACR
-#define FLASH_ACR_PRFTEN (1U << FLASH_ACR_PRFTEN_Pos)         ///< WRITE - enable prefetch
-#define FLASH_ACR_ICEN_Pos (9U)                               ///< Bit position within FLASH_ACR
-#define FLASH_ACR_ICEN (1U << FLASH_ACR_ICEN_Pos)             ///< WRITE - enable instruction cache
+#define FLASH_ACR_LATENCY_Pos (0U) ///< Bit position within FLASH_ACR
+#define FLASH_ACR_LATENCY_Msk ((uint32_t)0xFU << FLASH_ACR_LATENCY_Pos) ///< bits 3:0, wait states
+#define FLASH_ACR_PRFTEN_Pos (8U)                               ///< Bit position within FLASH_ACR
+#define FLASH_ACR_PRFTEN ((uint32_t)1U << FLASH_ACR_PRFTEN_Pos) ///< WRITE - enable prefetch
+#define FLASH_ACR_ICEN_Pos (9U)                                 ///< Bit position within FLASH_ACR
+#define FLASH_ACR_ICEN ((uint32_t)1U << FLASH_ACR_ICEN_Pos)   ///< WRITE - enable instruction cache
 #define FLASH_ACR_DCEN_Pos (10U)                              ///< Bit position within FLASH_ACR
-#define FLASH_ACR_DCEN (1U << FLASH_ACR_DCEN_Pos)             ///< WRITE - enable data cache
+#define FLASH_ACR_DCEN ((uint32_t)1U << FLASH_ACR_DCEN_Pos)   ///< WRITE - enable data cache
 #define FLASH_ACR_ICRST_Pos (11U)                             ///< Bit position within FLASH_ACR
-#define FLASH_ACR_ICRST (1U << FLASH_ACR_ICRST_Pos)           ///< WRITE - reset instruction cache
+#define FLASH_ACR_ICRST ((uint32_t)1U << FLASH_ACR_ICRST_Pos) ///< WRITE - reset instruction cache
 #define FLASH_ACR_DCRST_Pos (12U)                             ///< Bit position within FLASH_ACR
-#define FLASH_ACR_DCRST (1U << FLASH_ACR_DCRST_Pos)           ///< WRITE - reset data cache
+#define FLASH_ACR_DCRST ((uint32_t)1U << FLASH_ACR_DCRST_Pos) ///< WRITE - reset data cache
 
 /* --- FLASH_SR bit definitions --- */
-#define FLASH_SR_EOP_Pos (0U)                       ///< Bit position within FLASH_SR
-#define FLASH_SR_EOP (1U << FLASH_SR_EOP_Pos)       ///< READ/WRITE 1 to clear - end of operation
-#define FLASH_SR_WRPERR_Pos (4U)                    ///< Bit position within FLASH_SR
-#define FLASH_SR_WRPERR (1U << FLASH_SR_WRPERR_Pos) ///< READ/WRITE 1 to clear - write protect error
-#define FLASH_SR_BSY_Pos (16U)                      ///< Bit position within FLASH_SR
-#define FLASH_SR_BSY (1U << FLASH_SR_BSY_Pos)       ///< READ only - flash busy with an operation
+#define FLASH_SR_EOP_Pos (0U) ///< Bit position within FLASH_SR
+#define FLASH_SR_EOP                                                                               \
+    ((uint32_t)1U << FLASH_SR_EOP_Pos) ///< READ/WRITE 1 to clear - end of operation
+#define FLASH_SR_WRPERR_Pos (4U)       ///< Bit position within FLASH_SR
+#define FLASH_SR_WRPERR                                                                            \
+    ((uint32_t)1U << FLASH_SR_WRPERR_Pos) ///< READ/WRITE 1 to clear - write protect error
+#define FLASH_SR_BSY_Pos (16U)            ///< Bit position within FLASH_SR
+#define FLASH_SR_BSY                                                                               \
+    ((uint32_t)1U << FLASH_SR_BSY_Pos) ///< READ only - flash busy with an operation
 
 /** @} */
 

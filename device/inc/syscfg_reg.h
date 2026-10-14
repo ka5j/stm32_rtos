@@ -69,10 +69,12 @@ typedef struct SyscfgRegisters_t
 #define SYSCFG_EXTICR_PH (0x7U) ///< EXTICRx field value: GPIOH feeds this EXTI line
 
 /* --- SYSCFG_CMPCR bit definitions --- */
-#define SYSCFG_CMPCR_CMP_PD_Pos (0U)                        ///< Bit position within SYSCFG_CMPCR
-#define SYSCFG_CMPCR_CMP_PD (1U << SYSCFG_CMPCR_CMP_PD_Pos) ///< WRITE - 0=power-down, 1=enable
-#define SYSCFG_CMPCR_READY_Pos (8U)                         ///< Bit position within SYSCFG_CMPCR
-#define SYSCFG_CMPCR_READY (1U << SYSCFG_CMPCR_READY_Pos)   ///< READ only - compensation cell ready
+#define SYSCFG_CMPCR_CMP_PD_Pos (0U) ///< Bit position within SYSCFG_CMPCR
+#define SYSCFG_CMPCR_CMP_PD                                                                        \
+    ((uint32_t)1U << SYSCFG_CMPCR_CMP_PD_Pos) ///< WRITE - 0=power-down, 1=enable
+#define SYSCFG_CMPCR_READY_Pos (8U)           ///< Bit position within SYSCFG_CMPCR
+#define SYSCFG_CMPCR_READY                                                                         \
+    ((uint32_t)1U << SYSCFG_CMPCR_READY_Pos) ///< READ only - compensation cell ready
 
 /** @} */
 

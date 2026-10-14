@@ -104,17 +104,12 @@ DriverStatus_e rccGpioClockDisable(RccRegisters_t *rcc, const GpioRegisters_t *p
 
 void rccUsart2ClockEnable(RccRegisters_t *rcc)
 {
-    /* RCC_APB1ENR_USART2EN = (1U << 17U) (device/inc/rcc_reg.h) - a fixed,
-     * tested compile-time bit position, not a runtime-computed shift
-     * cppcheck's MISRA addon can't bound. */
-    // cppcheck-suppress misra-c2012-12.2
     rcc->APB1ENR |= RCC_APB1ENR_USART2EN;
     (void)rcc->APB1ENR; /* read-back delay: see rccGpioClockEnable() */
 }
 
 void rccUsart2ClockDisable(RccRegisters_t *rcc)
 {
-    // cppcheck-suppress misra-c2012-12.2
     rcc->APB1ENR &= ~RCC_APB1ENR_USART2EN;
 }
 
@@ -122,14 +117,12 @@ void rccSyscfgClockEnable(RccRegisters_t *rcc)
 {
     /* RCC_APB2ENR_SYSCFGEN = (1U << 14U) - see rccUsart2ClockEnable()'s
      * comment above. */
-    // cppcheck-suppress misra-c2012-12.2
     rcc->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
     (void)rcc->APB2ENR; /* read-back delay: see rccGpioClockEnable() */
 }
 
 void rccSyscfgClockDisable(RccRegisters_t *rcc)
 {
-    // cppcheck-suppress misra-c2012-12.2
     rcc->APB2ENR &= ~RCC_APB2ENR_SYSCFGEN;
 }
 
@@ -137,14 +130,12 @@ void rccPwrClockEnable(RccRegisters_t *rcc)
 {
     /* RCC_APB1ENR_PWREN = (1U << 28U) - see rccUsart2ClockEnable()'s
      * comment above. */
-    // cppcheck-suppress misra-c2012-12.2
     rcc->APB1ENR |= RCC_APB1ENR_PWREN;
     (void)rcc->APB1ENR; /* read-back delay: see rccGpioClockEnable() */
 }
 
 void rccPwrClockDisable(RccRegisters_t *rcc)
 {
-    // cppcheck-suppress misra-c2012-12.2
     rcc->APB1ENR &= ~RCC_APB1ENR_PWREN;
 }
 
@@ -188,7 +179,6 @@ static DriverStatus_e rccOscillatorDisableGuard(const RccRegisters_t *rcc, uint3
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
     uint32_t active = rccActiveSysclkSource(rcc);
-    // cppcheck-suppress misra-c2012-12.2
     uint32_t pll_input = rcc->PLLCFGR & RCC_PLLCFGR_PLLSRC;
 
     if (active == sysclk_value)
@@ -273,19 +263,10 @@ DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
-    /* RCC_CR_HSEBYP/_HSEON/_HSERDY are fixed, tested compile-time bit
-     * positions (device/inc/rcc_reg.h), not runtime-computed shifts -
-     * cppcheck's MISRA addon can't bound a shift through a macro
-     * expansion like this and flags every reference to it, the same as
-     * the gating functions above (rccUsart2ClockEnable()'s comment).
-     * Suppressed at each reference below, not just the definition, since
-     * that is where the addon (mis)attributes the finding. */
-    // cppcheck-suppress misra-c2012-12.2
     if ((bypass != 0U) && (bypass != RCC_CR_HSEBYP))
     {
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
     }
-    // cppcheck-suppress misra-c2012-12.2
     else if ((rcc->CR & RCC_CR_HSEON) != 0U)
     {
         status = DRIVER_STATUS_ERR_BUSY;
@@ -294,12 +275,9 @@ DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass)
     {
         /* HSEBYP must be written while HSEON is clear (RM0390) - the BUSY
          * guard above already ensures that. */
-        // cppcheck-suppress misra-c2012-12.2
         rcc->CR = (rcc->CR & ~RCC_CR_HSEBYP) | bypass;
-        // cppcheck-suppress misra-c2012-12.2
         rcc->CR |= RCC_CR_HSEON;
 
-        // cppcheck-suppress misra-c2012-12.2
         status = rccWaitCrFlag(rcc, RCC_CR_HSERDY, RCC_CR_HSERDY);
     }
 
@@ -308,15 +286,12 @@ DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass)
 
 DriverStatus_e rccHseDisable(RccRegisters_t *rcc)
 {
-    // cppcheck-suppress misra-c2012-12.2
     uint32_t pllsrc_hse = RCC_PLLCFGR_PLLSRC_HSE;
     DriverStatus_e status = rccOscillatorDisableGuard(rcc, RCC_CFGR_SYSCLK_HSE, pllsrc_hse);
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         rcc->CR &= ~RCC_CR_HSEON;
-        // cppcheck-suppress misra-c2012-12.2
         status = rccWaitCrFlag(rcc, RCC_CR_HSERDY, 0U);
     }
 
@@ -328,7 +303,6 @@ DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t source, uint32_t m, ui
 {
     DriverStatus_e status = DRIVER_STATUS_OK;
 
-    // cppcheck-suppress misra-c2012-12.2
     if ((source != RCC_PLLCFGR_PLLSRC_HSI) && (source != RCC_PLLCFGR_PLLSRC_HSE))
     {
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
@@ -341,12 +315,10 @@ DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t source, uint32_t m, ui
     {
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
     }
-    // cppcheck-suppress misra-c2012-12.2
     else if (p > (RCC_PLLCFGR_PLLP_Msk >> RCC_PLLCFGR_PLLP_Pos))
     {
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
     }
-    // cppcheck-suppress misra-c2012-12.2
     else if ((rcc->CR & RCC_CR_PLLON) != 0U)
     {
         status = DRIVER_STATUS_ERR_BUSY;
@@ -354,7 +326,6 @@ DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t source, uint32_t m, ui
     else
     {
         uint32_t mask =
-            // cppcheck-suppress misra-c2012-12.2
             RCC_PLLCFGR_PLLM_Msk | RCC_PLLCFGR_PLLN_Msk | RCC_PLLCFGR_PLLP_Msk | RCC_PLLCFGR_PLLSRC;
 
         /* PLLQ and any reserved bits are preserved, not touched - this
@@ -369,10 +340,8 @@ DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t source, uint32_t m, ui
 
 DriverStatus_e rccPllEnable(RccRegisters_t *rcc)
 {
-    // cppcheck-suppress misra-c2012-12.2
     rcc->CR |= RCC_CR_PLLON;
 
-    // cppcheck-suppress misra-c2012-12.2
     return rccWaitCrFlag(rcc, RCC_CR_PLLRDY, RCC_CR_PLLRDY);
 }
 
@@ -386,9 +355,7 @@ DriverStatus_e rccPllDisable(RccRegisters_t *rcc)
     }
     else
     {
-        // cppcheck-suppress misra-c2012-12.2
         rcc->CR &= ~RCC_CR_PLLON;
-        // cppcheck-suppress misra-c2012-12.2
         status = rccWaitCrFlag(rcc, RCC_CR_PLLRDY, 0U);
     }
 
@@ -461,7 +428,6 @@ DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint32_t hpre, uint32_
 
     if (status == DRIVER_STATUS_OK)
     {
-        // cppcheck-suppress misra-c2012-12.2
         uint32_t mask = RCC_CFGR_HPRE_Msk | RCC_CFGR_PPRE1_Msk | RCC_CFGR_PPRE2_Msk;
 
         rcc->CFGR = (rcc->CFGR & ~mask) | (hpre << RCC_CFGR_HPRE_Pos)
@@ -509,12 +475,10 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, uin
         }
         else if (source == RCC_CFGR_SYSCLK_HSE)
         {
-            // cppcheck-suppress misra-c2012-12.2
             ready_bit = RCC_CR_HSERDY;
         }
         else
         {
-            // cppcheck-suppress misra-c2012-12.2
             ready_bit = RCC_CR_PLLRDY;
         }
 
