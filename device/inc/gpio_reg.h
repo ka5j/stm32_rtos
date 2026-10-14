@@ -1,9 +1,10 @@
 /**
  * @file gpio_reg.h
- * @brief GPIO peripheral register definitions for the STM32F446xx family.
+ * @brief GPIO registers for ports A to H (RM0390 section 7.4).
  *
- * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 7: General-purpose I/Os (GPIO).
+ * Per-pin fields: MODER, OSPEEDR and PUPDR use 2 bits at `pin * 2`; OTYPER,
+ * IDR and ODR use bit `pin`; AFRL/AFRH use 4 bits at `(pin % 8) * 4`. BSRR
+ * sets pin `n` with bit `n` and resets it with bit `n + 16`, atomically.
  */
 #ifndef GPIO_REG_H
 #define GPIO_REG_H
@@ -15,83 +16,87 @@
  * @{
  */
 
-#define GPIOA_BASE (0x40020000UL) ///< GPIOA peripheral base address
-#define GPIOB_BASE (0x40020400UL) ///< GPIOB peripheral base address
-#define GPIOC_BASE (0x40020800UL) ///< GPIOC peripheral base address
-#define GPIOD_BASE (0x40020C00UL) ///< GPIOD peripheral base address
-#define GPIOE_BASE (0x40021000UL) ///< GPIOE peripheral base address
-#define GPIOF_BASE (0x40021400UL) ///< GPIOF peripheral base address
-#define GPIOG_BASE (0x40021800UL) ///< GPIOG peripheral base address
-#define GPIOH_BASE (0x40021C00UL) ///< GPIOH peripheral base address
+/** @name Base addresses (AHB1)
+ *  @{ */
+#define GPIOA_BASE (0x40020000UL) ///< GPIOA
+#define GPIOB_BASE (0x40020400UL) ///< GPIOB
+#define GPIOC_BASE (0x40020800UL) ///< GPIOC
+#define GPIOD_BASE (0x40020C00UL) ///< GPIOD
+#define GPIOE_BASE (0x40021000UL) ///< GPIOE
+#define GPIOF_BASE (0x40021400UL) ///< GPIOF
+#define GPIOG_BASE (0x40021800UL) ///< GPIOG
+#define GPIOH_BASE (0x40021C00UL) ///< GPIOH
+/** @} */
 
-/**
- * @brief GPIO peripheral register map (RM0390 section 7.4).
- *
- * One instance per port, overlaid on the port's base address (see the
- * GPIOx_BASE defines above and the GPIOx pointer macros below).
- */
+/** @brief GPIO port register block. Every register is \regaccess{rw} unless noted. */
 typedef struct GpioRegisters_t
 {
-    volatile uint32_t MODER;     ///< 0x00: mode register
-    volatile uint32_t OTYPER;    ///< 0x04: output type register
-    volatile uint32_t OSPEEDR;   ///< 0x08: output speed register
-    volatile uint32_t PUPDR;     ///< 0x0C: pull-up/pull-down register
-    volatile const uint32_t IDR; ///< 0x10: input data register (READ only)
-    volatile uint32_t ODR;       ///< 0x14: output data register
-    volatile uint32_t BSRR;      ///< 0x18: bit set/reset register
-    volatile uint32_t LCKR;      ///< 0x1C: configuration lock register
-    volatile uint32_t AFRL;      ///< 0x20: alternate function low register (pins 0-7)
-    volatile uint32_t AFRH;      ///< 0x24: alternate function high register (pins 8-15)
+    volatile uint32_t MODER;     ///< 0x00: mode, 2 bits per pin
+    volatile uint32_t OTYPER;    ///< 0x04: output type, 1 bit per pin
+    volatile uint32_t OSPEEDR;   ///< 0x08: output speed, 2 bits per pin
+    volatile uint32_t PUPDR;     ///< 0x0C: pull-up/pull-down, 2 bits per pin
+    volatile const uint32_t IDR; ///< 0x10: input data, \regaccess{ro}
+    volatile uint32_t ODR;       ///< 0x14: output data
+    volatile uint32_t BSRR;      ///< 0x18: bit set/reset, \regaccess{wo}
+    volatile uint32_t LCKR;      ///< 0x1C: configuration lock
+    volatile uint32_t AFRL;      ///< 0x20: alternate function, pins 0-7
+    volatile uint32_t AFRH;      ///< 0x24: alternate function, pins 8-15
 } GpioRegisters_t;
 
-#define GPIOA ((GpioRegisters_t *)GPIOA_BASE) ///< Pointer to the GPIOA register block
-#define GPIOB ((GpioRegisters_t *)GPIOB_BASE) ///< Pointer to the GPIOB register block
-#define GPIOC ((GpioRegisters_t *)GPIOC_BASE) ///< Pointer to the GPIOC register block
-#define GPIOD ((GpioRegisters_t *)GPIOD_BASE) ///< Pointer to the GPIOD register block
-#define GPIOE ((GpioRegisters_t *)GPIOE_BASE) ///< Pointer to the GPIOE register block
-#define GPIOF ((GpioRegisters_t *)GPIOF_BASE) ///< Pointer to the GPIOF register block
-#define GPIOG ((GpioRegisters_t *)GPIOG_BASE) ///< Pointer to the GPIOG register block
-#define GPIOH ((GpioRegisters_t *)GPIOH_BASE) ///< Pointer to the GPIOH register block
+/** @name Port instances
+ *  @{ */
+#define GPIOA ((GpioRegisters_t *)GPIOA_BASE) ///< Port A
+#define GPIOB ((GpioRegisters_t *)GPIOB_BASE) ///< Port B
+#define GPIOC ((GpioRegisters_t *)GPIOC_BASE) ///< Port C
+#define GPIOD ((GpioRegisters_t *)GPIOD_BASE) ///< Port D
+#define GPIOE ((GpioRegisters_t *)GPIOE_BASE) ///< Port E
+#define GPIOF ((GpioRegisters_t *)GPIOF_BASE) ///< Port F
+#define GPIOG ((GpioRegisters_t *)GPIOG_BASE) ///< Port G
+#define GPIOH ((GpioRegisters_t *)GPIOH_BASE) ///< Port H
+/** @} */
 
-/* --- MODER field values (2 bits per pin, shift = pin * 2) --- */
-#define GPIO_MODE_INPUT (0x0U)  ///< MODER field value: input mode
-#define GPIO_MODE_OUTPUT (0x1U) ///< MODER field value: output mode
-#define GPIO_MODE_AF (0x2U)     ///< MODER field value: alternate-function mode
-#define GPIO_MODE_ANALOG (0x3U) ///< MODER field value: analog mode
+/** @name MODER values
+ *  @{ */
+#define GPIO_MODE_INPUT (0x0U)  ///< Input
+#define GPIO_MODE_OUTPUT (0x1U) ///< General-purpose output
+#define GPIO_MODE_AF (0x2U)     ///< Alternate function
+#define GPIO_MODE_ANALOG (0x3U) ///< Analog
+/** @} */
 
-/* --- OTYPER field values (1 bit per pin) --- */
-#define GPIO_OTYPE_PP (0x0U) ///< OTYPER field value: push-pull
-#define GPIO_OTYPE_OD (0x1U) ///< OTYPER field value: open-drain
+/** @name OTYPER values
+ *  @{ */
+#define GPIO_OTYPE_PP (0x0U) ///< Push-pull
+#define GPIO_OTYPE_OD (0x1U) ///< Open-drain
+/** @} */
 
-/* --- OSPEEDR field values (2 bits per pin, shift = pin * 2) --- */
-#define GPIO_OSPEED_LOW (0x0U)    ///< OSPEEDR field value: low speed
-#define GPIO_OSPEED_MEDIUM (0x1U) ///< OSPEEDR field value: medium speed
-#define GPIO_OSPEED_FAST (0x2U)   ///< OSPEEDR field value: fast speed
-#define GPIO_OSPEED_HIGH (0x3U)   ///< OSPEEDR field value: high speed
+/** @name OSPEEDR values
+ *  @{ */
+#define GPIO_OSPEED_LOW (0x0U)    ///< Low speed
+#define GPIO_OSPEED_MEDIUM (0x1U) ///< Medium speed
+#define GPIO_OSPEED_FAST (0x2U)   ///< Fast speed
+#define GPIO_OSPEED_HIGH (0x3U)   ///< High speed
+/** @} */
 
-/* --- PUPDR field values (2 bits per pin, shift = pin * 2) --- */
-#define GPIO_PUPD_NONE (0x0U) ///< PUPDR field value: no pull
-#define GPIO_PUPD_UP (0x1U)   ///< PUPDR field value: pull-up
-#define GPIO_PUPD_DOWN (0x2U) ///< PUPDR field value: pull-down
+/** @name PUPDR values
+ *  @{ */
+#define GPIO_PUPD_NONE (0x0U) ///< No pull
+#define GPIO_PUPD_UP (0x1U)   ///< Pull-up
+#define GPIO_PUPD_DOWN (0x2U) ///< Pull-down
+/** @} */
 
-/* --- Power-on-reset values that differ from zero ---
- *
- * Every GPIO register resets to 0 (GPIOx_IDR excepted: it reflects the
- * pin levels, so RM0390 gives no fixed reset value) except the five below, and only on
- * GPIOA and GPIOB: the pins that carry the SWD/JTAG debug interface come
- * out of reset in alternate-function mode with the pulls the debug port
- * needs. GPIOC..GPIOH, OTYPER/AFRL/AFRH on every port, and GPIOA's OSPEEDR
- * reset to 0. GPIOA: PA13 (SWDIO) / PA14 (SWCLK) / PA15 (JTDI); GPIOB: PB3
- * (SWO/JTDO) / PB4 (NJTRST).
- *
- * GPIOA_OSPEEDR is zero on the F446 but not on every STM32F4: the F401 and
- * F411 reset it to 0x0C000000 (PA13 at OSPEEDR 0b11). Do not "fix" it
- * from another family's manual. Values checked against ST's STM32F446 SVD. */
-#define GPIOA_MODER_RESET (0xA8000000U)   ///< GPIOA_MODER reset: PA13/14/15 in AF mode
-#define GPIOA_PUPDR_RESET (0x64000000U)   ///< GPIOA_PUPDR reset: PA13/15 pull-up, PA14 pull-down
-#define GPIOB_MODER_RESET (0x00000280U)   ///< GPIOB_MODER reset: PB3/4 in AF mode
-#define GPIOB_OSPEEDR_RESET (0x000000C0U) ///< GPIOB_OSPEEDR reset: PB3 high speed (0b11)
-#define GPIOB_PUPDR_RESET (0x00000100U)   ///< GPIOB_PUPDR reset: PB4 pull-up
+/** @name Non-zero reset values
+ *  Every other GPIO register resets to 0 (IDR excepted). The exceptions are
+ *  the SWD/JTAG pins: PA13 (SWDIO), PA14 (SWCLK), PA15 (JTDI), PB3 (SWO) and
+ *  PB4 (NJTRST).
+ *  GPIOA_OSPEEDR is 0 on the F446, unlike the F401/F411 (0x0C000000); checked
+ *  against ST's F446 SVD.
+ *  @{ */
+#define GPIOA_MODER_RESET (0xA8000000U)   ///< PA13-15 in AF mode
+#define GPIOA_PUPDR_RESET (0x64000000U)   ///< PA13/PA15 pull-up, PA14 pull-down
+#define GPIOB_MODER_RESET (0x00000280U)   ///< PB3/PB4 in AF mode
+#define GPIOB_OSPEEDR_RESET (0x000000C0U) ///< PB3 high speed
+#define GPIOB_PUPDR_RESET (0x00000100U)   ///< PB4 pull-up
+/** @} */
 
 /** @} */
 

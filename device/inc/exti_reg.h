@@ -1,20 +1,10 @@
 /**
  * @file exti_reg.h
- * @brief EXTI (External interrupt/event controller) register definitions
- *        for the STM32F446xx family.
+ * @brief EXTI registers: external interrupt and event lines (RM0390 section 10.3).
  *
- * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 10: Interrupts and events (EXTI is 10.2)
- * (EXTI).
- *
- * Lines 0-15 map directly to GPIO pin number N (the mux selecting which
- * port feeds line N is configured via SYSCFG and is not modeled here);
- * lines 16-22 are fixed internal sources (see the EXTI_LINE_* constants
- * below). Each register here is a flat 23-bit-wide bitmask; bit N
- * represents line N in every one of IMR/EMR/RTSR/FTSR/SWIER/PR (bit 19,
- * which has no source on this part, is reserved in RTSR and FTSR), so
- * there are no packed sub-fields to define beyond the line number
- * itself, unlike the other register headers in this project.
+ * Each register is a bitmask with bit N for line N. Lines 0-15 are GPIO pin
+ * N of the port SYSCFG_EXTICR selects (see syscfg_reg.h); lines 16-22 are the
+ * fixed internal sources below. Line 19 has no source on the F446.
  */
 #ifndef EXTI_REG_H
 #define EXTI_REG_H
@@ -26,37 +16,30 @@
  * @{
  */
 
-#define EXTI_BASE (0x40013C00UL) ///< EXTI peripheral base address
+#define EXTI_BASE (0x40013C00UL) ///< EXTI base address (APB2)
 
-/**
- * @brief EXTI register map (RM0390 section 10.3).
- */
+/** @brief EXTI register block. Every register is \regaccess{rw} except PR. */
 typedef struct ExtiRegisters_t
 {
-    volatile uint32_t IMR;   ///< 0x00: interrupt mask register
-    volatile uint32_t EMR;   ///< 0x04: event mask register
-    volatile uint32_t RTSR;  ///< 0x08: rising trigger selection register
-    volatile uint32_t FTSR;  ///< 0x0C: falling trigger selection register
-    volatile uint32_t SWIER; ///< 0x10: software interrupt event register
-    volatile uint32_t PR;    ///< 0x14: pending register
+    volatile uint32_t IMR;   ///< 0x00: interrupt mask (1 = enabled)
+    volatile uint32_t EMR;   ///< 0x04: event mask (1 = enabled)
+    volatile uint32_t RTSR;  ///< 0x08: rising-edge trigger
+    volatile uint32_t FTSR;  ///< 0x0C: falling-edge trigger
+    volatile uint32_t SWIER; ///< 0x10: software interrupt trigger
+    volatile uint32_t PR;    ///< 0x14: pending, \regaccess{rc_w1}
 } ExtiRegisters_t;
 
-#define EXTI ((ExtiRegisters_t *)EXTI_BASE) ///< Pointer to the EXTI register block
+#define EXTI ((ExtiRegisters_t *)EXTI_BASE) ///< The EXTI instance
 
-/**
- * @brief Fixed internal EXTI line numbers (RM0390 10.2.5) - lines 0-15 are
- *        GPIO pins 0-15 instead and need no such constant.
- *
- * Line 19 (Ethernet wakeup on parts that have an Ethernet MAC) has no
- * source on the F446, and RM0390 10.2.5 lists none, so it is
- * intentionally omitted here.
- */
+/** @name Internal line numbers (RM0390 section 10.2.5)
+ *  @{ */
 #define EXTI_LINE_PVD (16U)         ///< PVD output
 #define EXTI_LINE_RTC_ALARM (17U)   ///< RTC alarm
 #define EXTI_LINE_OTG_FS_WKUP (18U) ///< USB OTG FS wakeup
-#define EXTI_LINE_OTG_HS_WKUP (20U) ///< USB OTG HS (configured in FS) wakeup
-#define EXTI_LINE_TAMP_STAMP (21U)  ///< Tamper and TimeStamp
+#define EXTI_LINE_OTG_HS_WKUP (20U) ///< USB OTG HS (in FS mode) wakeup
+#define EXTI_LINE_TAMP_STAMP (21U)  ///< Tamper and timestamp
 #define EXTI_LINE_RTC_WKUP (22U)    ///< RTC wakeup
+/** @} */
 
 /** @} */
 
