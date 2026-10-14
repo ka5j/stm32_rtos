@@ -10,6 +10,20 @@ specifically.
 
 ### Added
 
+- `tools/check_pr_files.sh` and `make check-pr [BASE=origin/develop]`: the
+  two pull-request file checks that lived as inline shell in `ci.yml` (every
+  touched source file has a Doxygen `@file` block; every touched
+  driver/bsp/api/rtos `.c` has a `tests/unit/test_<name>.c` and every touched
+  `*_reg.h` is included by a test), now runnable before pushing. CI calls the
+  same target. Checked by hand against a branch that adds a bare module and
+  a bare register header: all four error cases fire and the exit is 1.
+
+- `make test SANITIZE=1` builds and runs the host suite under
+  AddressSanitizer and UndefinedBehaviorSanitizer with every report fatal,
+  and CI runs it after the plain suite. `gpio.h` documents an out-of-range
+  pin as undefined behaviour; this is the build that would see it. All 275
+  tests pass under it.
+
 - `bsp/inc/bsp.h`, `bsp/src/bsp.c`: `bspClockInit(rcc, pwr, flash)`, the
   board's 180 MHz bring-up built from the driver calls in order: PWR
   clock, HSE bypass (8 MHz from the ST-LINK), regulator scale 1, PLL

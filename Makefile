@@ -124,7 +124,7 @@ DEPS    := $(OBJECTS:.o=.d)
 # only writes build/.flags), not `all`.
 .DEFAULT_GOAL := all
 
-.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version hooks FORCE
+.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version check-pr hooks FORCE
 
 # A failed recipe must not leave a truncated .bin/.hex/.elf that a later
 # make would treat as up to date.
@@ -300,6 +300,19 @@ check-version:
 	awk -v tag="$(TAG)" -f tools/check_version.awk Doxyfile CHANGELOG.md
 
 # ------------------------------------------------------------------------
+# make check-pr [BASE=origin/develop]
+# The checks CI runs on every pull request, against the files this branch
+# adds or modifies relative to BASE: each touched source file has a Doxygen
+# @file block, each touched driver/bsp/api/rtos .c has a tests/unit/test_
+# <name>.c, and each touched *_reg.h is included by a test. See
+# tools/check_pr_files.sh and CONTRIBUTING.md.
+# ------------------------------------------------------------------------
+BASE ?= origin/develop
+
+check-pr:
+	tools/check_pr_files.sh $(BASE)
+
+# ------------------------------------------------------------------------
 # make format
 # Applies .clang-format to every tracked .c/.h file in place.
 # Use case: fix formatting drift before committing.
@@ -458,6 +471,18 @@ HOST_CC        := cc
 # -MMD -MP: write a .d file beside each host object so editing a header rebuilds the
 # test/coverage objects that include it, as the firmware build already does.
 HOST_CFLAGS    := -std=c11 $(WARN_FLAGS) -MMD -MP
+HOST_LDFLAGS   :=
+
+# make test SANITIZE=1 builds and runs the suite under AddressSanitizer and
+# UndefinedBehaviorSanitizer, with any report fatal. The drivers shift by
+# caller-influenced amounts (gpio.h documents an out-of-range pin as
+# undefined behaviour), which is exactly what UBSan sees and the plain build
+# does not. The flags stamp makes this rebuild the objects, so switching
+# between the two modes never mixes them. CI runs it after the plain suite.
+ifeq ($(SANITIZE),1)
+  HOST_CFLAGS  += -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  HOST_LDFLAGS += -fsanitize=address,undefined
+endif
 TEST_DIR       := tests
 TEST_BUILD_DIR := $(TEST_DIR)/build
 
@@ -523,7 +548,7 @@ $(TEST_BUILD_DIR)/%.o: %.c $(HOST_STAMP)
 	$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) -c $< -o $@
 
 test: $(TEST_OBJECTS)
-	$(HOST_CC) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
+	$(HOST_CC) $(HOST_LDFLAGS) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
 	$(TEST_BUILD_DIR)/run_tests
 	awk -f tools/check_vector_table.awk core/inc/nvic_reg.h startup/startup_stm32f446re.s
 	awk -f tools/check_test_registration.awk $(TEST_DIR)/unit/*.c
