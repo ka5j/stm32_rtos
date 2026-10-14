@@ -1,28 +1,13 @@
 /*
- * startup_stm32f446re.s
+ * startup_stm32f446re.s - vector table, Reset_Handler and Default_Handler.
  *
- * STM32F446RE (Cortex-M4F) startup file - written from scratch.
+ * Reset_Handler enables the FPU, sets the priority grouping, copies .data,
+ * zeroes .bss and calls main(). Symbols come from linker/STM32F446RE.ld.
+ * Every handler is a weak alias of Default_Handler until a real one is
+ * defined. See docs/ARCHITECTURE.md, "Boot sequence".
  *
- * Responsibilities:
- *   1. Define the vector table (isr_vector) - the CPU reads this directly
- *      on reset: word 0 = initial SP, word 1 = Reset_Handler address,
- *      remaining words = exception/interrupt handler addresses indexed
- *      by IRQ number.
- *   2. Implement Reset_Handler - enables the FPU and sets the interrupt
- *      priority grouping (see the SCB_CPACR/SCB_AIRCR comment below),
- *      copies .data from flash to RAM, zeroes .bss, then calls main().
- *      Uses symbols exported by the linker script
- *      (linker/STM32F446RE.ld): _sidata, _sdata, _edata, _sbss, _ebss,
- *      _estack.
- *   3. Provide a Default_Handler and weak aliases for every interrupt,
- *      so an unimplemented interrupt has somewhere safe to land instead
- *      of jumping to garbage.
- *
- * No .fpu directive is set below: this file contains no VFP instructions
- * of its own, so the assembler needs no FPU mode for it, and the actual
- * hard-float codegen for main.c and everything above it is already
- * governed by the Makefile's -mfpu=fpv4-sp-d16 -mfloat-abi=hard on each
- * C translation unit, not by anything in this .s file.
+ * No .fpu directive: this file has no VFP instructions; the C files are
+ * built hard-float by the Makefile.
  */
 
 .syntax unified
@@ -33,11 +18,7 @@
 .global Reset_Handler
 .global Default_Handler
 
-/* ========================================================================
- * Reset_Handler
- * First code the CPU executes after reset. Runs before any C runtime
- * setup exists, so this has to be assembly.
- * ==================================================================== */
+/* Reset_Handler: the first code after reset, before any C runtime exists. */
 .section .text.Reset_Handler
 .weak Reset_Handler
 .type Reset_Handler, %function
@@ -45,13 +26,9 @@
 Reset_Handler:
     ldr   sp, =_estack          /* set stack pointer to top of RAM */
 
-    /* Enable the FPU: SCB->CPACR CP10/CP11 = full access (core/inc/scb_reg.h
-     * SCB_CPACR_CP10_Msk|SCB_CPACR_CP11_Msk, PM0214 4.6.7). Every C file is
-     * built with -mfpu=fpv4-sp-d16 -mfloat-abi=hard, so any VFP instruction
-     * the compiler emits before this runs would trap as a UsageFault
-     * (NOCP) - do this before any C code, not lazily whenever float use
-     * first appears. FPCCR.ASPEN/LSPEN (lazy FP stacking) are left at
-     * their reset default of enabled; nothing here needs changing that. */
+    /* Enable the FPU before any C runs: every C file is hard-float, so an
+     * early VFP instruction would fault (NOCP). CPACR CP10/CP11 = 0b11.
+     * Lazy stacking (FPCCR.ASPEN/LSPEN) stays at its reset default, on. */
     ldr   r0, =0xE000ED88       /* SCB->CPACR */
     ldr   r1, [r0]
     ldr   r2, =0x00F00000       /* CP10 (bits 21:20) | CP11 (bits 23:22), both 0b11 */
@@ -60,17 +37,10 @@ Reset_Handler:
     dsb
     isb
 
-    /* Set interrupt priority grouping: SCB->AIRCR PRIGROUP = 3, all 4
-     * implemented priority bits (core/inc/nvic_reg.h NVIC_PRIO_BITS) used
-     * as preemption priority, 0 as subpriority (PM0214 4.4.5's PRIGROUP
-     * table). This is the standard STM32F4/FreeRTOS-style grouping and
-     * must be settled before rtos/kernel/ starts assigning PendSV/SVCall/
-     * SysTick priorities relative to peripheral IRQs - done once, here,
-     * rather than left to whichever driver happens to touch AIRCR first.
-     * Read-modify-write, not a bare store: AIRCR requires the VECTKEY
-     * field rewritten on every write (any other value is ignored), so the
-     * current value is read, VECTKEY+PRIGROUP cleared, then both written
-     * back together. */
+    /* PRIGROUP = 3: all 4 priority bits preempt, none are subpriority. Set
+     * once, here, before the kernel assigns PendSV/SysTick priorities. AIRCR
+     * ignores any write without VECTKEY, so clear VECTKEY+PRIGROUP and write
+     * both back. */
     ldr   r0, =0xE000ED0C       /* SCB->AIRCR */
     ldr   r1, [r0]
     ldr   r2, =0xFFFF0700       /* VECTKEY_Msk (bits 31:16) | PRIGROUP_Msk (bits 10:8) */
@@ -109,10 +79,7 @@ LoopFillZerobss:
     cmp   r2, r3
     bcc   FillZerobss
 
-    /* Hand off to C. main() should never return; if it somehow does,
-     * spin here rather than executing whatever follows. This matches
-     * Default_Handler's own infinite loop: a debugger stopping here
-     * means main() returned. */
+    /* main() must not return; if it does, spin where a debugger shows it. */
     bl    main
 
 MainReturned:
@@ -120,12 +87,7 @@ MainReturned:
 
 .size Reset_Handler, .-Reset_Handler
 
-/* ========================================================================
- * Default_Handler
- * Landing spot for any interrupt that doesn't have a real handler
- * written yet. Infinite loop - safe, and easy to spot in a debugger
- * (PC stuck here means an unexpected/unimplemented interrupt fired).
- * ==================================================================== */
+/* Default_Handler: an unexpected or unimplemented interrupt spins here. */
 .section .text.Default_Handler,"ax",%progbits
 .type Default_Handler, %function
 Default_Handler:
@@ -133,13 +95,9 @@ Infinite_Loop:
     b Infinite_Loop
 .size Default_Handler, .-Default_Handler
 
-/* ========================================================================
- * Vector table
- * Must be the very first thing in flash (enforced by the linker script
- * placing .isr_vector first). KEEP() in the linker script stops the
- * linker's dead-code elimination from discarding it, since nothing in
- * C code ever references it directly - the hardware does.
- * ==================================================================== */
+/* Vector table: initial SP, the 15 Armv7-M exception vectors, then IRQ 0-96
+ * in RM0390 order (0 = reserved). The linker places it first in flash and
+ * KEEP()s it. `make test` checks it against IRQn_e in core/inc/nvic_reg.h. */
 .section .isr_vector,"a",%progbits
 .type vector_table, %object
 
@@ -262,12 +220,8 @@ vector_table:
 
 .size vector_table, .-vector_table
 
-/* ========================================================================
- * Weak aliases - every handler defaults to Default_Handler unless you
- * write a real one later (e.g. in drivers/src/uart.c you'll eventually
- * define USART2_IRQHandler, and the linker uses that strong definition
- * instead of this weak one - no changes needed here when that happens).
- * ==================================================================== */
+/* Weak aliases: defining a handler with the same name anywhere replaces the
+ * Default_Handler default. */
 .weak NMI_Handler
 .thumb_set NMI_Handler,Default_Handler
 .weak HardFault_Handler

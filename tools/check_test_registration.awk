@@ -1,25 +1,11 @@
 #!/usr/bin/awk -f
 #
-# check_test_registration.awk
-#
-# Cross-checks every test function defined in tests/unit/*.c against the
-# extern declarations and RUN_TEST() calls in tests/unit/test_runner.c.
-#
-# Unity requires exactly one main()/setUp()/tearDown() per binary, so
-# test_runner.c owns them and reaches every other file's tests through a
-# hand-maintained extern + RUN_TEST pair. Nothing else notices when one
-# of those pairs is missing: the test file still compiles, the suite
-# still passes, and the test simply never runs. `make coverage` would
-# catch it for a driver or bsp test, but its filter is drivers/src and
-# bsp/src only, so for
-# the test_<peripheral>_reg.c files a forgotten registration is entirely
-# silent. Same spirit as check_vector_table.awk: two hand-written lists
-# with no shared source of truth, and nothing else watching them drift.
+# Checks that every test function in tests/unit/*.c is declared extern and
+# RUN_TEST()'d in test_runner.c. A missing pair still compiles and passes,
+# and the test silently never runs; coverage would not notice for the
+# register tests. Run by `make test`. POSIX awk (macOS ships BWK awk).
 #
 # Usage: awk -f tools/check_test_registration.awk tests/unit/*.c
-#
-# Written for POSIX awk (no gawk-only extensions - macOS ships the BWK
-# "one true awk", not gawk, and this must run there too).
 
 # ---- comments and #if 0 are not code ----
 # Every rule below looks at the line with comments and `#if 0` regions
