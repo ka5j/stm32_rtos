@@ -1,13 +1,11 @@
 /**
  * @file flash.c
- * @brief Flash interface driver implementation - see flash.h for the
- *        public API and flash_reg.h for the register definitions this
- *        operates on.
+ * @brief Flash driver implementation (API in flash.h).
  */
 #include "flash.h"
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup flash_driver
  * @{
  */
 
@@ -23,29 +21,11 @@ DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency)
     {
         flash->ACR = (flash->ACR & ~FLASH_ACR_LATENCY_Msk) | (latency << FLASH_ACR_LATENCY_Pos);
 
-        /* RM0390 (3.4.1, "Increasing the CPU frequency") says to check
-         * that the new number of wait states is taken into account by
-         * reading FLASH_ACR, and notes a wait-state change "may not be
-         * effective straight away". So the programmed latency is read back
-         * and confirmed before the clock change it is preparing for goes
-         * ahead. Proceeding on an unaccepted latency is the case that
-         * makes flash reads unreliable once SYSCLK rises, with no fault
-         * raised, so it is reported as a hardware fault rather than
-         * assumed to have worked.
-         *
-         * The coverage-exclusion region below is deliberate, and is the
-         * only one in this project - not a gap being papered over. (Its
-         * marker names are not spelled out in this comment: gcovr matches
-         * them anywhere on a line, so doing so would open a second,
-         * never-closed region and make it warn.) Every other bounded wait here is host-testable
-         * precisely because the flag it polls is a field distinct from
-         * what the driver writes (see the Makefile's TEST_DRIVER_SOURCES
-         * comment), so a test can hold that flag clear in a plain
-         * in-memory struct. A read-back check is the one shape that
-         * breaks that property: it compares a register against the value
-         * just written to it, and an in-memory struct always agrees by
-         * construction. Exercising it needs real silicon that refuses
-         * the write - see CONTRIBUTING.md's "Testing and its limits". */
+        /* RM0390 section 3.4.1 asks for this read-back before the clock rises.
+         * It is the project's only coverage exclusion: an in-memory struct
+         * always reads back what was written, so the failure branch needs
+         * silicon that rejects the write (see docs/DESIGN.md, "Host testing
+         * and its limits"). */
         /* GCOVR_EXCL_START */
         if ((flash->ACR & FLASH_ACR_LATENCY_Msk) != (latency << FLASH_ACR_LATENCY_Pos))
         {

@@ -1,158 +1,125 @@
-/**
- * @file groups.dox
- * @brief Doxygen-only file declaring the "Topics" page's group hierarchy.
- *        No code resides here; each source file joins a group via
- *        \@addtogroup, wrapping its struct/macro/function definitions
- *        rather than repeating \@ingroup on every member.
+/*
+ * Declares the Topics hierarchy: one group per layer, one subgroup per
+ * peripheral. A plain comment, not an @file block: this file has no code,
+ * and a file page for it would link to a source page Doxygen never writes.
  *
- * The full group hierarchy mirrors the layer diagram in
- * docs/ARCHITECTURE.md. Only the groups whose layers have real content are
- * declared below (register layer, drivers, board support); the others
- * appear in this table purely as reserved names (see README.md's Status
- * section for which layers exist). A group is declared only once its layer
- * has real content, but must match this naming exactly so the hierarchy
- * never requires restructuring, only additions:
- *
- *   register_layer          "Register Layer"            (parent)
- *     core_peripherals      "Cortex-M4 Core Peripherals" (core/inc/)
- *     device_peripherals    "STM32F446 Peripherals"      (device/inc/)
- *   driver_layer             "Drivers"                    (drivers/)
- *   board_support            "Board Support Package"       (bsp/)
- *   peripheral_api           "Peripheral API"              (api/)
- *   rtos_layer               "RTOS"                        (parent)
- *     rtos_kernel            "RTOS Kernel"                 (rtos/kernel/)
- *     rtos_api               "RTOS API"                    (rtos/api/)
- *   application_layer        "Application"                 (app/)
- *
- * To add a new group: declare it here with \@defgroup, using the id and
- * title already reserved for it above (adding \@ingroup naming its parent
- * if it nests under register_layer or rtos_layer per the table above),
- * then wrap the new layer's source with \@addtogroup / \@{ ... \@}, as
- * done in core/inc/ and device/inc/.
+ * Source files join a group with `@addtogroup <id>` / `@{` ... `@}` around
+ * their definitions. Groups follow the layers in docs/ARCHITECTURE.md and
+ * are declared here only once their layer has code. The ids reserved for
+ * layers that do not exist yet are `peripheral_api` (api/), `rtos_layer`
+ * with `rtos_kernel` and `rtos_api` (rtos/), and `application_layer` (app/).
  */
 
 /**
  * @defgroup register_layer Register Layer
- * @brief Hand-derived struct definitions mapping peripheral and core
- *        registers directly to their memory addresses, without HAL or
- *        CMSIS device headers.
+ * @brief Register structs and bit definitions mapped to fixed addresses,
+ *        derived from the reference manuals without HAL or CMSIS.
  */
 
 /**
  * @defgroup core_peripherals Cortex-M4 Core Peripherals
  * @ingroup register_layer
- * @brief Registers defined by the Armv7-M architecture itself (NVIC, SCB,
- *        MPU, SysTick), fixed by the Cortex-M4 core rather than the
- *        STM32F446 vendor. Derived from PM0214 (Cortex-M4 programming
- *        manual).
+ * @brief Armv7-M system peripherals, from PM0214.
  */
 
-/**
- * @defgroup mpu_registers MPU
- * @ingroup core_peripherals
- * @brief Memory Protection Unit registers (core/inc/mpu_reg.h).
- */
+/** @defgroup mpu_registers MPU
+ *  @ingroup core_peripherals
+ *  @brief Memory Protection Unit. */
 
-/**
- * @defgroup nvic_registers NVIC
- * @ingroup core_peripherals
- * @brief Nested Vectored Interrupt Controller registers
- *        (core/inc/nvic_reg.h).
- */
+/** @defgroup nvic_registers NVIC
+ *  @ingroup core_peripherals
+ *  @brief Nested Vectored Interrupt Controller and the IRQ numbers. */
 
-/**
- * @defgroup scb_registers SCB
- * @ingroup core_peripherals
- * @brief System Control Block registers (core/inc/scb_reg.h).
- */
+/** @defgroup scb_registers SCB
+ *  @ingroup core_peripherals
+ *  @brief System Control Block. */
 
-/**
- * @defgroup fpu_registers FPU
- * @ingroup core_peripherals
- * @brief FPU context control registers (core/inc/scb_reg.h). Architecturally
- *        distinct from SCB - see scb_reg.h's file-level comment for why the
- *        two share one file - so grouped separately here.
- */
+/** @defgroup fpu_registers FPU
+ *  @ingroup core_peripherals
+ *  @brief FPU context control (FPCCR, FPCAR, FPDSCR). */
 
-/**
- * @defgroup systick_registers SysTick
- * @ingroup core_peripherals
- * @brief SysTick timer registers (core/inc/systick_reg.h).
- */
+/** @defgroup systick_registers SysTick
+ *  @ingroup core_peripherals
+ *  @brief SysTick timer. */
 
 /**
  * @defgroup device_peripherals STM32F446 Peripherals
  * @ingroup register_layer
- * @brief STM32F446-specific peripheral registers (GPIO, RCC, SYSCFG, UART,
- *        EXTI, Flash interface, PWR, IWDG, WWDG). Derived from RM0390
- *        (STM32F446xx reference manual).
+ * @brief STM32F446 peripherals, from RM0390.
  */
 
-/**
- * @defgroup gpio_registers GPIO
- * @ingroup device_peripherals
- * @brief General-purpose I/O registers (device/inc/gpio_reg.h).
- */
+/** @defgroup exti_registers EXTI
+ *  @ingroup device_peripherals
+ *  @brief External interrupt/event controller. */
 
-/**
- * @defgroup rcc_registers RCC
- * @ingroup device_peripherals
- * @brief Reset and Clock Control registers (device/inc/rcc_reg.h).
- */
+/** @defgroup flash_registers Flash Interface
+ *  @ingroup device_peripherals
+ *  @brief Flash access control (latency, prefetch, caches). */
 
-/**
- * @defgroup uart_registers UART
- * @ingroup device_peripherals
- * @brief USART/UART registers (device/inc/uart_reg.h).
- */
+/** @defgroup gpio_registers GPIO
+ *  @ingroup device_peripherals
+ *  @brief General-purpose I/O ports A to H. */
 
-/**
- * @defgroup exti_registers EXTI
- * @ingroup device_peripherals
- * @brief External interrupt/event controller registers
- *        (device/inc/exti_reg.h).
- */
+/** @defgroup iwdg_registers IWDG
+ *  @ingroup device_peripherals
+ *  @brief Independent watchdog. */
 
-/**
- * @defgroup flash_registers Flash Interface
- * @ingroup device_peripherals
- * @brief Flash interface registers (device/inc/flash_reg.h).
- */
+/** @defgroup pwr_registers PWR
+ *  @ingroup device_peripherals
+ *  @brief Power control: voltage scaling and over-drive. */
 
-/**
- * @defgroup iwdg_registers IWDG
- * @ingroup device_peripherals
- * @brief Independent Watchdog registers (device/inc/iwdg_reg.h).
- */
+/** @defgroup rcc_registers RCC
+ *  @ingroup device_peripherals
+ *  @brief Reset and clock control. */
 
-/**
- * @defgroup pwr_registers PWR
- * @ingroup device_peripherals
- * @brief Power control registers (device/inc/pwr_reg.h).
- */
+/** @defgroup syscfg_registers SYSCFG
+ *  @ingroup device_peripherals
+ *  @brief System configuration: EXTI routing and I/O compensation. */
 
-/**
- * @defgroup syscfg_registers SYSCFG
- * @ingroup device_peripherals
- * @brief System configuration controller registers
- *        (device/inc/syscfg_reg.h).
- */
+/** @defgroup uart_registers USART/UART
+ *  @ingroup device_peripherals
+ *  @brief USART1-3/6 and UART4-5. */
 
-/**
- * @defgroup wwdg_registers WWDG
- * @ingroup device_peripherals
- * @brief Window Watchdog registers (device/inc/wwdg_reg.h).
- */
+/** @defgroup wwdg_registers WWDG
+ *  @ingroup device_peripherals
+ *  @brief Window watchdog. */
 
 /**
  * @defgroup driver_layer Drivers
- * @brief Register-level driver logic (GPIO, RCC, Flash, PWR, UART, NVIC,
- *        SysTick), with no application-facing logic. Consumed by bsp/ and,
- *        once it exists, api/.
+ * @brief Register-level drivers. Each takes its register block as a
+ *        parameter and returns a ::DriverStatus_e where it can fail.
  */
+
+/** @defgroup gpio_driver GPIO
+ *  @ingroup driver_layer
+ *  @brief Pin configuration and digital I/O. */
+
+/** @defgroup rcc_driver RCC
+ *  @ingroup driver_layer
+ *  @brief Peripheral clock gating, oscillators, PLL and SYSCLK switch. */
+
+/** @defgroup flash_driver Flash
+ *  @ingroup driver_layer
+ *  @brief Flash wait states, prefetch and caches. */
+
+/** @defgroup pwr_driver PWR
+ *  @ingroup driver_layer
+ *  @brief Regulator voltage scaling and over-drive. */
+
+/** @defgroup uart_driver UART
+ *  @ingroup driver_layer
+ *  @brief Blocking asynchronous USART/UART transfer. */
+
+/** @defgroup nvic_driver NVIC
+ *  @ingroup driver_layer
+ *  @brief Interrupt enable, pending and priority control. */
+
+/** @defgroup systick_driver SysTick
+ *  @ingroup driver_layer
+ *  @brief The system tick timer. */
 
 /**
  * @defgroup board_support Board Support Package
- * @brief Board-specific configuration for the NUCLEO-F446RE (today: the
- *        180 MHz clock bring-up), built on drivers/ and consumed by api/.
+ * @brief NUCLEO-F446RE configuration built on the drivers: today the
+ *        180 MHz clock bring-up.
  */

@@ -1,20 +1,14 @@
 /*
- * Linker Script - STM32F446RE (Nucleo-F446RE)
- * Cortex-M4F, 512K Flash, 128K SRAM
- *
- * Base addresses per RM0390 memory map.
+ * STM32F446RE: 512 KB flash, 128 KB SRAM (RM0390 memory map).
+ * See docs/ARCHITECTURE.md, "Memory map".
  */
 
 ENTRY(Reset_Handler)
 
-/* Top of stack = end of RAM (stack grows downward from here) */
+/* The main stack starts at the top of RAM and grows down. */
 _estack = ORIGIN(RAM) + LENGTH(RAM);
 
-/* Minimum reserved space for heap and stack. The ._user_heap_stack
- * section below forces the linker to fail at link time if .data + .bss
- * + these reservations don't fit in RAM, instead of silently linking
- * and corrupting memory at runtime. Adjust these if you know your
- * actual heap/stack needs. */
+/* Minimum heap and stack: the link fails if .data + .bss leave less free. */
 _Min_Heap_Size  = 0x200;  /* 512 bytes */
 _Min_Stack_Size = 0x400;  /* 1 KB */
 
@@ -26,9 +20,7 @@ MEMORY
 
 SECTIONS
 {
-  /* Vector table must be the very first thing in flash - the CPU
-   * hardware reads word 0 (initial SP) and word 1 (reset handler
-   * address) directly from here on reset, before any code runs. */
+  /* First in flash: the core reads the initial SP and reset vector from here. */
   .isr_vector :
   {
     . = ALIGN(4);
@@ -57,7 +49,7 @@ SECTIONS
     . = ALIGN(4);
   } > FLASH
 
-  /* Stack unwind info - harmless to include, some libc calls expect it */
+  /* Unwind tables, for any libc code that expects them. */
   .ARM.extab :
   {
     *(.ARM.extab* .gnu.linkonce.armextab.*)
@@ -70,8 +62,8 @@ SECTIONS
     __exidx_end = .;
   } > FLASH
 
-  /* Initialized globals: runtime address in RAM (so they're writable),
-   * but initial values are stored in flash (RAM is garbage on power-up).*/
+  /* Initialised data: runs from RAM, initial values stored in flash and
+   * copied by Reset_Handler. */
   _sidata = LOADADDR(.data);
 
   .data :
@@ -84,8 +76,7 @@ SECTIONS
     _edata = .;
   } > RAM AT> FLASH
 
-  /* Zero-initialized globals: no flash storage needed, just a RAM range
-   * the startup file memsets to zero using [_sbss, _ebss) before main(). */
+  /* Zero-initialised data, cleared by Reset_Handler. */
   .bss :
   {
     . = ALIGN(4);
@@ -97,8 +88,7 @@ SECTIONS
     _ebss = .;
   } > RAM
 
-  /* Reserves room for heap + stack and makes the linker error out if
-   * .data + .bss have left less than this much RAM free. */
+  /* Reserves the minimum heap and stack (see above). */
   ._user_heap_stack :
   {
     . = ALIGN(8);

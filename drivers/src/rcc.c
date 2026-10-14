@@ -1,32 +1,26 @@
 /**
  * @file rcc.c
- * @brief RCC peripheral driver implementation - see rcc.h for the public
- *        API and rcc_reg.h for the register definitions this operates on.
+ * @brief RCC driver implementation (API in rcc.h).
  */
 #include "rcc.h"
 
 #include "flash.h"
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup rcc_driver
  * @{
  */
 
-/** Bounded retry count for CR.HSIRDY/HSERDY/PLLRDY and CFGR.SWS, not a
- *  wall-clock timeout - see rcc.h's file-level comment for why. */
+/** Polls allowed for each oscillator, PLL or SWS wait (see
+ *  [Poll-count timeouts](DESIGN.md#poll-count-timeouts)). */
 #define RCC_CLOCK_READY_TIMEOUT_ITERATIONS (100000U)
 
 /**
- * @brief Resolve a GPIO port register block to its RCC_AHB1ENR clock-gate
- *        bit. Shared by rccGpioClockEnable()/rccGpioClockDisable() so the
- *        GPIOA..GPIOH identity chain exists in exactly one place.
- *
- * @param port GPIO port register block to identify (e.g. GPIOA).
- * @param bit  Set to port's RCC_AHB1ENR_GPIOxEN bit on success; untouched
- *             on failure.
- * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if port is not one of
- *         GPIOA..GPIOH.
+ * @brief Map a GPIO port to its AHB1ENR bit.
+ * @param port Port to identify, compared by address.
+ * @param bit  Receives the GPIOxEN bit; untouched on failure.
+ * @retval DRIVER_STATUS_OK                @p port is GPIOA to GPIOH.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM Otherwise.
  */
 static DriverStatus_e rccGpioClockBit(const GpioRegisters_t *port, uint32_t *bit)
 {
@@ -80,10 +74,7 @@ DriverStatus_e rccGpioClockEnable(RccRegisters_t *rcc, const GpioRegisters_t *po
     if (status == DRIVER_STATUS_OK)
     {
         rcc->AHB1ENR |= bit;
-        /* Read back so the enable has taken effect before the caller's
-         * first access to the peripheral - see the clock-gating note in
-         * rcc.h's file comment. */
-        (void)rcc->AHB1ENR;
+        (void)rcc->AHB1ENR; /* read back: the clock is running before first use */
     }
 
     return status;
@@ -105,7 +96,7 @@ DriverStatus_e rccGpioClockDisable(RccRegisters_t *rcc, const GpioRegisters_t *p
 void rccUsart2ClockEnable(RccRegisters_t *rcc)
 {
     rcc->APB1ENR |= RCC_APB1ENR_USART2EN;
-    (void)rcc->APB1ENR; /* read-back delay: see rccGpioClockEnable() */
+    (void)rcc->APB1ENR; /* read back: the clock is running before first use */
 }
 
 void rccUsart2ClockDisable(RccRegisters_t *rcc)
@@ -115,10 +106,8 @@ void rccUsart2ClockDisable(RccRegisters_t *rcc)
 
 void rccSyscfgClockEnable(RccRegisters_t *rcc)
 {
-    /* RCC_APB2ENR_SYSCFGEN = (1U << 14U) - see rccUsart2ClockEnable()'s
-     * comment above. */
     rcc->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
-    (void)rcc->APB2ENR; /* read-back delay: see rccGpioClockEnable() */
+    (void)rcc->APB2ENR; /* read back: the clock is running before first use */
 }
 
 void rccSyscfgClockDisable(RccRegisters_t *rcc)
@@ -128,10 +117,8 @@ void rccSyscfgClockDisable(RccRegisters_t *rcc)
 
 void rccPwrClockEnable(RccRegisters_t *rcc)
 {
-    /* RCC_APB1ENR_PWREN = (1U << 28U) - see rccUsart2ClockEnable()'s
-     * comment above. */
     rcc->APB1ENR |= RCC_APB1ENR_PWREN;
-    (void)rcc->APB1ENR; /* read-back delay: see rccGpioClockEnable() */
+    (void)rcc->APB1ENR; /* read back: the clock is running before first use */
 }
 
 void rccPwrClockDisable(RccRegisters_t *rcc)
@@ -140,14 +127,9 @@ void rccPwrClockDisable(RccRegisters_t *rcc)
 }
 
 /**
- * @brief Read CFGR.SWS - the SYSCLK source currently active in hardware,
- *        as reported back by the switch itself (as opposed to CFGR.SW,
- *        the source software last requested). Shared by every disable
- *        function's busy guard.
- *
- * @param rcc RCC register block (e.g. RCC).
- * @return One of ::RCC_CFGR_SYSCLK_HSI, ::RCC_CFGR_SYSCLK_HSE,
- *         ::RCC_CFGR_SYSCLK_PLL.
+ * @brief The SYSCLK source in use, from CFGR.SWS (not the requested CFGR.SW).
+ * @param rcc RCC block.
+ * @return ::RCC_CFGR_SYSCLK_HSI, ::RCC_CFGR_SYSCLK_HSE or ::RCC_CFGR_SYSCLK_PLL.
  */
 static uint32_t rccActiveSysclkSource(const RccRegisters_t *rcc)
 {
@@ -155,24 +137,16 @@ static uint32_t rccActiveSysclkSource(const RccRegisters_t *rcc)
 }
 
 /**
- * @brief Busy guard shared by rccHsiDisable()/rccHseDisable(): report
- *        whether an oscillator is currently feeding SYSCLK, directly or
- *        through the PLL.
+ * @brief Report whether an oscillator feeds SYSCLK, directly or through the PLL.
  *
- * RM0390 only lets CR.HSION/HSEON be cleared when the oscillator is not
- * used "directly or indirectly" as the system clock. Directly is SWS
- * naming the oscillator itself; indirectly is SWS naming the PLL while
- * PLLCFGR.PLLSRC selects that oscillator as the PLL's input. Checking
- * SWS alone misses the second case, where the write is ignored by
- * hardware while the driver would report success.
+ * RM0390 ignores clearing HSION/HSEON in either case, so checking SWS alone
+ * would report success for a write the hardware dropped.
  *
- * @param rcc          RCC register block (e.g. RCC).
- * @param sysclk_value The oscillator's own SW/SWS encoding
- *                     (::RCC_CFGR_SYSCLK_HSI or ::RCC_CFGR_SYSCLK_HSE).
- * @param pllsrc_value The oscillator's PLLSRC encoding
- *                     (::RCC_PLLCFGR_PLLSRC_HSI or ::RCC_PLLCFGR_PLLSRC_HSE).
- * @return DRIVER_STATUS_OK if the oscillator is not feeding SYSCLK.
- * @return DRIVER_STATUS_ERR_BUSY if it is, directly or through the PLL.
+ * @param rcc          RCC block.
+ * @param sysclk_value The oscillator's SW/SWS value (::RCC_CFGR_SYSCLK_HSI or _HSE).
+ * @param pllsrc_value The oscillator's PLLSRC value (::RCC_PLLCFGR_PLLSRC_HSI or _HSE).
+ * @retval DRIVER_STATUS_OK       Not feeding SYSCLK.
+ * @retval DRIVER_STATUS_ERR_BUSY Feeding SYSCLK.
  */
 static DriverStatus_e rccOscillatorDisableGuard(const RccRegisters_t *rcc, uint32_t sysclk_value,
                                                 uint32_t pllsrc_value)
@@ -198,26 +172,16 @@ static DriverStatus_e rccOscillatorDisableGuard(const RccRegisters_t *rcc, uint3
 }
 
 /**
- * @brief Spin until one of CR's oscillator-ready flags reaches the wanted
- *        state, or the bounded retry count is exhausted. Shared by the
- *        three enable functions (wait for the flag to *set*) and the
- *        three disable functions (wait for it to *clear*), which differ
- *        only in which CR bit they watch and which way.
+ * @brief Poll a CR ready flag until it reaches @p expected or the budget runs out.
  *
- * The outcome is decided by re-reading the flag after the loop, not by
- * testing whether the counter reached 0: the flag reaching its state on
- * the very last iteration exits the loop with the counter already at 0,
- * and a counter test would then report a timeout for a wait that in fact
- * succeeded.
+ * The flag is re-read after the loop, so a flag that settles on the last
+ * poll counts as success.
  *
- * @param rcc       RCC register block (e.g. RCC).
- * @param ready_bit CR ready flag to wait on - ::RCC_CR_HSIRDY,
- *                  ::RCC_CR_HSERDY, or ::RCC_CR_PLLRDY.
- * @param expected  `ready_bit` to wait for the flag to set, `0U` to wait
- *                  for it to clear.
- * @return DRIVER_STATUS_OK if the flag is in the expected state on exit.
- * @return DRIVER_STATUS_ERR_TIMEOUT if it is not after
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations.
+ * @param rcc       RCC block.
+ * @param ready_bit ::RCC_CR_HSIRDY, ::RCC_CR_HSERDY or ::RCC_CR_PLLRDY.
+ * @param expected  @p ready_bit to wait for set, 0 to wait for clear.
+ * @retval DRIVER_STATUS_OK          The flag is in the expected state.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT It is not, after ::RCC_CLOCK_READY_TIMEOUT_ITERATIONS polls.
  */
 static DriverStatus_e rccWaitCrFlag(const RccRegisters_t *rcc, uint32_t ready_bit,
                                     uint32_t expected)
@@ -273,8 +237,7 @@ DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass)
     }
     else
     {
-        /* HSEBYP must be written while HSEON is clear (RM0390) - the BUSY
-         * guard above already ensures that. */
+        /* HSEBYP is writable only while HSEON is clear, which the guard ensures. */
         rcc->CR = (rcc->CR & ~RCC_CR_HSEBYP) | bypass;
         rcc->CR |= RCC_CR_HSEON;
 
@@ -328,9 +291,7 @@ DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t source, uint32_t m, ui
         uint32_t mask =
             RCC_PLLCFGR_PLLM_Msk | RCC_PLLCFGR_PLLN_Msk | RCC_PLLCFGR_PLLP_Msk | RCC_PLLCFGR_PLLSRC;
 
-        /* PLLQ and any reserved bits are preserved, not touched - this
-         * project configures PLLM/PLLN/PLLP/PLLSRC only (rcc_reg.h's
-         * file-level comment: PLLQ is out of scope, no USB/SDIO here). */
+        /* PLLQ and reserved bits are preserved. */
         rcc->PLLCFGR = (rcc->PLLCFGR & ~mask) | (m << RCC_PLLCFGR_PLLM_Pos)
                        | (n << RCC_PLLCFGR_PLLN_Pos) | (p << RCC_PLLCFGR_PLLP_Pos) | source;
     }
@@ -363,15 +324,10 @@ DriverStatus_e rccPllDisable(RccRegisters_t *rcc)
 }
 
 /**
- * @brief Validate a CFGR.HPRE field value against its 9 documented
- *        divisors. Shared by rccBusPrescalerConfig() only, factored out
- *        so that function's validation stays flat rather than an 9-way
- *        chained condition inline.
- *
- * @param hpre Candidate CFGR.HPRE field value.
- * @return DRIVER_STATUS_OK if hpre is one of the 9 documented
- *         ::RCC_CFGR_HPRE_DIV1 .. ::RCC_CFGR_HPRE_DIV512 values.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM otherwise.
+ * @brief Check that @p hpre is one of the nine `RCC_CFGR_HPRE_DIV*` values.
+ * @param hpre Candidate HPRE value.
+ * @retval DRIVER_STATUS_OK                Valid.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM Not a defined divisor.
  */
 static DriverStatus_e rccValidateHpre(uint32_t hpre)
 {
@@ -389,14 +345,10 @@ static DriverStatus_e rccValidateHpre(uint32_t hpre)
 }
 
 /**
- * @brief Validate a CFGR.PPRE1/PPRE2 field value against its 5 documented
- *        divisors. Shared by rccBusPrescalerConfig() for both fields,
- *        which share one encoding (device/inc/rcc_reg.h).
- *
- * @param ppre Candidate CFGR.PPRE1 or CFGR.PPRE2 field value.
- * @return DRIVER_STATUS_OK if ppre is one of the 5 documented
- *         ::RCC_CFGR_PPRE_DIV1 .. ::RCC_CFGR_PPRE_DIV16 values.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM otherwise.
+ * @brief Check that @p ppre is one of the five `RCC_CFGR_PPRE_DIV*` values.
+ * @param ppre Candidate PPRE1 or PPRE2 value.
+ * @retval DRIVER_STATUS_OK                Valid.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM Not a defined divisor.
  */
 static DriverStatus_e rccValidatePpre(uint32_t ppre)
 {
@@ -449,17 +401,9 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, uin
         status = DRIVER_STATUS_ERR_INVALID_PARAM;
     }
 
-    /* Raising the latency is safe unconditionally and must land before
-     * CFGR.SW changes (see flash.h) - applied here, on this branch, only
-     * when the target exceeds what is already programmed. Lowering it is
-     * the reverse: it is only safe once SYSCLK has actually dropped to
-     * the slower frequency the lower latency is rated for, so that case
-     * is deferred to after CFGR.SWS confirms the switch below, not
-     * applied here. An out-of-range latency always exceeds
-     * current_latency (masked to ACR's 4-bit field, so never above 15),
-     * so it always takes this branch and is caught by flashSetLatency()'s
-     * own validation - the deferred call below never needs to repeat
-     * that check. */
+    /* A higher latency goes in before the switch. An out-of-range value is
+     * always higher than the 4-bit current one, so flashSetLatency() rejects it
+     * here and the lowering call below never sees it. */
     if ((status == DRIVER_STATUS_OK) && (latency > current_latency))
     {
         status = flashSetLatency(flash, latency);
@@ -499,19 +443,14 @@ DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash, uin
             timeout--;
         }
 
-        /* Re-read SWS rather than testing the counter, for the same
-         * reason rccWaitCrFlag() does - see its comment. */
+        /* Re-read SWS rather than test the counter (see rccWaitCrFlag()). */
         if (rccActiveSysclkSource(rcc) != source)
         {
             status = DRIVER_STATUS_ERR_TIMEOUT;
         }
     }
 
-    /* The deferred (lowering) half of the latency change - see the
-     * comment above. Only reached once the switch has actually
-     * completed; a timed-out switch leaves the latency at its higher,
-     * still-safe current value instead of lowering it under a SYSCLK
-     * frequency it was never rated for. */
+    /* A lower latency only once the switch has completed. */
     if ((status == DRIVER_STATUS_OK) && (latency <= current_latency))
     {
         status = flashSetLatency(flash, latency);

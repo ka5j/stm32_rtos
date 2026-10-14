@@ -1,110 +1,119 @@
 # Architecture
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for naming conventions, the layering rule, the error-handling contract, and the local development workflow (formatting/lint/docs gates, pre-commit hook).
+How the code is organised, how the chip boots, and how it is clocked. The
+reasons behind the conventions are in [Design notes](DESIGN.md).
+
+## Layers
+
+Each layer includes headers only from itself and the layers below it.
+Dashed layers are not implemented yet.
+
+```mermaid
+flowchart TD
+    app["app/<br/>application tasks"]
+    api["api/<br/>peripheral API"]
+    rapi["rtos/api/<br/>tasks, semaphores, queues"]
+    bsp["bsp/<br/>board support"]
+    kernel["rtos/kernel/<br/>scheduler, context switch"]
+    drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick"]
+    regs["core/ + device/<br/>register structs"]
+    app --> api
+    app --> rapi
+    api --> bsp
+    rapi --> kernel
+    bsp --> drivers
+    kernel --> drivers
+    drivers --> regs
+    classDef todo stroke-dasharray: 5 5
+    class app,api,rapi,kernel todo
+```
+
+- `api/` is the peripheral-facing layer (for example an LED or a debug
+  print), built on `bsp/`'s pin mapping and independent of the RTOS.
+- `rtos/api/` is the kernel-facing layer.
+- `app/` uses only those two and never reaches into `drivers/` or
+  `rtos/kernel/`.
+
+Every `inc/` directory is on the include path, so the build does not enforce
+the rule; review does.
 
 ## Directory layout
 
 ```
-stm32_rtos/
-├── core/            Cortex-M4 core peripheral registers (MPU, NVIC, SCB, SysTick)
-│   └── inc/
-├── device/          STM32F446-specific peripheral registers (EXTI, Flash,
-│   │                 GPIO, IWDG, PWR, RCC, SYSCFG, UART, WWDG)
-│   └── inc/
-├── drivers/         Register-level driver logic (GPIO, RCC, Flash, PWR,
-│                     UART, NVIC, SysTick) over the DriverStatus_e
-│                     contract in drivers/inc/driver_status.h. See
-│                     README.md's Status section for which are done.
-│   ├── inc/
-│   └── src/
-├── api/             App-facing peripheral API (e.g. led_on(), debug_print())
-│   ├── inc/
-│   └── src/
-├── bsp/             Nucleo-F446RE board support (180 MHz clock bring-up
-│   │                 today; pin mapping not started), consumed by api/
-│   ├── inc/
-│   └── src/
-├── rtos/
-│   ├── kernel/      Scheduler, task control blocks, PendSV context switching
-│   │   ├── inc/
-│   │   └── src/
-│   └── api/         RTOS syscall-style interface (task_create, semaphores, queues)
-│       ├── inc/
-│       └── src/
-├── app/             Application task code — only includes api/ and rtos/api/
-│   └── src/
-├── tests/           Host-side unit tests (native compiler, not arm-none-eabi-gcc)
-│   ├── unity/       Vendored Unity test framework
-│   └── unit/        test_<peripheral>_reg.c per register header (aggregated
-│                     by test_runner.c), test_<name>.c per driver/api/bsp/
-│                     rtos module — see CONTRIBUTING.md's new-module test
-│                     requirement
-├── startup/         Vector table, reset handler
-├── linker/          STM32F446RE.ld memory layout
-└── tools/           openocd.cfg, plus awk checks wired into the Makefile:
-                     check_vector_table.awk and check_test_registration.awk
-                     (both run by `make test`; the first cross-checks
-                     core/inc/nvic_reg.h against the startup vector table,
-                     the second every test function against its
-                     registration in test_runner.c), check_version.awk
-                     (`make check-version`; Doxyfile vs CHANGELOG vs tag),
-                     and changelog_section.awk (release notes, used by
-                     the release workflow); install_cppcheck.sh builds
-                     the cppcheck version CI pins, for `make lint`
+core/inc/        Cortex-M4 core registers: MPU, NVIC, SCB/FPU, SysTick
+device/inc/      STM32F446 registers: EXTI, Flash, GPIO, IWDG, PWR, RCC,
+                 SYSCFG, USART/UART, WWDG
+drivers/         Drivers and the DriverStatus_e error contract
+bsp/             NUCLEO-F446RE support (180 MHz clock bring-up)
+api/, rtos/      Reserved for the peripheral API and the kernel
+app/             main()
+startup/         Vector table and Reset_Handler
+linker/          Memory layout (STM32F446RE.ld)
+tests/unit/      Host-side Unity tests, one file per module
+tests/unity/     Vendored Unity
+tools/           Build checks (awk, sh) and openocd.cfg
+docs/            These pages, groups.dox and the Doxygen theme
 ```
 
-`api/` and `rtos/api/` are readily conflated: `api/` is the peripheral-facing layer (drives GPIO/UART through bsp/'s board mapping, independent of the RTOS), while `rtos/api/` is the RTOS syscall-facing layer (tasks, semaphores, queues). Application code in `app/` calls into both but never reaches past them into `drivers/` or `rtos/kernel/` directly.
+## Boot sequence
 
-## Layer diagram
-
-```
-┌─────────────────────────────────────────────┐
-│                 app/  (tasks)                │
-└───────────────┬───────────────┬─────────────┘
-                 │               │
-        ┌────────▼───────┐ ┌─────▼──────────┐
-        │      api/       │ │   rtos/api/     │
-        │ led_on(), etc.  │ │ task_create(),  │
-        │                 │ │ semaphores, ... │
-        └────────┬────────┘ └─────┬───────────┘
-                 │                │
-        ┌────────▼────────┐ ┌─────▼───────────┐
-        │      bsp/        │ │  rtos/kernel/   │
-        │  clock init, pin  │ │  scheduler,     │
-        │  mapping          │ │  PendSV switch  │
-        └────────┬─────────┘ └─────┬────────────┘
-                 │                 │
-        ┌────────▼─────────────────▼────────────┐
-        │              drivers/                  │
-        │  GPIO, RCC, Flash, PWR,                 │
-        │  UART, NVIC, SysTick                    │
-        └────────────────────┬────────────────────┘
-                              │
-        ┌─────────────────────▼───────────────────┐
-        │           core/ + device/                │
-        │  hand-derived register structs           │
-        └───────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    reset["Reset"] --> vt["Core loads SP and PC<br/>from the vector table"]
+    vt --> fpu["Reset_Handler:<br/>enable FPU (CPACR CP10/CP11)"]
+    fpu --> prio["Set PRIGROUP = 3<br/>(4 preemption bits)"]
+    prio --> data["Copy .data from flash"]
+    data --> bss["Zero .bss"]
+    bss --> main["main()"]
+    main -. returns .-> trap["Spin in MainReturned"]
 ```
 
-## Memory map (STM32F446RE)
+- The FPU is enabled before any C runs because every file is built
+  hard-float.
+- Each handler in the vector table is a weak alias of `Default_Handler`, an
+  infinite loop, until a real one is defined. That includes `PendSV_Handler`
+  and `SysTick_Handler`, which belong to the future kernel.
+- `tools/check_vector_table.awk` checks the table against `IRQn_e` in
+  `core/inc/nvic_reg.h`.
 
-Defined in [`linker/STM32F446RE.ld`](../linker/STM32F446RE.ld):
+## Clock tree
 
-| Region | Base       | Size   |
-| ------ | ---------- | ------ |
-| FLASH  | 0x08000000 | 512 KB |
-| RAM    | 0x20000000 | 128 KB |
+`bspClockInit()` produces this configuration (constants in `bsp/inc/bsp.h`):
 
-`.isr_vector` is placed first in FLASH and `KEEP()`'d so the linker cannot garbage-collect it. `.data` uses `AT>FLASH` to keep its load address in FLASH while its run address is in RAM, initialized by the `.data` copy loop and `.bss` zero-fill in `Reset_Handler`. `._user_heap_stack` reserves space above `.bss` so the link fails at build time if there is not room for the requested heap and stack, rather than silently corrupting memory at runtime.
+```mermaid
+flowchart LR
+    hse["HSE 8 MHz<br/>ST-LINK MCO, bypass"] --> m["/M = 8<br/>1 MHz"]
+    m --> n["xN = 360<br/>VCO 360 MHz"]
+    n --> p["/P = 2"]
+    p --> sys["SYSCLK 180 MHz"]
+    sys --> ahb["AHB /1<br/>HCLK 180 MHz<br/>core, SysTick, GPIO"]
+    ahb --> apb1["APB1 /4<br/>45 MHz<br/>USART2, PWR"]
+    ahb --> apb2["APB2 /2<br/>90 MHz<br/>SYSCFG"]
+```
 
-## Vector table entry points
+This needs regulator scale 1 with over-drive and 5 flash wait states. See
+[Clock bring-up order](DESIGN.md#clock-bring-up-order) for the order
+RM0390 imposes.
 
-Defined in [`startup/startup_stm32f446re.s`](../startup/startup_stm32f446re.s), standard ARMv7-M layout: `SVC_Handler` (exception 11), `PendSV_Handler` (14), `SysTick_Handler` (15), followed by all ~97 F446 peripheral IRQs in RM0390 order. Every handler is weakly aliased to `Default_Handler` (an infinite loop) so an unimplemented interrupt hangs in a debuggable state instead of jumping to garbage — `PendSV_Handler` and `SysTick_Handler` currently fall through to this default until `rtos/kernel/src/context_switch.S` and the scheduler are implemented.
+## Memory map
 
-## Board defaults (NUCLEO-F446RE)
+Defined in `linker/STM32F446RE.ld`.
 
-| Function          | Pin  | Peripheral |
-| ----------------- | ---- | ---------- |
-| User LED (LD2)     | PA5  | GPIOA      |
-| User button (B1)   | PC13 | GPIOC      |
-| ST-LINK VCP UART   | PA2 (TX) / PA3 (RX) | USART2 |
+| Region | Base         | Size   | Contents                                  |
+| ------ | ------------ | ------ | ----------------------------------------- |
+| FLASH  | `0x08000000` | 512 KB | `.isr_vector` first, then code and data   |
+| RAM    | `0x20000000` | 128 KB | `.data`, `.bss`, heap and stack reserve   |
+
+- `.data` is stored in flash and copied to RAM at reset.
+- The stack starts at the top of RAM.
+- The link fails if `.data` + `.bss` leave less than the 512-byte heap plus
+  1 KB stack reserve free.
+
+## Board (NUCLEO-F446RE)
+
+| Function         | Pin                 | Peripheral |
+| ---------------- | ------------------- | ---------- |
+| User LED (LD2)   | PA5                 | GPIOA      |
+| User button (B1) | PC13                | GPIOC      |
+| ST-LINK VCP      | PA2 (TX), PA3 (RX)  | USART2     |
+| HSE input        | MCO from ST-LINK    | 8 MHz      |

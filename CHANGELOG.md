@@ -8,6 +8,83 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-14
+
+Documentation, tooling and CI only: the firmware image is byte-identical to
+0.1.6 in both the debug and release builds, and nothing has run on
+hardware. `main()` is still an empty loop, so no driver or `bspClockInit()`
+has executed on the board.
+
+### Changed
+
+- `Doxyfile`: cut from the 1079-line default template to the 20-odd
+  settings that differ from Doxygen's defaults, each commented
+  (`doxygen -x` confirms the effective configuration changed only where
+  intended). Adds call and caller graphs, and a `\regaccess{}` alias for
+  register access types.
+- Generated docs use doxygen-awesome-css v2.5.0 (MIT), vendored in
+  `docs/theme/` with its dark-mode toggle and code copy button, plus
+  `docs/theme/project.css` for project styles. No network access is needed
+  to build the docs.
+- Project docs rewritten to be short and current, and published as pages
+  of the generated site: the README is the site's home page, followed by
+  Architecture, Design notes, Contributing, Versioning, Security and the
+  Changelog. `docs/mainpage.md` is gone. Heading anchors follow GitHub's
+  style (`MARKDOWN_ID_STYLE = GITHUB`), so the same links work on GitHub and
+  on the site.
+- New `docs/DESIGN.md` holds the reasoning that was repeated across
+  CONTRIBUTING, the README, the Makefile and driver headers: register blocks
+  as parameters, the error contract, `const` register parameters, poll-count
+  timeouts, clock bring-up order, concurrency, host-test limits and MISRA
+  deviations.
+- `docs/ARCHITECTURE.md` replaces its ASCII art with Mermaid diagrams of
+  the layers, the boot sequence and the 180 MHz clock tree. GitHub renders
+  them natively; the site renders them with Mermaid 11.4.1.
+- `CONTRIBUTING.md` gains a Doxygen style section (one-line briefs,
+  `@retval`, `@pre`/`@post`, `@code` examples, register `@name` groups).
+- The README no longer calls the driver layer complete: EXTI, IWDG and WWDG
+  have register headers but no driver.
+
+- CI: every workflow now runs on `ubuntu-24.04`. `codeql.yml`, `pages.yml`
+  and `release.yml` used `ubuntu-latest`, so the published docs and release
+  firmware could be built on a different OS than the one CI checked.
+  Graphviz installation moves into the `setup-doxygen` action (now "Set up
+  Doxygen and Graphviz"), so `make docs` can never run without `dot` and
+  silently drop its diagrams. Workflow and action comments are cut to the
+  constraints that prevent mistakes. `actionlint` is clean.
+
+- Build and boot files keep only short what/why comments: the Makefile (383
+  comment lines down to 43), `startup_stm32f446re.s`, the linker
+  script and the headers of the `tools/` scripts. Rationale now points to
+  Design notes. Comments only: the Makefile and tools are unchanged with
+  comment lines removed, the startup object's sections are byte-identical,
+  and the firmware image is byte-identical.
+
+- Driver and BSP docs rewritten (`drivers/`, `bsp/`):
+  - one-line briefs, and a `@retval` table for every status a function can
+    return, replacing stacked `@return` prose;
+  - `@pre`, `@warning` and `@note` where they apply, and a `@code` example in
+    every driver header;
+  - `rcc.h`'s nine-step bring-up as a numbered list;
+  - rationale moved to Design notes and linked rather than repeated.
+
+  Each driver is now its own Topics subgroup under Drivers. Comments only:
+  every driver and BSP source preprocesses to the same tokens as before.
+
+- Register headers (`core/inc/`, `device/inc/`): each register's macros are
+  a Doxygen member group titled with the register name and offset, so the
+  reference shows one table per register. Every field states its bits and
+  its access type as a badge (`rw`, `ro`, `wo`, `rc_w0`, `rc_w1`, `rs`) in
+  place of the old, inconsistent "WRITE"/"READ only" prose, and file
+  comments are cut to the manual section, what is modelled and any
+  part-specific trap. Comments only: the preprocessed macro definitions and
+  struct layouts of all 13 headers are identical before and after.
+
+- `docs/groups.dox`: the ASCII table that rendered as preformatted text is
+  replaced by a short description, and the group briefs are one line each.
+  Its header is now a plain comment rather than an `@file` block, which drops
+  a file page whose "source" link pointed at a page Doxygen never generates.
+
 ## [0.1.6] - 2026-10-14
 
 Not verified on hardware: every driver and `bspClockInit()` is covered by
@@ -1345,7 +1422,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/ka5j/stm32_rtos/compare/v0.1.3...v0.1.4

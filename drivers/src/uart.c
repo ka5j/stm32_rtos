@@ -1,52 +1,32 @@
 /**
  * @file uart.c
- * @brief UART/USART driver implementation - see uart.h for the public API
- *        and uart_reg.h for the register definitions this operates on.
+ * @brief UART driver implementation (API in uart.h).
  */
 #include "uart.h"
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup uart_driver
  * @{
  */
 
-/** Smallest BRR value uartInit() accepts. BRR holds USARTDIV * 16 (see
- *  uartComputeBrr()), and USARTDIV below 1 cannot be generated: with 16x
- *  oversampling the baud rate tops out at pclk / 16, which is BRR 16. */
+/** Smallest valid BRR: USARTDIV below 1, a baud rate above pclk / 16, cannot be generated. */
 #define UART_BRR_MIN (16U)
 
 /**
- * @brief Compute BRR from a bus clock and target baud rate, standard 16x
- *        oversampling (uartInit() clears OVER8 to match).
+ * @brief Compute BRR for 16x oversampling: `round(pclk_hz / baud)`.
  *
- * RM0390 stores USARTDIV = pclk_hz / (16 * baud) as a 12-bit mantissa
- * (BRR bits 15:4) plus a 4-bit fraction/16 (BRR bits 3:0) - which is
- * just BRR's own bit layout for the value USARTDIV * 16, since bits
- * 15:4 holding the mantissa and bits 3:0 holding sixteenths is exactly
- * the binary representation of mantissa*16 + fraction. USARTDIV * 16
- * collapses algebraically to pclk_hz / baud, so BRR is simply
- * round(pclk_hz / baud) with no separate mantissa/fraction step or
- * repacking needed - the rounded integer *is* the register value.
- * Round-to-nearest via the standard (a + b/2) / b integer-division idiom.
- * Computed entirely in a 64-bit intermediate, and every operand cast to
- * it explicitly (MISRA C:2012 Rule 10.7 - no implicit widening across a
- * mixed-width operator): pclk_hz + baud/2 does not overflow uint32_t for
- * any realistic clock, but this function has no way to bound a
- * caller-supplied pclk_hz.
+ * BRR's mantissa (bits 15:4) and sixteenths (bits 3:0) together are just
+ * USARTDIV x 16 = pclk_hz / baud, so the rounded quotient is the register
+ * value. Rounding once at the end matters: 42 MHz at 115200 is 364.58,
+ * which rounds to 365 where a truncated intermediate gives 364. The sum is
+ * done in 64 bits because @p pclk_hz is unbounded.
  *
- * Rounding once, at the end, matters: for a 42 MHz bus clock at 115200
- * baud the true ratio is 364.5833, which rounds to 365. Truncating to a
- * fixed-point intermediate first would give 364.
- *
- * @param pclk_hz Bus clock frequency in Hz.
- * @param baud    Target baud rate in bit/s.
- * @param brr     Set to the computed BRR value on success; untouched on
- *                failure.
- * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if pclk_hz or baud is 0, if the
- *         result would exceed BRR's 16-bit field (baud too low for
- *         pclk_hz), or if it is below ::UART_BRR_MIN (baud above pclk_hz /
- *         16, which 16x oversampling cannot generate).
+ * @param pclk_hz Bus clock, in Hz.
+ * @param baud    Baud rate, in bit/s.
+ * @param brr     Receives the value; untouched on failure.
+ * @retval DRIVER_STATUS_OK                Computed.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM An input is 0, or the result is below
+ *                                         ::UART_BRR_MIN or above 16 bits.
  */
 static DriverStatus_e uartComputeBrr(uint32_t pclk_hz, uint32_t baud, uint32_t *brr)
 {
@@ -85,9 +65,7 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
 
     if (status == DRIVER_STATUS_OK)
     {
-        /* USART_CR2_STOP_0_5/_1_5 are architecturally real (RM0390) but
-         * not accepted here - see uart.h's file-level comment for why
-         * this driver only ever offers 1 or 2 stop bits. */
+        /* 0.5 and 1.5 stop bits are smartcard-only; not offered. */
         if ((stop_bits != USART_CR2_STOP_1) && (stop_bits != USART_CR2_STOP_2))
         {
             status = DRIVER_STATUS_ERR_INVALID_PARAM;
@@ -120,16 +98,9 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
 
     if (status == DRIVER_STATUS_OK)
     {
-        /* M and OVER8 are both rewritten from scratch below, so both are
-         * in cr1_mask: OVER8 because the BRR computed above assumes 16x
-         * oversampling (a stale OVER8 would silently double the baud rate
-         * the same divisor produces), M because it is derived from the
-         * parity setting rather than taken from the caller - RM0390 counts
-         * the parity bit *inside* the M-selected frame length, so 8 data bits
-         * plus parity needs M set (9-bit frame), while M clear with parity
-         * on is 7 data bits plus parity and would overwrite DR bit 7 with
-         * the parity bit. The 9th bit is parity, not data, so transmit/
-         * receive stay uint8_t - see uart.h's file-level comment. */
+        /* OVER8 is cleared because BRR assumes 16x oversampling. M is set with
+         * parity: the parity bit counts inside the M frame, so M clear would
+         * leave 7 data bits and overwrite bit 7 with parity. */
         uint32_t cr1_mask = USART_CR1_M | USART_CR1_OVER8 | USART_CR1_PCE | USART_CR1_PS
                             | USART_CR1_TE | USART_CR1_RE;
         uint32_t frame_length = 0U;
@@ -139,10 +110,7 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
             frame_length = USART_CR1_M;
         }
 
-        /* Disable before touching BRR or the framing fields, so a
-         * reconfiguration of an already-running instance does not change
-         * them underneath an in-flight frame - see uartInit()'s doc
-         * comment. */
+        /* Disable first so a reconfiguration never changes BRR mid-frame. */
         uart->CR1 &= ~USART_CR1_UE;
 
         uart->BRR = brr;
@@ -150,8 +118,7 @@ DriverStatus_e uartInit(UartRegisters_t *uart, uint32_t pclk_hz, uint32_t baud, 
         uart->CR1 =
             (uart->CR1 & ~cr1_mask) | frame_length | parity_enable | parity_select | direction;
 
-        /* UE set last, after every other field is already correct - see
-         * this function's own doc comment. */
+        /* Enable last, once every field is set. */
         uart->CR1 |= USART_CR1_UE;
     }
 
@@ -168,24 +135,16 @@ void uartDeinit(UartRegisters_t *uart)
 }
 
 /**
- * @brief Spin until one of SR's ready flags reads set, or the caller's
- *        poll budget is exhausted. Shared by every blocking transfer
- *        function here, which differ only in which SR bit they watch.
+ * @brief Poll an SR flag until it sets or @p timeout polls pass.
  *
- * The outcome is decided by re-reading the flag after the loop, not by
- * testing whether the counter reached 0: the flag setting on the very
- * last iteration exits the loop with the counter already at 0, and a
- * counter test would then report a timeout for a wait that in fact
- * succeeded.
+ * The flag is re-read after the loop, so one that sets on the last poll
+ * counts as success.
  *
- * @param uart UART register block (e.g. USART2).
- * @param flag SR flag to wait on - ::USART_SR_TXE, ::USART_SR_TC, or
- *             ::USART_SR_RXNE.
- * @param timeout Maximum number of SR polls to wait. 0 polls once and
- *             does not wait.
- * @return DRIVER_STATUS_OK if flag is set on exit.
- * @return DRIVER_STATUS_ERR_TIMEOUT if it is still clear after the
- *         poll budget.
+ * @param uart    Instance.
+ * @param flag    ::USART_SR_TXE, ::USART_SR_TC or ::USART_SR_RXNE.
+ * @param timeout Polls to allow; 0 checks once.
+ * @retval DRIVER_STATUS_OK          The flag is set.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT It did not set in time.
  */
 static DriverStatus_e uartWaitSrFlag(const UartRegisters_t *uart, uint32_t flag, uint32_t timeout)
 {
@@ -237,10 +196,7 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
         status = uartTransmitByte(uart, data[i], timeout);
     }
 
-    /* Wait for the last byte to leave the shift register, not merely to
-     * reach DR - see uartTransmit()'s doc comment. Skipped on a zero
-     * length, where nothing was started and TC reflects whatever the
-     * previous transfer left behind. */
+    /* Wait for TC so the line is idle. Skipped for length 0: nothing was sent. */
     if ((status == DRIVER_STATUS_OK) && (length > 0U))
     {
         status = uartFlush(uart, timeout);
@@ -250,18 +206,9 @@ DriverStatus_e uartTransmit(UartRegisters_t *uart, const uint8_t *data, size_t l
 }
 
 /* cppcheck-suppress constParameterPointer
- *
- * cppcheck is right about the C and wrong about the hardware, and this
- * is the one place in the project where those diverge. Nothing is
- * written through `uart` below - only read - so by the language's rules
- * the parameter could indeed be `const UartRegisters_t *`. But the read
- * it performs is of DR, and reading DR clears SR.RXNE together with the
- * ORE/NE/FE/PE error flags: the peripheral is left in a different state
- * than it was found in. C's type system has no way to say "reads, but
- * with a side effect", so `const` here would advertise a repeatable,
- * reorderable observation and mislead every future reader and refactor.
- * See CONTRIBUTING.md's `const` on a register-block parameter section;
- * this function is the worked example it cites. */
+ * Nothing is written through `uart`, but reading DR clears RXNE and the error
+ * flags, so the call changes the peripheral: see docs/DESIGN.md,
+ * "const register parameters". */
 DriverStatus_e uartReceiveByte(UartRegisters_t *uart, uint8_t *byte, uint32_t timeout)
 {
     DriverStatus_e status = DRIVER_STATUS_OK;

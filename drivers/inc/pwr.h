@@ -1,31 +1,27 @@
 /**
  * @file pwr.h
- * @brief PWR (power control) driver - regulator voltage-scale and
- *        over-drive configuration for the STM32F446xx
- *        (device/inc/pwr_reg.h). No application-facing logic; consumed by
- *        the SYSCLK bring-up sequence documented in rcc.h, which bsp/'s
- *        bspClockInit() runs.
+ * @brief PWR driver: regulator voltage scale and over-drive.
  *
- * Voltage scaling is a two-phase operation on this part, and the two
- * phases are separated by the PLL being enabled - which is why this
- * driver exposes them as two functions rather than one. Per RM0390
- * section 5.1.3, CR.VOS can be modified *only while the PLL is off*, and
- * the value programmed there becomes active only once the PLL is
- * switched *on*; with the PLL off the regulator is forced to scale 3
- * regardless of what CR.VOS holds. CSR.VOSRDY is the regulator's "ready"
- * flag for the scale in effect (RM0390 does not spell out when it sets),
- * so the scale that matters is the one active once the PLL is on: this
- * driver therefore polls it only after the PLL is enabled, as ST's HAL
- * sequence does, not right after writing CR.VOS with the PLL still off.
+ * Voltage scaling is split around the PLL: CR.VOS can be written only while
+ * the PLL is off, and the regulator reaches the new scale only once the PLL
+ * is on. So pwrSetVoltageScale() runs before rccPllEnable() and
+ * pwrWaitVoltageScaleReady() after it. See rcc.h for the full order and
+ * [Clock bring-up order](DESIGN.md#clock-bring-up-order).
+ * @code
+ * rccPwrClockEnable(RCC);
+ * if (pwrSetVoltageScale(PWR, PWR_CR_VOS_SCALE1) != DRIVER_STATUS_OK) { ... }
+ * // ... rccPllConfig(), rccPllEnable() ...
+ * if (pwrWaitVoltageScaleReady(PWR) != DRIVER_STATUS_OK) { ... }
+ * if (pwrEnableOverdrive(PWR) != DRIVER_STATUS_OK) { ... } // only for 180 MHz
+ * @endcode
  *
- * So: pwrSetVoltageScale() before the PLL is enabled,
- * pwrWaitVoltageScaleReady() after - see rcc.h's file-level comment for
- * the full ordered bring-up sequence these two sit inside.
+ * Maximum HCLK per scale (RM0390 section 3.4.1):
  *
- * Takes PWR's register block as a parameter (PwrRegisters_t *) even
- * though PWR is a hardware singleton - see CONTRIBUTING.md's
- * error-handling contract section for why every driver in this project
- * does this regardless of instance count.
+ * | Scale | Normal  | With over-drive |
+ * | ----- | ------- | --------------- |
+ * | 3     | 120 MHz | -               |
+ * | 2     | 144 MHz | 168 MHz         |
+ * | 1     | 168 MHz | 180 MHz         |
  */
 #ifndef PWR_H
 #define PWR_H
@@ -36,101 +32,47 @@
 #include <stdint.h>
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup pwr_driver
  * @{
  */
 
 /**
- * @brief Select the main regulator's voltage scale (CR.VOS) for the
- *        SYSCLK frequency the PLL is about to be brought up to.
+ * @brief Select the regulator voltage scale for the coming PLL frequency.
  *
- * Must be set to at least the scale the target SYSCLK frequency requires,
- * before the PLL is enabled. RM0390 section 3.4.1's note gives each
- * scale's maximum HCLK: scale 3 120 MHz, scale 2 144 MHz (168 MHz with
- * over-drive), scale 1 168 MHz (180 MHz with over-drive). Scale 1 is the
- * highest scale, so selecting a more permissive scale than the target
- * frequency strictly requires is always electrically safe (costs power,
- * never correctness); the very top of the range (180 MHz) additionally
- * needs over-drive - see pwrEnableOverdrive().
+ * Takes effect when the PLL is turned on, so there is nothing to wait for here.
  *
- * A single deterministic register write, with nothing to poll here: the
- * regulator does not begin moving to the programmed level until the PLL
- * is enabled, so there is no completion to wait for at this point.
- * pwrWaitVoltageScaleReady() covers that half, after rccPllEnable().
- *
- * @param pwr PWR register block (e.g. PWR).
- * @param vos Target value for CR.VOS - one of ::PWR_CR_VOS_SCALE1,
- *            ::PWR_CR_VOS_SCALE2, ::PWR_CR_VOS_SCALE3 (0x0 is reserved
- *            per RM0390 and is not a valid input).
- * @pre RCC_APB1ENR_PWREN is already enabled (rcc.h's rccPwrClockEnable()) -
- *      PWR's registers are not accessible before this.
- * @pre The PLL is off (CR.PLLON clear). RM0390 section 5.1.3 permits
- *      CR.VOS to be modified only while the PLL is off (what a write with
- *      the PLL running does is not specified), and this driver cannot
- *      detect that from PWR's own registers - PLLON lives in RCC.
- * @return DRIVER_STATUS_OK once CR.VOS has been written.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if vos is not one of the three
- *         documented scale values.
+ * @param pwr PWR block (e.g. PWR).
+ * @param vos ::PWR_CR_VOS_SCALE1, ::PWR_CR_VOS_SCALE2 or ::PWR_CR_VOS_SCALE3.
+ * @pre The PWR clock is on (rccPwrClockEnable()).
+ * @pre The PLL is off. This is not checked: PLLON is in RCC.
+ * @retval DRIVER_STATUS_OK                CR.VOS written.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM @p vos is not a scale value.
  */
 DRIVER_MUST_CHECK DriverStatus_e pwrSetVoltageScale(PwrRegisters_t *pwr, uint32_t vos);
 
 /**
- * @brief Wait for the regulator to reach the voltage scale selected by
- *        pwrSetVoltageScale() (CSR.VOSRDY).
- *
- * Call this after rccPllEnable() and before switching SYSCLK to the PLL.
- * Enabling the PLL is what starts the regulator moving to the programmed
- * scale; running the core off the PLL before VOSRDY reports that move
- * complete is the case this guards against.
- *
- * @param pwr PWR register block (e.g. PWR). Taken as a pointer to const:
- *            this function only reads CSR, and reading CSR has no effect
- *            on the peripheral's state.
- * @pre pwrSetVoltageScale() has already selected the target scale, and
- *      the PLL has since been enabled (rcc.h's rccPllEnable()). With the
- *      PLL off, CSR.VOSRDY cannot set and this function can only time
- *      out - see this file's top comment.
- * @return DRIVER_STATUS_OK once CSR.VOSRDY is observed set.
- * @return DRIVER_STATUS_ERR_TIMEOUT if CSR.VOSRDY never set within
- *         PWR_READY_TIMEOUT_ITERATIONS iterations. This is a bounded
- *         retry count, not a wall-clock timeout - SysTick is not
- *         available this early in clock bring-up (its reload value
- *         depends on the SYSCLK frequency this sequence is establishing),
- *         the same reasoning vendor startup code (e.g. CMSIS
- *         system_stm32f4xx.c) uses for HSE/PLL ready-waits.
+ * @brief Wait until the regulator reaches the selected scale (CSR.VOSRDY).
+ * @param pwr PWR block (e.g. PWR); only CSR is read.
+ * @pre pwrSetVoltageScale() has run and the PLL has since been turned on.
+ *      With the PLL off this can only time out.
+ * @retval DRIVER_STATUS_OK          VOSRDY is set.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT VOSRDY did not set within the poll budget.
  */
 DRIVER_MUST_CHECK DriverStatus_e pwrWaitVoltageScaleReady(const PwrRegisters_t *pwr);
 
 /**
- * @brief Enable over-drive mode (CR.ODEN, then CR.ODSWEN), which lets the
- *        core run faster than the selected voltage scale's normal maximum
- *        - what the 180 MHz configuration needs.
+ * @brief Enable over-drive, to run above the scale's normal maximum.
  *
- * The two-step sequence is ODEN, wait for CSR.ODRDY, ODSWEN, wait for
- * CSR.ODSWRDY - the same order ST's HAL (HAL_PWREx_EnableOverDrive) uses.
- * ODSWEN is not written if ODRDY never sets. Both steps are
- * read-modify-writes, so CR.VOS is preserved.
+ * Sets ODEN and waits for ODRDY, then sets ODSWEN and waits for ODSWRDY,
+ * as ST's HAL does. CR.VOS is preserved.
  *
- * @param pwr PWR register block (e.g. PWR).
- * @pre RCC_APB1ENR_PWREN is already enabled (rcc.h's rccPwrClockEnable()),
- *      and no other peripheral clock is: RM0390 section 5.1.3 ("Entering
- *      Over-drive mode") says no peripheral clocks should be enabled during
- *      the over-drive switch and that they must be enabled once it is
- *      active. bspClockInit() satisfies this by enabling only PWR before it.
- * @pre SYSCLK is still HSI or HSE, not the PLL: ST's HAL documents
- *      over-drive as entered with an HSI/HSE system clock, and its 180
- *      MHz example enables it after the PLL has locked and before
- *      switching SYSCLK to it. See rcc.h's file-level comment for where
- *      it sits in the full bring-up sequence.
- * @pre pwrSetVoltageScale() has selected the scale RM0390 section 3.4.1
- *      pairs with the target frequency (scale 1 for 180 MHz, as in ST's
- *      180 MHz example) and pwrWaitVoltageScaleReady() has reported it settled.
- * @return DRIVER_STATUS_OK once CSR.ODSWRDY is observed set.
- * @return DRIVER_STATUS_ERR_TIMEOUT if CSR.ODRDY never set (ODSWEN is
- *         then not written) or CSR.ODSWRDY never set, each within
- *         PWR_READY_TIMEOUT_ITERATIONS iterations - a bounded retry
- *         count, not a wall-clock timeout, for the reason given at
- *         pwrWaitVoltageScaleReady().
+ * @param pwr PWR block (e.g. PWR).
+ * @pre The scale is selected and ready (pwrWaitVoltageScaleReady()).
+ * @pre SYSCLK is still HSI or HSE, not the PLL.
+ * @pre No peripheral clock other than PWR is on (RM0390 section 5.1.3).
+ * @retval DRIVER_STATUS_OK          ODSWRDY is set.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT ODRDY did not set (ODSWEN is then not written), or
+ *                                   ODSWRDY did not.
  */
 DRIVER_MUST_CHECK DriverStatus_e pwrEnableOverdrive(PwrRegisters_t *pwr);
 

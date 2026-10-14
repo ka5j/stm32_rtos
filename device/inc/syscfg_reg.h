@@ -1,21 +1,10 @@
 /**
  * @file syscfg_reg.h
- * @brief SYSCFG (System configuration controller) register definitions for
- *        the STM32F446xx family.
+ * @brief SYSCFG registers: EXTI line routing and the I/O compensation cell
+ *        (RM0390 section 8.2).
  *
- * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 8: System configuration controller (SYSCFG).
- * Requires RCC_APB2ENR_SYSCFGEN (rcc_reg.h) enabled before any register
- * here is accessible.
- *
- * Field coverage is scoped to what is required to route a GPIO pin to
- * an EXTI line (EXTICR1-4) plus the I/O compensation cell
- * control/status (CMPCR). MEMRMP (boot memory remap) and PMC
- * (peripheral mode configuration; on the F446 only the ADCxDC2 bits
- * 18:16) are modeled as bare registers for correct struct layout and
- * offsets but have no bit-level macros, since this project does not use
- * them. SYSCFG_CFGR (0x2C, the FMPI2C1 SDA/SCL pin controls, RM0390
- * 8.2.8) is not modeled: the struct ends at CMPCR (0x20).
+ * Accessible only once RCC_APB2ENR_SYSCFGEN is set. MEMRMP and PMC are laid
+ * out but not given bit macros; SYSCFG_CFGR (0x2C) is not modelled.
  */
 #ifndef SYSCFG_REG_H
 #define SYSCFG_REG_H
@@ -27,54 +16,44 @@
  * @{
  */
 
-#define SYSCFG_BASE (0x40013800UL) ///< SYSCFG peripheral base address
+#define SYSCFG_BASE (0x40013800UL) ///< SYSCFG base address (APB2)
 
-/**
- * @brief SYSCFG register map (RM0390 section 8.2).
- *
- * RESERVED0 preserves the fixed offset to CMPCR (0x20, after EXTICR);
- * this is an actual gap in the memory map, not a struct-packing
- * artifact.
- */
+/** @brief SYSCFG register block. */
 typedef struct SyscfgRegisters_t
 {
-    volatile uint32_t MEMRMP;       ///< 0x00: memory remap register
-    volatile uint32_t PMC;          ///< 0x04: peripheral mode configuration register
-    volatile uint32_t EXTICR[4];    ///< 0x08-0x14: external interrupt configuration registers 1-4
-    volatile uint32_t RESERVED0[2]; ///< 0x18-0x1C: reserved
-    volatile uint32_t CMPCR;        ///< 0x20: compensation cell control register
+    volatile uint32_t MEMRMP;       ///< 0x00: memory remap
+    volatile uint32_t PMC;          ///< 0x04: peripheral mode configuration
+    volatile uint32_t EXTICR[4];    ///< 0x08-0x14: EXTI line routing, 4 lines per register
+    volatile uint32_t RESERVED0[2]; ///< 0x18-0x1C: gap in the memory map
+    volatile uint32_t CMPCR;        ///< 0x20: compensation cell control
 } SyscfgRegisters_t;
 
-#define SYSCFG ((SyscfgRegisters_t *)SYSCFG_BASE) ///< Pointer to the SYSCFG register block
+#define SYSCFG ((SyscfgRegisters_t *)SYSCFG_BASE) ///< The SYSCFG instance
 
-/**
- * @brief SYSCFG_EXTICRx port-selector field values (RM0390 8.2.3-8.2.6).
- *
- * Each EXTICRx register packs four 4-bit fields, one per EXTI line,
- * with 4 lines per register: EXTICR[0] covers EXTI0-3, EXTICR[1]
- * covers EXTI4-7, and so on. A given line's field position is
- * at bit (line % 4) * 4, 4 bits wide, in EXTICR[line / 4]. Each field
- * selects which GPIO port feeds that EXTI line; these values apply to
- * any of the 16 fields across all four registers, not to a single one.
- * PH is the exception: GPIOH has only pins 0 and 1 on this part, so
- * SYSCFG_EXTICR_PH is meaningful only for EXTI0 and EXTI1.
- */
-#define SYSCFG_EXTICR_PA (0x0U) ///< EXTICRx field value: GPIOA feeds this EXTI line
-#define SYSCFG_EXTICR_PB (0x1U) ///< EXTICRx field value: GPIOB feeds this EXTI line
-#define SYSCFG_EXTICR_PC (0x2U) ///< EXTICRx field value: GPIOC feeds this EXTI line
-#define SYSCFG_EXTICR_PD (0x3U) ///< EXTICRx field value: GPIOD feeds this EXTI line
-#define SYSCFG_EXTICR_PE (0x4U) ///< EXTICRx field value: GPIOE feeds this EXTI line
-#define SYSCFG_EXTICR_PF (0x5U) ///< EXTICRx field value: GPIOF feeds this EXTI line
-#define SYSCFG_EXTICR_PG (0x6U) ///< EXTICRx field value: GPIOG feeds this EXTI line
-#define SYSCFG_EXTICR_PH (0x7U) ///< EXTICRx field value: GPIOH feeds this EXTI line
+/** @name EXTICR port selectors
+ *  EXTI line `n` is selected by the 4-bit \regaccess{rw} field at bit
+ *  `(n % 4) * 4` of `EXTICR[n / 4]`. GPIOH has only pins 0 and 1, so PH is
+ *  valid only for lines 0 and 1.
+ *  @{ */
+#define SYSCFG_EXTICR_PA (0x0U) ///< GPIOA
+#define SYSCFG_EXTICR_PB (0x1U) ///< GPIOB
+#define SYSCFG_EXTICR_PC (0x2U) ///< GPIOC
+#define SYSCFG_EXTICR_PD (0x3U) ///< GPIOD
+#define SYSCFG_EXTICR_PE (0x4U) ///< GPIOE
+#define SYSCFG_EXTICR_PF (0x5U) ///< GPIOF
+#define SYSCFG_EXTICR_PG (0x6U) ///< GPIOG
+#define SYSCFG_EXTICR_PH (0x7U) ///< GPIOH
+/** @} */
 
-/* --- SYSCFG_CMPCR bit definitions --- */
-#define SYSCFG_CMPCR_CMP_PD_Pos (0U) ///< Bit position within SYSCFG_CMPCR
-#define SYSCFG_CMPCR_CMP_PD                                                                        \
-    ((uint32_t)1U << SYSCFG_CMPCR_CMP_PD_Pos) ///< WRITE - 0=power-down, 1=enable
-#define SYSCFG_CMPCR_READY_Pos (8U)           ///< Bit position within SYSCFG_CMPCR
-#define SYSCFG_CMPCR_READY                                                                         \
-    ((uint32_t)1U << SYSCFG_CMPCR_READY_Pos) ///< READ only - compensation cell ready
+/** @name CMPCR - compensation cell control (0x20)
+ *  @{ */
+#define SYSCFG_CMPCR_CMP_PD_Pos (0U) ///< Bit 0
+/** \regaccess{rw} Compensation cell on (1) or powered down (0). */
+#define SYSCFG_CMPCR_CMP_PD ((uint32_t)1U << SYSCFG_CMPCR_CMP_PD_Pos)
+#define SYSCFG_CMPCR_READY_Pos (8U) ///< Bit 8
+/** \regaccess{ro} Compensation cell ready. */
+#define SYSCFG_CMPCR_READY ((uint32_t)1U << SYSCFG_CMPCR_READY_Pos)
+/** @} */
 
 /** @} */
 

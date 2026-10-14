@@ -11,7 +11,7 @@
  * flashSetLatency()'s read-back check compares ACR against the value it
  * just wrote to ACR, and an in-memory struct always agrees. See that
  * function's own comment for why it is excluded from the coverage gate
- * rather than removed, and CONTRIBUTING.md's "Testing and its limits"
+ * rather than removed, and docs/DESIGN.md "Host testing and its limits"
  * for what host tests can and cannot establish.
  */
 #include "flash.h"

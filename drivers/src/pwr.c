@@ -1,27 +1,24 @@
 /**
  * @file pwr.c
- * @brief PWR peripheral driver implementation - see pwr.h for the public
- *        API and pwr_reg.h for the register definitions this operates on.
+ * @brief PWR driver implementation (API in pwr.h).
  */
 #include "pwr.h"
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup pwr_driver
  * @{
  */
 
-/** Bounded retry count for each CSR ready-flag wait (VOSRDY, ODRDY,
- *  ODSWRDY), not a wall-clock timeout - see pwr.h's
- *  pwrWaitVoltageScaleReady() @return for why. */
+/** Polls allowed for each CSR ready-flag wait (see
+ *  [Poll-count timeouts](DESIGN.md#poll-count-timeouts)). */
 #define PWR_READY_TIMEOUT_ITERATIONS (100000U)
 
 /**
- * @brief Poll a CSR ready flag for up to PWR_READY_TIMEOUT_ITERATIONS.
- *
- * @param pwr  PWR register block; only CSR is read.
- * @param flag The CSR bit to wait on (PWR_CSR_VOSRDY, _ODRDY, _ODSWRDY).
- * @return DRIVER_STATUS_OK once the flag is observed set.
- * @return DRIVER_STATUS_ERR_TIMEOUT if it never set within the bound.
+ * @brief Poll a CSR flag until it sets or ::PWR_READY_TIMEOUT_ITERATIONS polls pass.
+ * @param pwr  PWR block; only CSR is read.
+ * @param flag ::PWR_CSR_VOSRDY, ::PWR_CSR_ODRDY or ::PWR_CSR_ODSWRDY.
+ * @retval DRIVER_STATUS_OK          The flag is set.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT It did not set in time.
  */
 static DriverStatus_e pwrWaitCsrFlag(const PwrRegisters_t *pwr, uint32_t flag)
 {
@@ -33,10 +30,7 @@ static DriverStatus_e pwrWaitCsrFlag(const PwrRegisters_t *pwr, uint32_t flag)
         timeout--;
     }
 
-    /* Re-read the flag rather than inferring the outcome from the
-     * counter: the flag setting on the final iteration exits the loop with
-     * timeout already at 0, which a `timeout == 0` test would report as a
-     * timeout despite the wait having succeeded. */
+    /* Re-read the flag: one that sets on the last poll still counts. */
     if ((pwr->CSR & flag) == 0U)
     {
         status = DRIVER_STATUS_ERR_TIMEOUT;
@@ -70,10 +64,7 @@ DriverStatus_e pwrEnableOverdrive(PwrRegisters_t *pwr)
 {
     DriverStatus_e status;
 
-    /* Both steps are read-modify-writes so CR.VOS (and every other CR
-     * field) is preserved. ODSWEN is written only once ODRDY confirms
-     * ODEN took effect: switching before then is the case the two-step
-     * sequence exists to prevent. */
+    /* Read-modify-writes keep CR.VOS. ODSWEN only after ODRDY confirms ODEN. */
     pwr->CR |= PWR_CR_ODEN;
     status = pwrWaitCsrFlag(pwr, PWR_CSR_ODRDY);
 

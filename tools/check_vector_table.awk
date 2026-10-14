@@ -1,25 +1,13 @@
 #!/usr/bin/awk -f
 #
-# check_vector_table.awk
-#
-# Cross-checks core/inc/nvic_reg.h's IRQn_e enum against
-# startup/startup_stm32f446re.s's vector table, position by position.
-# The first 16 vector words (initial SP and the Cortex-M4 core exceptions)
-# are architecturally fixed and checked against that fixed layout; the
-# negative IRQn_e entries (SVCall -5, PendSV -2, SysTick -1, and the three
-# fault handlers) are checked against the word they name (16 + IRQn), so a
-# swapped SVC/PendSV/SysTick slot - the three an RTOS depends on - fails
-# here as well.
-#
-# Catches the two silently drifting apart - a wrong IRQn value would
-# route a driver's NVIC enable/priority call to the wrong interrupt
-# line without a compiler or linker ever noticing.
+# Checks IRQn_e in core/inc/nvic_reg.h against the vector table in
+# startup/startup_stm32f446re.s, position by position: the 16 core words, the
+# negative IRQn_e entries (so a swapped SVC/PendSV/SysTick slot fails), and
+# all 97 peripheral slots. A wrong IRQn would silently route an NVIC call to
+# the wrong line. Run by `make test`. POSIX awk.
 #
 # Usage: awk -f tools/check_vector_table.awk core/inc/nvic_reg.h \
 #              startup/startup_stm32f446re.s
-#
-# Written for POSIX awk (no gawk-only extensions - macOS ships the BWK
-# "one true awk", not gawk, and this must run there too).
 
 BEGIN {
     in_enum = 0
