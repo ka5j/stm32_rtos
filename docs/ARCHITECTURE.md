@@ -108,6 +108,10 @@ Defined in `linker/STM32F446RE.ld`.
 - The stack starts at the top of RAM.
 - The link fails if `.data` + `.bss` leave less than the 512-byte heap plus
   1 KB stack reserve free.
+- The link also fails on any section the script does not name
+  (`--orphan-handling=error`), such as `.init_array` from a C constructor or
+  `.tbss` from `_Thread_local`, since nothing at startup would initialise
+  either.
 
 ## Board (NUCLEO-F446RE)
 

@@ -8,6 +8,17 @@ specifically.
 
 ## [Unreleased]
 
+### Changed
+
+- The link fails on any section `linker/STM32F446RE.ld` does not name
+  (`-Wl,--orphan-handling=error`). Before, ld placed such a section by
+  heuristic, so a C constructor (`.init_array`) or a `_Thread_local`
+  variable linked cleanly and was never initialised. The script now names
+  the linker veneers (in `.text`), the IFUNC tables (asserted empty, since
+  `Reset_Handler` does not apply `.rel.iplt`) and the debug and note
+  sections that are not loaded. The firmware image is byte-identical in
+  both builds.
+
 ## [0.1.7] - 2026-10-14
 
 Documentation, tooling and CI only: the firmware image is byte-identical to
