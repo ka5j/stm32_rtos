@@ -130,6 +130,10 @@
  *  @ingroup driver_layer
  *  @brief Independent watchdog start, refresh and debug freeze. */
 
+/** @defgroup wwdg_driver WWDG
+ *  @ingroup driver_layer
+ *  @brief Window watchdog start, refresh, early wakeup and debug freeze. */
+
 /** @defgroup fault_driver Fault
  *  @ingroup driver_layer
  *  @brief Configurable fault enables and the fault record. */

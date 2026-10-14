@@ -15,7 +15,7 @@ flowchart TD
     rapi["rtos/api/<br/>tasks, semaphores, queues"]
     bsp["bsp/<br/>board support"]
     kernel["rtos/kernel/<br/>scheduler, context switch"]
-    drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI, IWDG"]
+    drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI, IWDG, WWDG"]
     regs["core/ + device/<br/>register structs"]
     app --> api
     app --> rapi

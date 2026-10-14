@@ -104,6 +104,17 @@ void rccUsart2ClockDisable(RccRegisters_t *rcc)
     rcc->APB1ENR &= ~RCC_APB1ENR_USART2EN;
 }
 
+void rccWwdgClockEnable(RccRegisters_t *rcc)
+{
+    rcc->APB1ENR |= RCC_APB1ENR_WWDGEN;
+    (void)rcc->APB1ENR; /* read back: the clock is running before first use */
+}
+
+void rccWwdgClockDisable(RccRegisters_t *rcc)
+{
+    rcc->APB1ENR &= ~RCC_APB1ENR_WWDGEN;
+}
+
 void rccSyscfgClockEnable(RccRegisters_t *rcc)
 {
     rcc->APB2ENR |= RCC_APB2ENR_SYSCFGEN;

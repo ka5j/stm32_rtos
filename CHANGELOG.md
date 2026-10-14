@@ -85,6 +85,34 @@ specifically.
   debugger. OpenOCD sets the freeze bits itself when it attaches, so the
   smoke test clears the bit before checking the driver's write.
 
+- WWDG driver (`drivers/inc/wwdg.h`):
+  - `wwdgStart()` sets the window and timer base, then starts the counter.
+  - `wwdgRefresh()` reloads the counter.
+  - `wwdgEnableEarlyWakeup()` and `wwdgClearEarlyWakeup()` drive the
+    interrupt raised at 0x40, one count before reset.
+  - `wwdgFreezeInDebug()` stops the counter while a debugger halts the core.
+  - `rccWwdgClockEnable()` and `rccWwdgClockDisable()` gate its clock.
+  - `RCC_APB1ENR_WWDGEN`, the `WWDG_CFR_WDGTB_DIV*` values and the WWDG
+    freeze bit join the register headers.
+
+  The board found a defect before this shipped. The WWDG counter runs from
+  the moment its clock is enabled, even with WDGA clear, and sets SR.EWIF
+  each time it passes 0x40 whether or not EWI is enabled. So the early
+  wakeup fired the instant its IRQ was enabled, and the handler's refresh
+  came at 0x7B, above the 0x5F window, which reset the chip. `wwdgStart()`
+  now clears EWIF after the start, and a host test pins it.
+- The smoke test now runs as a three-boot chain, told apart by the reset
+  cause. A boot provokes the next reset only if all its checks passed:
+  1. First boot: the IWDG checks, then the IWDG is starved.
+  2. After the IWDG reset (29/29): the WWDG runs from its early-wakeup
+     handler, which gives exactly the predicted 4 wakeups in 200 ms. Then
+     it is refreshed above its window, which must reset the chip at once.
+  3. After the WWDG reset (25/25): `RCC_CSR.WWDGRSTF` is reported.
+
+  The whole chain passes in debug and release. The WWDG debug freeze was
+  checked with a 2 s halt, during which its counter held at 0x5F. The
+  control, the same halt with the bit cleared, ended in a WWDG reset.
+
 ### Changed
 
 - The link fails on any section `linker/STM32F446RE.ld` does not name
