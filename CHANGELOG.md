@@ -19,6 +19,16 @@ specifically.
   sections that are not loaded. The firmware image is byte-identical in
   both builds.
 
+### Fixed
+
+- Switching `BUILD`, `SANITIZE` or coverage on could keep objects built
+  with the old flags under GNU Make 3.81, macOS's `/usr/bin/make`. That
+  version compares whole-second mtimes, so a flags stamp rewritten in the
+  second the previous build finished did not count as newer: running
+  `make all && make all BUILD=release` linked the `-O0` objects into the
+  "release" image. A changed stamp is now written after a one-second wait.
+  GNU Make 4, which CI uses, was not affected.
+
 ## [0.1.7] - 2026-10-14
 
 Documentation, tooling and CI only: the firmware image is byte-identical to

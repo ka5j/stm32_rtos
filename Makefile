@@ -79,12 +79,16 @@ DEPS    := $(OBJECTS:.o=.d)
 
 # Flags stamp: holds the compile and link command lines and is rewritten only
 # when they change, so switching BUILD (or any flag) rebuilds everything.
+# STAMP_WAIT runs before a rewrite: GNU Make 3.81 (macOS's /usr/bin/make)
+# compares whole-second mtimes, so a stamp rewritten in the second the last
+# build finished would not count as newer and the old objects would be kept.
 FLAGS_STAMP := $(BUILD_DIR)/.flags
+STAMP_WAIT  := sleep 1
 
 $(FLAGS_STAMP): FORCE
 	@mkdir -p $(BUILD_DIR)
 	@printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' | cmp -s - $@ || \
-	  printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' > $@
+	  { $(STAMP_WAIT); printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' > $@; }
 
 FORCE:
 
@@ -232,12 +236,12 @@ COVERAGE_STAMP := $(TEST_DIR)/coverage/.flags
 $(HOST_STAMP): FORCE
 	@mkdir -p $(dir $@)
 	@printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' | cmp -s - $@ || \
-	  printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' > $@
+	  { $(STAMP_WAIT); printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' > $@; }
 
 $(COVERAGE_STAMP): FORCE
 	@mkdir -p $(dir $@)
 	@printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' | cmp -s - $@ || \
-	  printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' > $@
+	  { $(STAMP_WAIT); printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' > $@; }
 
 $(TEST_BUILD_DIR)/%.o: %.c $(HOST_STAMP)
 	@mkdir -p $(dir $@)
