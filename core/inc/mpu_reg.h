@@ -1,18 +1,10 @@
 /**
  * @file mpu_reg.h
- * @brief MPU (Memory Protection Unit) register definitions for the ARM
- *        Cortex-M4 (Armv7-M architecture).
+ * @brief MPU registers: the Armv7-M memory protection unit (PM0214, MPU chapter).
  *
- * Register layout derived from PM0214 (Cortex-M4 programming manual).
- * Architectural rather than vendor-specific, fixed by Armv7-M's System
- * Control Space memory map. The STM32F446's Cortex-M4 implements 8
- * regions (readable at runtime via TYPE.DREGION).
- *
- * The RBAR_A1/RASR_A1..A3 alias pairs allow a driver to reprogram up to
- * 4 regions consecutively without rewriting RNR between each one. This
- * is not required for correctness (RNR, RBAR, and RASR alone can
- * configure any region); it is an optional throughput optimization not
- * currently used by this RTOS.
+ * The F446's Cortex-M4 has 8 regions (TYPE.DREGION). A region is selected
+ * through RNR, or through RBAR with VALID set. The RBAR/RASR aliases let up to
+ * four regions be written back to back without rewriting RNR.
  */
 #ifndef MPU_REG_H
 #define MPU_REG_H
@@ -24,18 +16,16 @@
  * @{
  */
 
-#define MPU_BASE (0xE000ED90UL) ///< MPU peripheral base address (Armv7-M SCS)
+#define MPU_BASE (0xE000ED90UL) ///< MPU base address (System Control Space)
 
-/**
- * @brief MPU register map (PM0214, Armv7-M SCS MPU region).
- */
+/** @brief MPU register block. */
 typedef struct MpuRegisters_t
 {
-    volatile const uint32_t TYPE; ///< 0x00: MPU type register (READ only)
-    volatile uint32_t CTRL;       ///< 0x04: MPU control register
-    volatile uint32_t RNR;        ///< 0x08: MPU region number register
-    volatile uint32_t RBAR;       ///< 0x0C: MPU region base address register
-    volatile uint32_t RASR;       ///< 0x10: MPU region attribute and size register
+    volatile const uint32_t TYPE; ///< 0x00: type, \regaccess{ro}
+    volatile uint32_t CTRL;       ///< 0x04: control
+    volatile uint32_t RNR;        ///< 0x08: region number
+    volatile uint32_t RBAR;       ///< 0x0C: region base address
+    volatile uint32_t RASR;       ///< 0x10: region attribute and size
     volatile uint32_t RBAR_A1;    ///< 0x14: RBAR alias 1
     volatile uint32_t RASR_A1;    ///< 0x18: RASR alias 1
     volatile uint32_t RBAR_A2;    ///< 0x1C: RBAR alias 2
@@ -44,69 +34,85 @@ typedef struct MpuRegisters_t
     volatile uint32_t RASR_A3;    ///< 0x28: RASR alias 3
 } MpuRegisters_t;
 
-#define MPU ((MpuRegisters_t *)MPU_BASE) ///< Pointer to the MPU register block
+#define MPU ((MpuRegisters_t *)MPU_BASE) ///< The MPU instance
 
-/* --- MPU_TYPE bit definitions --- */
-#define MPU_TYPE_SEPARATE_Pos (0U) ///< Bit position within MPU_TYPE
-#define MPU_TYPE_SEPARATE                                                                          \
-    ((uint32_t)1U << MPU_TYPE_SEPARATE_Pos) ///< READ only - separate I/D memory map
-#define MPU_TYPE_DREGION_Pos (8U)           ///< Bit position within MPU_TYPE
-#define MPU_TYPE_DREGION_Msk                                                                       \
-    ((uint32_t)0xFFU << MPU_TYPE_DREGION_Pos) ///< bits 15:8, data region count
+/** @name TYPE - MPU type (0x00)
+ *  @{ */
+#define MPU_TYPE_SEPARATE_Pos (0U) ///< Bit 0
+/** \regaccess{ro} Separate instruction and data maps (0 on the Cortex-M4). */
+#define MPU_TYPE_SEPARATE ((uint32_t)1U << MPU_TYPE_SEPARATE_Pos)
+#define MPU_TYPE_DREGION_Pos (8U) ///< Bits 15:8
+/** \regaccess{ro} Number of regions. */
+#define MPU_TYPE_DREGION_Msk ((uint32_t)0xFFU << MPU_TYPE_DREGION_Pos)
+/** @} */
 
-/* --- MPU_CTRL bit definitions --- */
-#define MPU_CTRL_ENABLE_Pos (0U)                              ///< Bit position within MPU_CTRL
-#define MPU_CTRL_ENABLE ((uint32_t)1U << MPU_CTRL_ENABLE_Pos) ///< WRITE - enable the MPU
-#define MPU_CTRL_HFNMIENA_Pos (1U)                            ///< Bit position within MPU_CTRL
-#define MPU_CTRL_HFNMIENA                                                                          \
-    ((uint32_t)1U << MPU_CTRL_HFNMIENA_Pos) ///< WRITE - keep MPU active in fault/NMI
-#define MPU_CTRL_PRIVDEFENA_Pos (2U)        ///< Bit position within MPU_CTRL
-#define MPU_CTRL_PRIVDEFENA                                                                        \
-    ((uint32_t)1U << MPU_CTRL_PRIVDEFENA_Pos) ///< WRITE - default map as background
+/** @name CTRL - control (0x04)
+ *  @{ */
+#define MPU_CTRL_ENABLE_Pos (0U) ///< Bit 0
+/** \regaccess{rw} Enable the MPU. */
+#define MPU_CTRL_ENABLE ((uint32_t)1U << MPU_CTRL_ENABLE_Pos)
+#define MPU_CTRL_HFNMIENA_Pos (1U) ///< Bit 1
+/** \regaccess{rw} Keep the MPU on in HardFault, NMI and FAULTMASK handlers. */
+#define MPU_CTRL_HFNMIENA ((uint32_t)1U << MPU_CTRL_HFNMIENA_Pos)
+#define MPU_CTRL_PRIVDEFENA_Pos (2U) ///< Bit 2
+/** \regaccess{rw} Privileged code may use the default memory map as a background region. */
+#define MPU_CTRL_PRIVDEFENA ((uint32_t)1U << MPU_CTRL_PRIVDEFENA_Pos)
+/** @} */
 
-/* --- MPU_RNR bit definitions --- */
-#define MPU_RNR_REGION_Pos (0U) ///< Bit position within MPU_RNR
-#define MPU_RNR_REGION_Msk                                                                         \
-    ((uint32_t)0xFFU << MPU_RNR_REGION_Pos) ///< bits 7:0, selected region number
+/** @name RNR - region number (0x08)
+ *  @{ */
+#define MPU_RNR_REGION_Pos (0U) ///< Bits 7:0
+/** \regaccess{rw} Region that RBAR and RASR access. */
+#define MPU_RNR_REGION_Msk ((uint32_t)0xFFU << MPU_RNR_REGION_Pos)
+/** @} */
 
-/* --- MPU_RBAR bit definitions --- */
-#define MPU_RBAR_REGION_Pos (0U) ///< Bit position within MPU_RBAR
-#define MPU_RBAR_REGION_Msk ((uint32_t)0xFU << MPU_RBAR_REGION_Pos) ///< bits 3:0, region number
-#define MPU_RBAR_VALID_Pos (4U) ///< Bit position within MPU_RBAR
-#define MPU_RBAR_VALID                                                                             \
-    ((uint32_t)1U << MPU_RBAR_VALID_Pos) ///< WRITE - also load RNR from REGION field
-#define MPU_RBAR_ADDR_Pos (5U)           ///< Bit position within MPU_RBAR
-#define MPU_RBAR_ADDR_Msk                                                                          \
-    ((uint32_t)0x7FFFFFFU << MPU_RBAR_ADDR_Pos) ///< bits 31:5, region base address
+/** @name RBAR - region base address (0x0C)
+ *  @{ */
+#define MPU_RBAR_REGION_Pos (0U) ///< Bits 3:0
+/** \regaccess{rw} Region number, used when VALID is set. */
+#define MPU_RBAR_REGION_Msk ((uint32_t)0xFU << MPU_RBAR_REGION_Pos)
+#define MPU_RBAR_VALID_Pos (4U) ///< Bit 4
+/** \regaccess{wo} Write REGION into RNR as part of this write. */
+#define MPU_RBAR_VALID ((uint32_t)1U << MPU_RBAR_VALID_Pos)
+#define MPU_RBAR_ADDR_Pos (5U) ///< Bits 31:5
+/** \regaccess{rw} Region base address, aligned to the region size. */
+#define MPU_RBAR_ADDR_Msk ((uint32_t)0x7FFFFFFU << MPU_RBAR_ADDR_Pos)
+/** @} */
 
-/* --- MPU_RASR bit definitions --- */
-#define MPU_RASR_ENABLE_Pos (0U)                              ///< Bit position within MPU_RASR
-#define MPU_RASR_ENABLE ((uint32_t)1U << MPU_RASR_ENABLE_Pos) ///< WRITE - enable this region
-#define MPU_RASR_SIZE_Pos (1U)                                ///< Bit position within MPU_RASR
-#define MPU_RASR_SIZE_Msk                                                                          \
-    ((uint32_t)0x1FU << MPU_RASR_SIZE_Pos) ///< bits 5:1, region size = 2^(SIZE+1) bytes
-#define MPU_RASR_SRD_Pos (8U)              ///< Bit position within MPU_RASR
-#define MPU_RASR_SRD_Msk ((uint32_t)0xFFU << MPU_RASR_SRD_Pos) ///< bits 15:8, subregion disable
-#define MPU_RASR_B_Pos (16U)                                   ///< Bit position within MPU_RASR
-#define MPU_RASR_B ((uint32_t)1U << MPU_RASR_B_Pos)            ///< bufferable
-#define MPU_RASR_C_Pos (17U)                                   ///< Bit position within MPU_RASR
-#define MPU_RASR_C ((uint32_t)1U << MPU_RASR_C_Pos)            ///< cacheable
-#define MPU_RASR_S_Pos (18U)                                   ///< Bit position within MPU_RASR
-#define MPU_RASR_S ((uint32_t)1U << MPU_RASR_S_Pos)            ///< shareable
-#define MPU_RASR_TEX_Pos (19U)                                 ///< Bit position within MPU_RASR
-#define MPU_RASR_TEX_Msk ((uint32_t)0x7U << MPU_RASR_TEX_Pos)  ///< bits 21:19, type extension
-#define MPU_RASR_AP_Pos (24U)                                  ///< Bit position within MPU_RASR
-#define MPU_RASR_AP_Msk ((uint32_t)0x7U << MPU_RASR_AP_Pos)    ///< bits 26:24, access permission
-#define MPU_RASR_XN_Pos (28U)                                  ///< Bit position within MPU_RASR
-#define MPU_RASR_XN ((uint32_t)1U << MPU_RASR_XN_Pos)          ///< execute never
+/** @name RASR - region attribute and size (0x10)
+ *  Every field is \regaccess{rw}.
+ *  @{ */
+#define MPU_RASR_ENABLE_Pos (0U)                              ///< Bit 0
+#define MPU_RASR_ENABLE ((uint32_t)1U << MPU_RASR_ENABLE_Pos) ///< Enable this region
+#define MPU_RASR_SIZE_Pos (1U)                                ///< Bits 5:1
+/** Region size: 2^(SIZE + 1) bytes, minimum 32. */
+#define MPU_RASR_SIZE_Msk ((uint32_t)0x1FU << MPU_RASR_SIZE_Pos)
+#define MPU_RASR_SRD_Pos (8U) ///< Bits 15:8
+/** Subregion disable: one bit per eighth of the region. */
+#define MPU_RASR_SRD_Msk ((uint32_t)0xFFU << MPU_RASR_SRD_Pos)
+#define MPU_RASR_B_Pos (16U)                                  ///< Bit 16
+#define MPU_RASR_B ((uint32_t)1U << MPU_RASR_B_Pos)           ///< Bufferable
+#define MPU_RASR_C_Pos (17U)                                  ///< Bit 17
+#define MPU_RASR_C ((uint32_t)1U << MPU_RASR_C_Pos)           ///< Cacheable
+#define MPU_RASR_S_Pos (18U)                                  ///< Bit 18
+#define MPU_RASR_S ((uint32_t)1U << MPU_RASR_S_Pos)           ///< Shareable
+#define MPU_RASR_TEX_Pos (19U)                                ///< Bits 21:19
+#define MPU_RASR_TEX_Msk ((uint32_t)0x7U << MPU_RASR_TEX_Pos) ///< Type extension
+#define MPU_RASR_AP_Pos (24U)                                 ///< Bits 26:24
+#define MPU_RASR_AP_Msk ((uint32_t)0x7U << MPU_RASR_AP_Pos)   ///< Access permission; values below
+#define MPU_RASR_XN_Pos (28U)                                 ///< Bit 28
+#define MPU_RASR_XN ((uint32_t)1U << MPU_RASR_XN_Pos)         ///< Execute never
+/** @} */
 
-/* --- MPU_RASR.AP field values (PM0214 Table "AP encoding") --- */
-#define MPU_RASR_AP_NONE (0x0U)    ///< AP field value: no access, any privilege
-#define MPU_RASR_AP_PRIV_RW (0x1U) ///< AP field value: privileged RW, no unprivileged access
-#define MPU_RASR_AP_PRIV_RW_UNPRIV_RO (0x2U) ///< AP field value: privileged RW, unprivileged RO
-#define MPU_RASR_AP_FULL_RW (0x3U)           ///< AP field value: full read/write, any privilege
-#define MPU_RASR_AP_PRIV_RO (0x5U)           ///< AP field value: privileged read-only
-#define MPU_RASR_AP_FULL_RO (0x6U)           ///< AP field value: read-only, any privilege
+/** @name RASR.AP values
+ *  @{ */
+#define MPU_RASR_AP_NONE (0x0U)              ///< No access
+#define MPU_RASR_AP_PRIV_RW (0x1U)           ///< Privileged read/write only
+#define MPU_RASR_AP_PRIV_RW_UNPRIV_RO (0x2U) ///< Privileged read/write, unprivileged read
+#define MPU_RASR_AP_FULL_RW (0x3U)           ///< Full read/write
+#define MPU_RASR_AP_PRIV_RO (0x5U)           ///< Privileged read only
+#define MPU_RASR_AP_FULL_RO (0x6U)           ///< Read only
+/** @} */
 
 /** @} */
 

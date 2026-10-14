@@ -1,26 +1,13 @@
 /**
  * @file iwdg_reg.h
- * @brief IWDG (Independent Watchdog) peripheral register definitions for
- *        the STM32F446xx family.
+ * @brief IWDG registers: the independent watchdog (RM0390 section 20.4).
  *
- * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 20: Independent watchdog (IWDG). Cross-checked
- * against ST's F446 SVD and stm32f446xx.h, which both define exactly
- * four registers (KR, PR, RLR, SR).
+ * Clocked by the LSI, so it can still reset the chip if SYSCLK hangs.
+ * - Write IWDG_KEY_ENABLE_ACCESS to KR before writing PR or RLR.
+ * - Wait for SR.PVU / SR.RVU to clear before writing PR / RLR again.
  *
- * The IWDG runs off its own LSI clock, independent of the main system
- * clock tree in rcc_reg.h; it continues counting, and can still reset
- * the chip, even if a clock-configuration bug hangs SYSCLK entirely,
- * which is its purpose as a safety mechanism. All writes to PR/RLR
- * require KR unlocked with IWDG_KEY_ENABLE_ACCESS first (RM0390 20.4.1).
- * SR.PVU/RVU must be clear before PR/RLR is written *again* (and before
- * reading them back); code need not wait for them after a write before
- * carrying on, as the update completes on its own (RM0390 20.4.5).
- *
- * There is no window register (WINR) or SR.WVU: the windowed watchdog
- * option exists on other STM32 families but not on the F446's IWDG, so the
- * struct stops at SR (0x0C): a write to a phantom 0x10 offset would target
- * an address that is not an IWDG register on this part.
+ * The F446's IWDG has no window register, so the block ends at SR (0x0C),
+ * matching ST's SVD.
  */
 #ifndef IWDG_REG_H
 #define IWDG_REG_H
@@ -32,39 +19,49 @@
  * @{
  */
 
-#define IWDG_BASE (0x40003000UL) ///< IWDG peripheral base address
+#define IWDG_BASE (0x40003000UL) ///< IWDG base address (APB1)
 
-/**
- * @brief IWDG register map (RM0390 section 20.4).
- */
+/** @brief IWDG register block. */
 typedef struct IwdgRegisters_t
 {
-    volatile uint32_t KR;       ///< 0x00: key register (WRITE only)
-    volatile uint32_t PR;       ///< 0x04: prescaler register
-    volatile uint32_t RLR;      ///< 0x08: reload register
-    volatile const uint32_t SR; ///< 0x0C: status register (READ only)
+    volatile uint32_t KR;       ///< 0x00: key, \regaccess{wo}
+    volatile uint32_t PR;       ///< 0x04: prescaler
+    volatile uint32_t RLR;      ///< 0x08: reload value
+    volatile const uint32_t SR; ///< 0x0C: status, \regaccess{ro}
 } IwdgRegisters_t;
 
-#define IWDG ((IwdgRegisters_t *)IWDG_BASE) ///< Pointer to the IWDG register block
+#define IWDG ((IwdgRegisters_t *)IWDG_BASE) ///< The IWDG instance
 
-/* --- IWDG_KR key values (RM0390 20.4.1) --- */
-#define IWDG_KEY_RELOAD (0xAAAAU)        ///< WRITE to KR - reload the counter from RLR
-#define IWDG_KEY_ENABLE_ACCESS (0x5555U) ///< WRITE to KR - unlock PR/RLR for writing
-#define IWDG_KEY_START (0xCCCCU)         ///< WRITE to KR - start the watchdog counting
+/** @name KR - key values (0x00)
+ *  @{ */
+#define IWDG_KEY_RELOAD (0xAAAAU)        ///< Reload the counter from RLR (refresh)
+#define IWDG_KEY_ENABLE_ACCESS (0x5555U) ///< Unlock PR and RLR for writing
+#define IWDG_KEY_START (0xCCCCU)         ///< Start the watchdog; it cannot be stopped
+/** @} */
 
-/* --- IWDG_PR bit definitions --- */
-#define IWDG_PR_PR_Pos (0U)                               ///< Bit position within IWDG_PR
-#define IWDG_PR_PR_Msk ((uint32_t)0x7U << IWDG_PR_PR_Pos) ///< bits 2:0, prescaler divider selection
+/** @name PR - prescaler (0x04)
+ *  @{ */
+#define IWDG_PR_PR_Pos (0U) ///< Bits 2:0
+/** \regaccess{rw} LSI divider: /4 << value, up to /256. */
+#define IWDG_PR_PR_Msk ((uint32_t)0x7U << IWDG_PR_PR_Pos)
+/** @} */
 
-/* --- IWDG_RLR bit definitions --- */
-#define IWDG_RLR_RL_Pos (0U)                                  ///< Bit position within IWDG_RLR
-#define IWDG_RLR_RL_Msk ((uint32_t)0xFFFU << IWDG_RLR_RL_Pos) ///< bits 11:0, 12-bit reload value
+/** @name RLR - reload (0x08)
+ *  @{ */
+#define IWDG_RLR_RL_Pos (0U) ///< Bits 11:0
+/** \regaccess{rw} Counter reload value. */
+#define IWDG_RLR_RL_Msk ((uint32_t)0xFFFU << IWDG_RLR_RL_Pos)
+/** @} */
 
-/* --- IWDG_SR bit definitions --- */
-#define IWDG_SR_PVU_Pos (0U)                          ///< Bit position within IWDG_SR
-#define IWDG_SR_PVU ((uint32_t)1U << IWDG_SR_PVU_Pos) ///< READ only - PR write still in progress
-#define IWDG_SR_RVU_Pos (1U)                          ///< Bit position within IWDG_SR
-#define IWDG_SR_RVU ((uint32_t)1U << IWDG_SR_RVU_Pos) ///< READ only - RLR write still in progress
+/** @name SR - status (0x0C)
+ *  @{ */
+#define IWDG_SR_PVU_Pos (0U) ///< Bit 0
+/** \regaccess{ro} A PR update is in progress. */
+#define IWDG_SR_PVU ((uint32_t)1U << IWDG_SR_PVU_Pos)
+#define IWDG_SR_RVU_Pos (1U) ///< Bit 1
+/** \regaccess{ro} An RLR update is in progress. */
+#define IWDG_SR_RVU ((uint32_t)1U << IWDG_SR_RVU_Pos)
+/** @} */
 
 /** @} */
 

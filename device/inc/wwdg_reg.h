@@ -1,16 +1,10 @@
 /**
  * @file wwdg_reg.h
- * @brief WWDG (Window Watchdog) peripheral register definitions for the
- *        STM32F446xx family.
+ * @brief WWDG registers: the window watchdog (RM0390 section 21.6).
  *
- * Register layout and field values derived from RM0390 (STM32F446xx
- * reference manual), section 21: Window watchdog (WWDG).
- *
- * Unlike IWDG (iwdg_reg.h), WWDG runs off PCLK1 (via RCC, see
- * rcc_reg.h) rather than an independent clock, and faults if refreshed
- * either too early or too late: CR.T may only be rewritten once it has
- * counted down into CFR.W's window. This detects a task executing too
- * quickly or looping too tightly, not only one that has hung.
+ * Clocked from PCLK1. A refresh (rewriting CR.T) resets the chip if it comes
+ * too late or before the counter has fallen below CFR.W, so the WWDG also
+ * catches code that runs too fast.
  */
 #ifndef WWDG_REG_H
 #define WWDG_REG_H
@@ -22,40 +16,47 @@
  * @{
  */
 
-#define WWDG_BASE (0x40002C00UL) ///< WWDG peripheral base address
+#define WWDG_BASE (0x40002C00UL) ///< WWDG base address (APB1)
 
-/**
- * @brief WWDG register map (RM0390 section 21.6).
- */
+/** @brief WWDG register block. */
 typedef struct WwdgRegisters_t
 {
-    volatile uint32_t CR;  ///< 0x00: control register
-    volatile uint32_t CFR; ///< 0x04: configuration register
-    volatile uint32_t SR;  ///< 0x08: status register
+    volatile uint32_t CR;  ///< 0x00: control
+    volatile uint32_t CFR; ///< 0x04: configuration
+    volatile uint32_t SR;  ///< 0x08: status
 } WwdgRegisters_t;
 
-#define WWDG ((WwdgRegisters_t *)WWDG_BASE) ///< Pointer to the WWDG register block
+#define WWDG ((WwdgRegisters_t *)WWDG_BASE) ///< The WWDG instance
 
-/* --- WWDG_CR bit definitions --- */
-#define WWDG_CR_T_Pos (0U)                               ///< Bit position within WWDG_CR
-#define WWDG_CR_T_Msk ((uint32_t)0x7FU << WWDG_CR_T_Pos) ///< bits 6:0, 7-bit down-counter
-#define WWDG_CR_WDGA_Pos (7U)                            ///< Bit position within WWDG_CR
-#define WWDG_CR_WDGA                                                                               \
-    ((uint32_t)1U << WWDG_CR_WDGA_Pos) ///< WRITE - activate the watchdog (cannot be cleared)
+/** @name CR - control (0x00)
+ *  @{ */
+#define WWDG_CR_T_Pos (0U) ///< Bits 6:0
+/** \regaccess{rw} 7-bit down-counter; reset when bit 6 falls to 0. */
+#define WWDG_CR_T_Msk ((uint32_t)0x7FU << WWDG_CR_T_Pos)
+#define WWDG_CR_WDGA_Pos (7U) ///< Bit 7
+/** \regaccess{rs} Activate the watchdog; only a reset clears it. */
+#define WWDG_CR_WDGA ((uint32_t)1U << WWDG_CR_WDGA_Pos)
+/** @} */
 
-/* --- WWDG_CFR bit definitions --- */
-#define WWDG_CFR_W_Pos (0U)                                ///< Bit position within WWDG_CFR
-#define WWDG_CFR_W_Msk ((uint32_t)0x7FU << WWDG_CFR_W_Pos) ///< bits 6:0, 7-bit window value
-#define WWDG_CFR_WDGTB_Pos (7U)                            ///< Bit position within WWDG_CFR
-#define WWDG_CFR_WDGTB_Msk                                                                         \
-    ((uint32_t)0x3U << WWDG_CFR_WDGTB_Pos)              ///< bits 8:7, timer base prescaler
-#define WWDG_CFR_EWI_Pos (9U)                           ///< Bit position within WWDG_CFR
-#define WWDG_CFR_EWI ((uint32_t)1U << WWDG_CFR_EWI_Pos) ///< WRITE - enable early-wakeup interrupt
+/** @name CFR - configuration (0x04)
+ *  @{ */
+#define WWDG_CFR_W_Pos (0U) ///< Bits 6:0
+/** \regaccess{rw} Window value: refreshing above it resets the chip. */
+#define WWDG_CFR_W_Msk ((uint32_t)0x7FU << WWDG_CFR_W_Pos)
+#define WWDG_CFR_WDGTB_Pos (7U) ///< Bits 8:7
+/** \regaccess{rw} Timer base: PCLK1 / 4096 / 2^WDGTB. */
+#define WWDG_CFR_WDGTB_Msk ((uint32_t)0x3U << WWDG_CFR_WDGTB_Pos)
+#define WWDG_CFR_EWI_Pos (9U) ///< Bit 9
+/** \regaccess{rs} Enable the early-wakeup interrupt; only a reset clears it. */
+#define WWDG_CFR_EWI ((uint32_t)1U << WWDG_CFR_EWI_Pos)
+/** @} */
 
-/* --- WWDG_SR bit definitions --- */
-#define WWDG_SR_EWIF_Pos (0U) ///< Bit position within WWDG_SR
-#define WWDG_SR_EWIF                                                                               \
-    ((uint32_t)1U << WWDG_SR_EWIF_Pos) ///< READ/WRITE 0 to clear - early-wakeup flag
+/** @name SR - status (0x08)
+ *  @{ */
+#define WWDG_SR_EWIF_Pos (0U) ///< Bit 0
+/** \regaccess{rc_w0} Early-wakeup flag. */
+#define WWDG_SR_EWIF ((uint32_t)1U << WWDG_SR_EWIF_Pos)
+/** @} */
 
 /** @} */
 

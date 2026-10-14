@@ -38,6 +38,15 @@ specifically.
 - The README no longer calls the driver layer complete: EXTI, IWDG and WWDG
   have register headers but no driver.
 
+- Register headers (`core/inc/`, `device/inc/`): each register's macros are
+  a Doxygen member group titled with the register name and offset, so the
+  reference shows one table per register. Every field states its bits and
+  its access type as a badge (`rw`, `ro`, `wo`, `rc_w0`, `rc_w1`, `rs`) in
+  place of the old, inconsistent "WRITE"/"READ only" prose, and file
+  comments are cut to the manual section, what is modelled and any
+  part-specific trap. Comments only: the preprocessed macro definitions and
+  struct layouts of all 13 headers are identical before and after.
+
 - `docs/groups.dox`: the ASCII table that rendered as preformatted text is
   replaced by a short description, and the group briefs are one line each.
   Its header is now a plain comment rather than an `@file` block, which drops

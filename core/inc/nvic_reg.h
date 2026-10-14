@@ -1,28 +1,10 @@
 /**
  * @file nvic_reg.h
- * @brief NVIC (Nested Vectored Interrupt Controller) register definitions
- *        for the ARM Cortex-M4 (Armv7-M architecture).
+ * @brief NVIC registers and the STM32F446 interrupt numbers (PM0214, NVIC chapter).
  *
- * Register layout derived from PM0214 (Cortex-M4 programming manual),
- * section on the NVIC. This is architectural rather than vendor-specific;
- * the base address and register offsets are fixed by Armv7-M's System
- * Control Space memory map, not by the STM32F446. The ISER/ICER/ISPR/ICPR
- * and IABR blocks are architecturally spaced 32 words apart regardless
- * of how many interrupts a given chip implements, so the RESERVED
- * members below are not padding for alignment; they are the actual gap
- * between register banks.
- *
- * The STM32F446 implements interrupt lines 0-96 (WWDG..FMPI2C1_Error, in
- * RM0390 vector-table order; see IRQn_e below), so only ISER0-3 /
- * ICER0-3 / ISPR0-3 / ICPR0-3 / IABR0-3 and IP[0..96] are meaningful on
- * this chip; the remainder of each 8-word bank reads as unimplemented.
- *
- * Only the top 4 bits of each IP[] priority byte are implemented on the
- * Cortex-M4 (__NVIC_PRIO_BITS = 4 in CMSIS and ST's stm32f446xx.h), giving 16 priority levels
- * with values 0x00, 0x10, 0x20, ... 0xF0. Writing a priority value with
- * low-nibble bits set does not fault, but those bits are not stored in
- * hardware; a driver setting priorities should shift into the top
- * nibble rather than assume all 8 bits are significant.
+ * The F446 implements interrupts 0-96, so only words 0-3 of each bank and
+ * IP[0..96] are meaningful. Each IP[] byte implements only its top four bits
+ * (::NVIC_PRIO_BITS): 16 levels, 0 highest.
  */
 #ifndef NVIC_REG_H
 #define NVIC_REG_H
@@ -34,47 +16,42 @@
  * @{
  */
 
-#define NVIC_BASE (0xE000E100UL) ///< NVIC peripheral base address (Armv7-M SCS)
+#define NVIC_BASE (0xE000E100UL) ///< NVIC base address (System Control Space)
 
 /**
- * @brief NVIC register map (PM0214, Armv7-M SCS NVIC region).
+ * @brief NVIC register block.
  *
- * RESERVEDx members preserve the fixed architectural offsets between
- * register banks (see the top-of-file note above) - they are real gaps
- * in the memory map, not struct-packing artifacts.
+ * The banks sit 32 words apart whatever the chip implements; the RESERVED
+ * members are those architectural gaps. Interrupt `n` is bit `n % 32` of word
+ * `n / 32` in ISER, ICER, ISPR, ICPR and IABR, and byte `n` of IP.
  */
 typedef struct NvicRegisters_t
 {
-    volatile uint32_t ISER[8];       ///< 0x000-0x01C: Interrupt Set-Enable Registers
-    volatile uint32_t RESERVED0[24]; ///< 0x020-0x07C: reserved
-    volatile uint32_t ICER[8];       ///< 0x080-0x09C: Interrupt Clear-Enable Registers
-    volatile uint32_t RESERVED1[24]; ///< 0x0A0-0x0FC: reserved
-    volatile uint32_t ISPR[8];       ///< 0x100-0x11C: Interrupt Set-Pending Registers
-    volatile uint32_t RESERVED2[24]; ///< 0x120-0x17C: reserved
-    volatile uint32_t ICPR[8];       ///< 0x180-0x19C: Interrupt Clear-Pending Registers
-    volatile uint32_t RESERVED3[24]; ///< 0x1A0-0x1FC: reserved
-    volatile const uint32_t IABR[8]; ///< 0x200-0x21C: Interrupt Active Bit Registers (READ only)
-    volatile uint32_t RESERVED4[56]; ///< 0x220-0x2FC: reserved
-    volatile uint8_t IP[240]; ///< 0x300-0x3EF: Interrupt Priority Registers, byte-addressable
+    volatile uint32_t ISER[8];        ///< 0x000: set-enable, write 1 to enable
+    volatile uint32_t RESERVED0[24];  ///< 0x020-0x07C: reserved
+    volatile uint32_t ICER[8];        ///< 0x080: clear-enable, write 1 to disable
+    volatile uint32_t RESERVED1[24];  ///< 0x0A0-0x0FC: reserved
+    volatile uint32_t ISPR[8];        ///< 0x100: set-pending, write 1 to pend
+    volatile uint32_t RESERVED2[24];  ///< 0x120-0x17C: reserved
+    volatile uint32_t ICPR[8];        ///< 0x180: clear-pending, write 1 to un-pend
+    volatile uint32_t RESERVED3[24];  ///< 0x1A0-0x1FC: reserved
+    volatile const uint32_t IABR[8];  ///< 0x200: active, \regaccess{ro}
+    volatile uint32_t RESERVED4[56];  ///< 0x220-0x2FC: reserved
+    volatile uint8_t IP[240];         ///< 0x300: priority, one byte per interrupt
     volatile uint32_t RESERVED5[644]; ///< 0x3F0-0xDFC: reserved
-    volatile uint32_t STIR;           ///< 0xE00: Software Trigger Interrupt Register (WRITE only)
+    volatile uint32_t STIR;           ///< 0xE00: software trigger, \regaccess{wo}
 } NvicRegisters_t;
 
-#define NVIC ((NvicRegisters_t *)NVIC_BASE) ///< Pointer to the NVIC register block
+#define NVIC ((NvicRegisters_t *)NVIC_BASE) ///< The NVIC instance
 
 /**
- * @brief STM32F446 interrupt line numbers (RM0390 vector-table order).
+ * @brief Interrupt and exception numbers, in RM0390 vector-table order.
  *
- * Matches the position of each *_IRQHandler entry in
- * startup/startup_stm32f446re.s. Used to index NVIC->ISER/ICER/ISPR/
- * ICPR/IABR (word = IRQn / 32, bit = IRQn % 32) and NVIC->IP (byte
- * index = IRQn directly) for the device interrupts (IRQn >= 0). The
- * negative entries are the Cortex-M4 system exceptions (PM0214), which
- * have no NVIC enable/pending/priority bits: they are configured through
- * SCB (SHPRx, SHCSR, ICSR) and never index the NVIC arrays above - a
- * driver must range-check IRQn >= 0 before using it as an NVIC index.
- * Gaps (61-62, 79-80, 82-83, 85-86, 88-90) are
- * reserved positions in the vector table and intentionally absent here.
+ * Non-negative values are device interrupts and index the NVIC banks.
+ * Negative values are Cortex-M4 system exceptions, configured through the SCB
+ * (see nvicSetSystemHandlerPriority()); they must never index NVIC arrays.
+ * Positions 61-62, 79-80, 82-83, 85-86 and 88-90 are reserved and absent.
+ * `make test` checks this list against startup/startup_stm32f446re.s.
  */
 typedef enum IRQn_e
 {
@@ -172,8 +149,8 @@ typedef enum IRQn_e
     FMPI2C1_Error_IRQn = 96,
 } IRQn_e;
 
-#define NVIC_PRIO_BITS (4U) ///< Implemented priority bits per IP[] entry (top nibble only)
-#define NVIC_PRIO_Pos (8U - NVIC_PRIO_BITS) ///< Shift a 0-15 priority into IP[]'s top nibble
+#define NVIC_PRIO_BITS (4U)                 ///< Priority bits implemented per IP[] byte
+#define NVIC_PRIO_Pos (8U - NVIC_PRIO_BITS) ///< Shift that moves a 0-15 priority into IP[]
 
 /** @} */
 
