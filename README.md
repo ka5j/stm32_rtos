@@ -25,7 +25,7 @@ This table is the single source of truth for project status.
 | ------------------------------------------- | ---------------------------------------------------------- |
 | Boot (`startup/`, `linker/`)                | Done                                                       |
 | Registers (`core/inc/`, `device/inc/`)      | Done: 4 core and 9 device peripherals                      |
-| Drivers (`drivers/`)                        | GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault. No EXTI, IWDG or WWDG driver yet |
+| Drivers (`drivers/`)                        | GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI. No IWDG or WWDG driver yet |
 | Board support (`bsp/`)                      | 180 MHz clock bring-up (`bspClockInit()`); pin mapping not started |
 | Peripheral API (`api/`)                     | Not started                                                |
 | Kernel and RTOS API (`rtos/`)               | Not started                                                |

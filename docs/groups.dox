@@ -118,6 +118,10 @@
  *  @ingroup driver_layer
  *  @brief The system tick timer. */
 
+/** @defgroup exti_driver EXTI
+ *  @ingroup driver_layer
+ *  @brief GPIO-to-line routing, edge triggers, interrupt mask and pending bits. */
+
 /** @defgroup fault_driver Fault
  *  @ingroup driver_layer
  *  @brief Configurable fault enables and the fault record. */
