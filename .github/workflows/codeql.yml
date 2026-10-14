@@ -1,11 +1,8 @@
 name: CodeQL
 
-# Static analysis via GitHub CodeQL. Runs both build passes so CodeQL
-# observes all of the code: `make all` cross-compiles startup/, app/ and
-# every driver and bsp source (the linker then garbage-collects what
-# main() never calls, but the compiler - and CodeQL - still sees it),
-# while `make test` compiles the same sources natively together with the
-# tests, so both flavours of the code are analysed.
+# GitHub CodeQL static analysis. Builds both the firmware (cross-compiled)
+# and the host tests, so CodeQL sees every source in both forms. main and
+# develop require the Analyze (c-cpp) job.
 on:
   push:
     branches: [main, develop]
@@ -22,14 +19,12 @@ permissions:
 jobs:
   analyze:
     name: Analyze (c-cpp)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
-        # Same pinned, checksum-verified install as ci.yml - one shared
-        # composite action, so the two cannot drift apart.
         uses: ./.github/actions/setup-arm-toolchain
 
       - name: Initialize CodeQL

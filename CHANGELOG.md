@@ -38,6 +38,14 @@ specifically.
 - The README no longer calls the driver layer complete: EXTI, IWDG and WWDG
   have register headers but no driver.
 
+- CI: every workflow now runs on `ubuntu-24.04`. `codeql.yml`, `pages.yml`
+  and `release.yml` used `ubuntu-latest`, so the published docs and release
+  firmware could be built on a different OS than the one CI checked.
+  Graphviz installation moves into the `setup-doxygen` action (now "Set up
+  Doxygen and Graphviz"), so `make docs` can never run without `dot` and
+  silently drop its diagrams. Workflow and action comments are cut to the
+  constraints that prevent mistakes. `actionlint` is clean.
+
 - Build and boot files keep only short what/why comments: the Makefile (383
   comment lines down to 43), `startup_stm32f446re.s`, the linker
   script and the headers of the `tools/` scripts. Rationale now points to
