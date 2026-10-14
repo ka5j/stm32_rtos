@@ -422,6 +422,11 @@ DRIVER_MUST_CHECK DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint
  * @return DRIVER_STATUS_ERR_NOT_INITIALIZED if @p source's ready bit
  *         (HSIRDY/HSERDY/PLLRDY) is not set - it was never enabled, or
  *         never finished becoming ready.
+ *
+ * On either of those last two returns a *raising* @p latency has already
+ * been written, because it is applied before the ready check and the
+ * switch. That is safe - more wait states than the current SYSCLK needs
+ * only slow flash reads down - and it is left in place rather than undone.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash,
                                                  uint32_t source, uint32_t latency);

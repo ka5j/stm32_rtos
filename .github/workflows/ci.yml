@@ -1,33 +1,24 @@
 name: CI
 
 # Public-facing gate: build + test + coverage + docs + format + lint +
-# version-consistency, on a GitHub-hosted
-# runner. Runs on every push to main/develop and every PR - this is the
-# status a reviewer sees, and (via branch protection on main/
-# develop) what actually gates a merge. Nothing here touches real
-# hardware: on-target verification is manual, driven from the
-# development machine the board is attached to (make flash / make
-# debug), and the self-hosted-runner workflow that used to stand in for
-# it was removed - see CONTRIBUTING.md and SECURITY.md for why.
+# version-consistency, on a GitHub-hosted runner. Runs on every push to
+# main/develop and every PR - this is the status a reviewer sees, and (via
+# branch protection on main/develop) what actually gates a merge. Nothing
+# here touches real hardware: on-target verification is manual, driven from
+# the development machine the board is attached to (make flash / make
+# debug) - see CONTRIBUTING.md and SECURITY.md.
 #
-# push is scoped to [main, develop], not every branch: a feature branch
-# gets its CI coverage entirely from pull_request once a PR is open
-# (CONTRIBUTING.md's branch convention - all feature work goes through a
-# PR into develop), so this avoids ever firing both push and pull_request
-# for the same commit in the common case. That matters beyond wasted
-# runner time: main/develop have required-status-check branch protection
-# (this workflow's own "build-and-check" context is one of the required
-# checks), and a cancelled run's conclusion can stick to a commit
-# alongside a later successful one - GitHub's required-check gate then
-# stays BLOCKED even though the same-named check also passed. A
-# cancel-in-progress concurrency group was tried here previously
-# specifically to dedupe the double-run; it was removed because it's
-# what produces that stuck-cancelled-run state, which is worse than the
-# wasted runner time it was solving. Restricting push here removes the
-# double-trigger for the case that matters (feature branches); the
-# residual case (pushing directly to develop while an open develop->main
-# PR exists) is rare and, without cancel-in-progress, both runs simply
-# complete normally instead of one landing as cancelled.
+# push is scoped to [main, develop], not every branch: a feature branch gets
+# its CI coverage entirely from pull_request once a PR is open (CONTRIBUTING.md's
+# branch convention), so push and pull_request never both fire for the same
+# commit in the common case. The residual case (pushing directly to develop
+# while a develop->main PR is open) is rare, and both runs simply complete.
+#
+# Do not add a cancel-in-progress concurrency group to dedupe those runs.
+# main/develop require this workflow's "build-and-check" status, and a
+# cancelled run's conclusion can stick to a commit alongside a later
+# successful one, leaving the required-check gate BLOCKED even though the
+# same-named check also passed.
 on:
   push:
     branches: [main, develop]

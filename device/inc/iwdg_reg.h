@@ -18,9 +18,8 @@
  * carrying on, as the update completes on its own (RM0390 20.4.5).
  *
  * There is no window register (WINR) or SR.WVU: the windowed watchdog
- * option exists on other STM32 families but not on the F446's IWDG. An
- * earlier revision of this header defined both (a 0x14-byte struct);
- * they are removed because writing the phantom 0x10 offset would target
+ * option exists on other STM32 families but not on the F446's IWDG, so the
+ * struct stops at SR (0x0C): a write to a phantom 0x10 offset would target
  * an address that is not an IWDG register on this part.
  */
 #ifndef IWDG_REG_H
