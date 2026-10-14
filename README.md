@@ -91,7 +91,7 @@ The system is structured in layers, starting from boot (linker script and startu
 
 ## Status
 
-This section is the single source of truth for project status. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/VERSIONING.md](docs/VERSIONING.md), and [docs/mainpage.md](docs/mainpage.md) describe structure, policy, and the generated reference respectively, and link here rather than restating what is done — an earlier revision repeated the same status paragraph in five files, and keeping five copies in step after every merge was a losing proposition.
+This section is the single source of truth for project status. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/VERSIONING.md](docs/VERSIONING.md), and [docs/mainpage.md](docs/mainpage.md) describe structure, policy, and the generated reference respectively, and link here rather than restating what is done, so there is one copy to keep current.
 
 | Layer | Status |
 | ----- | ------ |
@@ -127,7 +127,7 @@ This section is the single source of truth for project status. [docs/ARCHITECTUR
 - Nothing in `drivers/` is concurrency-safe yet - see [CONTRIBUTING.md](CONTRIBUTING.md)'s Concurrency section for which functions are single-store and which need serialising once tasks exist.
 - Peripheral waits are bounded poll counts, not times; UART takes the count from the caller. A SysTick-based deadline is the planned replacement once the kernel provides one.
 - Startup never sets `SCB->VTOR` (fine when booting from flash at 0x08000000, wrong from the system bootloader or SRAM), the linker script has no `.init_array`/`.fini_array` and `Reset_Handler` never calls `__libc_init_array` (C constructors would silently not run), and there is no stack/heap collision check beyond the link-time minimum.
-- `rccBusPrescalerConfig()` does no VCO/APB-limit validation (the one configuration, in `bsp.h`, is checked at compile time), and the SYSCLK-source decoder knows only HSI/HSE/PLL, not the F446's PLLR option (SW/SWS = 3).
+- `rccPllConfig()` checks M and N against their register ranges but not the VCO input/output frequency limits, and `rccBusPrescalerConfig()` does not check the APB maximums (the one configuration, in `bsp.h`, is checked at compile time); the SYSCLK-source decoder knows only HSI/HSE/PLL, not the F446's PLLR option (SW/SWS = 3).
 - `uartInit()` leaves CR2/CR3 bits other than STOP untouched, `uartDeinit()` writes GTPR (absent on UART4/5, ignored), and `systickInit()` does not clear a pending SysTick exception.
 - `bspClockInit()` has no unwind: after a late failure it leaves HSE/PLL running and cannot simply be retried (documented in `bsp.h`).
 

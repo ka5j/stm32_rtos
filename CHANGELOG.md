@@ -106,6 +106,18 @@ specifically.
 
 ### Changed
 
+- Docs and comments only: comments that narrated how the code used to be
+  now say how it is, in `uart.c`, `uart.h`, `iwdg_reg.h`, `startup`, the
+  Makefile, `ci.yml`, `test_pwr.c` and the README Status intro; the reasons
+  they carried (why BRR rounds once, why the CI workflow must not use
+  `cancel-in-progress`) stay. History belongs in this file and in commits.
+  Also corrected: `rcc.h` now says a raising flash latency is already
+  written when `rccSysclkSwitch()` returns `NOT_INITIALIZED` or `TIMEOUT`
+  (safe, and left in place); the README's missing-VCO-check limitation is
+  attributed to `rccPllConfig()`, not `rccBusPrescalerConfig()`; and
+  `driver_status.h` names the GPIO functions that document a pin `@pre`
+  instead of validating it.
+
 - `Makefile`: the firmware now links with `-nostartfiles` and
   `-Wl,--fatal-warnings`. `Reset_Handler` already does everything crt0
   would, and linking crt0 pulled newlib's syscall stubs in ahead of

@@ -19,6 +19,13 @@
  * no polling and nothing hardware-reportable) returns void instead;
  * never return DriverStatus_e defensively where nothing can fail.
  *
+ * One exception to "validate runtime parameters": the GPIO functions that
+ * return void or a pin level (gpioWritePin(), gpioReadPin(),
+ * gpioTogglePin(), gpioDeinit()) have no status to return, so they do not
+ * validate the pin number. An out-of-range pin is undefined behaviour
+ * there, and each states the valid domain as an `@pre` instead (see
+ * GpioPin_e in gpio.h).
+ *
  * Callers compare explicitly: `if (status != DRIVER_STATUS_OK)`. Never
  * `if (status)` / `if (!status)` - this relies implicitly on
  * DRIVER_STATUS_OK's numeric value and breaks silently if the enum is

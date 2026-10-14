@@ -74,8 +74,7 @@ endif
 ##########################################################################
 # Every warning is an error, so a new one fails the build instead of scrolling
 # by. That includes the __attribute__((warn_unused_result)) check behind
-# drivers/inc/driver_status.h's DRIVER_MUST_CHECK, which used to be the only
-# warning promoted. -Wshadow, -Wconversion and -Wundef are on top of -Wall
+# drivers/inc/driver_status.h's DRIVER_MUST_CHECK. -Wshadow, -Wconversion and -Wundef are on top of -Wall
 # -Wextra because the register code is full of mask and shift arithmetic
 # (-Wconversion) and of macros that could silently be undefined (-Wundef).
 # The firmware, the drivers and the host tests all build clean under this set,
@@ -477,8 +476,7 @@ HOST_LDFLAGS   :=
 # UndefinedBehaviorSanitizer, with any report fatal. The drivers shift by
 # caller-influenced amounts (gpio.h documents an out-of-range pin as
 # undefined behaviour), which is exactly what UBSan sees and the plain build
-# does not. The flags stamp makes this rebuild the objects, so switching
-# between the two modes never mixes them. CI runs it after the plain suite.
+# does not. The flags stamp makes a mode switch rebuild the objects. CI runs it after the plain suite.
 ifeq ($(SANITIZE),1)
   HOST_CFLAGS  += -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
   HOST_LDFLAGS += -fsanitize=address,undefined
@@ -495,18 +493,14 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # is listed too: bspClockInit() takes the RCC/PWR/FLASH blocks as parameters,
 # and the gcovr filter below covers bsp/src alongside drivers/src.
 #
-# This bar turned out to include hardware-ready polling too, not just
-# simple register writes: rcc.c/pwr.c's HSI/HSE/PLL/SYSCLK/VOS/over-drive
-# ready-waits (and uart.c's TXE/TC/RXNE waits) are bounded iteration-count retries, not wall-clock
+# That bar includes hardware-ready polling, not just simple register writes:
+# rcc.c/pwr.c's HSI/HSE/PLL/SYSCLK/VOS/over-drive ready-waits (and uart.c's
+# TXE/TC/RXNE waits) are bounded iteration-count retries, not wall-clock
 # timeouts (SysTick isn't configured this early in clock bring-up - see
-# rcc.h's file-level comment), and the ready bit each one polls
-# (HSIRDY, VOSRDY, ...) is a field distinct from what the driver itself
-# writes. A host test holds the ready bit clear indefinitely in a plain
-# in-memory register struct to exercise the timeout branch - no real
-# hardware or timer required. An earlier version of this comment (and of
-# rcc.h/CHANGELOG.md) stated the opposite for rcc.c's then-unimplemented
-# SYSCLK bring-up; that was reconsidered once it was actually written and
-# tested, rather than left standing as-is.
+# rcc.h's file-level comment), and the ready bit each one polls (HSIRDY,
+# VOSRDY, ...) is a field distinct from what the driver itself writes. A host
+# test holds the ready bit clear indefinitely in a plain in-memory register
+# struct to exercise the timeout branch - no real hardware or timer required.
 TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
                        drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c \
                        bsp/src/bsp.c
@@ -516,13 +510,9 @@ TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
 
 # Object paths mirror each source's full path under the build dir (e.g.
 # drivers/src/gpio.c -> tests/build/drivers/src/gpio.o), the same way the
-# firmware build's OBJECTS does. An earlier version flattened these with
-# $(notdir) and resolved them back through a vpath, which worked only as
-# long as no two sources anywhere in TEST_SOURCES shared a basename:
-# tests/unit/gpio.c and drivers/src/gpio.c would have collapsed onto one
-# object file, and whichever vpath entry came first would silently win.
-# Mirroring the path removes the collision by construction rather than
-# relying on a naming convention nothing enforces.
+# firmware build's OBJECTS does. Keeping the full path means two sources
+# that share a basename (tests/unit/gpio.c and drivers/src/gpio.c) can never
+# collapse onto one object file.
 TEST_OBJECTS   := $(TEST_SOURCES:%.c=$(TEST_BUILD_DIR)/%.o)
 
 # Like the firmware build's FLAGS_STAMP, one per host build dir: make only

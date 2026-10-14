@@ -12,9 +12,7 @@
 
 /** Smallest BRR value uartInit() accepts. BRR holds USARTDIV * 16 (see
  *  uartComputeBrr()), and USARTDIV below 1 cannot be generated: with 16x
- *  oversampling the baud rate tops out at pclk / 16, which is BRR 16. A
- *  smaller value used to be accepted (only 0 was rejected) and would have
- *  configured a baud rate the peripheral cannot produce. */
+ *  oversampling the baud rate tops out at pclk / 16, which is BRR 16. */
 #define UART_BRR_MIN (16U)
 
 /**
@@ -34,17 +32,11 @@
  * it explicitly (MISRA C:2012 Rule 10.7 - no implicit widening across a
  * mixed-width operator): pclk_hz + baud/2 does not overflow uint32_t for
  * any realistic clock, but this function has no way to bound a
- * caller-supplied pclk_hz, and the previous x100 fixed-point form needed
- * the same 64-bit guard for the same reason.
+ * caller-supplied pclk_hz.
  *
- * This is strictly more accurate than an earlier version of this
- * function, which computed USARTDIV*100 in a 64-bit intermediate (an
- * integer division, truncating to 2 decimal digits of USARTDIV) and
- * then rounded that truncated value to the nearest 16th - losing
- * precision before rounding could double the worst-case error. E.g. for
- * a 42 MHz bus clock at 115200 baud, the true ratio is 364.5833 (nearest
- * integer 365), but truncating to 2 decimals first produced BRR 364,
- * one off in the wrong direction; this formula computes 365 directly.
+ * Rounding once, at the end, matters: for a 42 MHz bus clock at 115200
+ * baud the true ratio is 364.5833, which rounds to 365. Truncating to a
+ * fixed-point intermediate first would give 364.
  *
  * @param pclk_hz Bus clock frequency in Hz.
  * @param baud    Target baud rate in bit/s.

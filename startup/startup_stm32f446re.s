@@ -110,11 +110,7 @@ LoopFillZerobss:
     bcc   FillZerobss
 
     /* Hand off to C. main() should never return; if it somehow does,
-     * spin here rather than executing whatever follows. An earlier
-     * revision used `bx lr`, which happens to behave the same way (bl
-     * leaves lr pointing at the instruction after it - that bx itself)
-     * but reads as an intentional return to a caller that does not
-     * exist. This states the trap outright, and matches
+     * spin here rather than executing whatever follows. This matches
      * Default_Handler's own infinite loop: a debugger stopping here
      * means main() returned. */
     bl    main

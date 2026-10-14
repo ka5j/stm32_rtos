@@ -11,13 +11,10 @@
  * M selects, so parity off leaves M clear (8 bits on the wire), and parity
  * on sets M (9 bits on the wire: 8 data + parity). The extra bit is parity,
  * generated and checked by hardware, so DR transfers stay uint8_t.
- * Genuine 9-data-bit mode is architecturally real (RM0390) but was never
- * actually supported by this driver: an earlier revision exposed CR1.M as a
- * parameter without widening transmit/receive past uint8_t, so a caller
- * requesting 9-bit mode would have silently truncated every byte through
- * DR instead of erroring. Add real 9-bit support (uint16_t transmit/
- * receive) if a future consumer actually needs it; don't re-expose the
- * parameter without it.
+ * Genuine 9-data-bit mode is architecturally real (RM0390) but not
+ * supported by this driver: transmit/receive move uint8_t, so exposing CR1.M
+ * as a parameter would silently truncate every byte through DR. Add it with
+ * uint16_t transmit/receive if a consumer needs it, not before.
  *
  * CR2.STOP similarly offers only 1 or 2 stop bits, not the full 4-value
  * field RM0390 documents. The other two encodings, 0.5 and 1.5 stop
