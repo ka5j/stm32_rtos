@@ -90,8 +90,8 @@ contexts at once. When tasks and interrupts exist:
 - **Caller must serialise:** read-modify-writes of shared registers, which
   covers every `rcc*Clock*()`, the RCC CR/CFGR/PLLCFGR writers, the PWR and
   Flash functions, `gpioInit()`/`gpioDeinit()`/`gpioSetAlternateFunction()`,
-  `uartInit()`, and `nvicSetSystemHandlerPriority()` (SHPR3 holds both
-  PendSV and SysTick).
+  `uartInit()`, `nvicSetSystemHandlerPriority()` (SHPR3 holds both
+  PendSV and SysTick), and `faultEnable()` (SHCSR, CCR).
 - **Single owner only:** `gpioTogglePin()`, `uartReceiveByte()`/
   `uartReceive()` (the SR-then-DR read clears the error flags), and
   `systickInit()`.

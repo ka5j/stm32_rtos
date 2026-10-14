@@ -118,6 +118,10 @@
  *  @ingroup driver_layer
  *  @brief The system tick timer. */
 
+/** @defgroup fault_driver Fault
+ *  @ingroup driver_layer
+ *  @brief Configurable fault enables and the fault record. */
+
 /**
  * @defgroup board_support Board Support Package
  * @brief NUCLEO-F446RE configuration built on the drivers: today the

@@ -8,6 +8,21 @@ specifically.
 
 ## [Unreleased]
 
+### Added
+
+- Fault handler. HardFault, MemManage, BusFault and UsageFault entered
+  `Default_Handler`, so a fault looked the same as a stray interrupt. They
+  now enter `Fault_Handler` (startup file), which takes the stacked frame
+  from MSP or PSP as EXC_RETURN bit 2 says, records it with CFSR, HFSR,
+  MMFAR, BFAR and the exception number in `faultRecord` through
+  `faultCapture()`, and spins for the debugger. The frame is not read when
+  CFSR reports a stacking error, since it is not there and reading it could
+  lock up the core.
+- `faultEnable()` gives MemManage, BusFault and UsageFault their own
+  handlers and traps integer division by zero (`CCR.DIV_0_TRP`), which
+  otherwise returns 0 silently. Nothing calls it yet; without it those
+  faults escalate to HardFault and CFSR still names the cause.
+
 ### Changed
 
 - The link fails on any section `linker/STM32F446RE.ld` does not name

@@ -1,10 +1,12 @@
 /*
- * startup_stm32f446re.s - vector table, Reset_Handler and Default_Handler.
+ * startup_stm32f446re.s - vector table, Reset_Handler, Fault_Handler and
+ * Default_Handler.
  *
  * Reset_Handler enables the FPU, sets the priority grouping, copies .data,
  * zeroes .bss and calls main(). Symbols come from linker/STM32F446RE.ld.
- * Every handler is a weak alias of Default_Handler until a real one is
- * defined. See docs/ARCHITECTURE.md, "Boot sequence".
+ * The four fault vectors are weak aliases of Fault_Handler, and every other
+ * handler of Default_Handler, until a real one is defined. See
+ * docs/ARCHITECTURE.md, "Boot sequence".
  *
  * No .fpu directive: this file has no VFP instructions; the C files are
  * built hard-float by the Makefile.
@@ -16,6 +18,7 @@
 
 .global vector_table
 .global Reset_Handler
+.global Fault_Handler
 .global Default_Handler
 
 /* Reset_Handler: the first code after reset, before any C runtime exists. */
@@ -86,6 +89,25 @@ MainReturned:
     b     MainReturned
 
 .size Reset_Handler, .-Reset_Handler
+
+/* Fault_Handler: HardFault, MemManage, BusFault and UsageFault. EXC_RETURN
+ * bit 2 says whether the frame is on MSP or PSP; faultCapture()
+ * (drivers/src/fault.c) records it in faultRecord, then the core spins here
+ * for the debugger. Nothing has been pushed yet, so SP is the frame. */
+.section .text.Fault_Handler,"ax",%progbits
+.type Fault_Handler, %function
+Fault_Handler:
+    tst   lr, #4                /* EXC_RETURN bit 2: 0 = MSP, 1 = PSP */
+    ite   eq
+    mrseq r2, msp
+    mrsne r2, psp
+    mov   r3, lr                /* exc_return */
+    ldr   r0, =faultRecord      /* record */
+    ldr   r1, =0xE000ED00       /* scb: SCB_BASE */
+    bl    faultCapture
+FaultSpin:
+    b     FaultSpin
+.size Fault_Handler, .-Fault_Handler
 
 /* Default_Handler: an unexpected or unimplemented interrupt spins here. */
 .section .text.Default_Handler,"ax",%progbits
@@ -221,17 +243,17 @@ vector_table:
 .size vector_table, .-vector_table
 
 /* Weak aliases: defining a handler with the same name anywhere replaces the
- * Default_Handler default. */
+ * Fault_Handler or Default_Handler default. */
 .weak NMI_Handler
 .thumb_set NMI_Handler,Default_Handler
 .weak HardFault_Handler
-.thumb_set HardFault_Handler,Default_Handler
+.thumb_set HardFault_Handler,Fault_Handler
 .weak MemManage_Handler
-.thumb_set MemManage_Handler,Default_Handler
+.thumb_set MemManage_Handler,Fault_Handler
 .weak BusFault_Handler
-.thumb_set BusFault_Handler,Default_Handler
+.thumb_set BusFault_Handler,Fault_Handler
 .weak UsageFault_Handler
-.thumb_set UsageFault_Handler,Default_Handler
+.thumb_set UsageFault_Handler,Fault_Handler
 .weak SVC_Handler
 .thumb_set SVC_Handler,Default_Handler
 .weak DebugMon_Handler
