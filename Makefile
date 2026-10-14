@@ -89,20 +89,24 @@ ASFLAGS := $(MCU_FLAGS) -g3 -MMD -MP
 
 LDSCRIPT := linker/STM32F446RE.ld
 
-LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections \
+LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections -Wl,--fatal-warnings \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map \
-           --specs=nosys.specs
-# Note: --specs=nano.specs is not used. It was originally omitted because
-# Homebrew's arm-none-eabi-gcc ships only standard newlib; the Arm GNU
-# Toolchain this project builds with (locally and in CI) does ship it, so
-# that reason is gone. It is still left out because no libc code is linked
-# into the image today (the linker script has no .init_array, startup never
-# calls __libc_init_array, and nothing uses printf/malloc), so nano would
-# change nothing; revisit when something does. nosys.specs (syscall stubs)
-# is unaffected. The image really does contain no libc code, but the link
-# still pulls newlib's syscall stubs in before --gc-sections drops them, so
-# it prints a "_close/_lseek/_read/_write is not implemented" warning for
-# each; they are harmless and not a sign of anything wrong.
+           -nostartfiles --specs=nosys.specs
+# -nostartfiles: the entry point is startup/startup_stm32f446re.s's own
+# Reset_Handler, which does everything crt0 would (stack, .data/.bss, main),
+# so the toolchain's crt0/crti/crtbegin/crtend files are not wanted. Linking
+# them in pulled newlib's syscall stubs in ahead of --gc-sections, which
+# printed a "_close/_lseek/_read/_write is not implemented" warning for each
+# even though nothing in the image used them. With them gone the link is
+# silent, so --fatal-warnings makes any new linker warning fail the build
+# the way -Werror does for the compiler. The consequence is that nothing
+# calls __libc_init_array or runs .init_array/.fini_array; the linker script
+# has neither, and no libc code is linked in today. Revisit both together if
+# C++ or constructors are ever needed.
+#
+# --specs=nano.specs is not used: no libc code is linked into the image
+# today (nothing uses printf/malloc), so it would change nothing. nosys.specs
+# (syscall stubs) is kept for when something does.
 
 ##########################################################################
 # Object files - mirrors the source tree under build/, e.g.
@@ -496,7 +500,25 @@ TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
 # relying on a naming convention nothing enforces.
 TEST_OBJECTS   := $(TEST_SOURCES:%.c=$(TEST_BUILD_DIR)/%.o)
 
-$(TEST_BUILD_DIR)/%.o: %.c
+# Like the firmware build's FLAGS_STAMP, one per host build dir: make only
+# rebuilds an object when its sources change, so without these an edit to
+# HOST_CFLAGS (WARN_FLAGS included) would leave stale objects and a new
+# warning would stay hidden until a clean build. The coverage build has its
+# own stamp because its flags differ.
+HOST_STAMP     := $(TEST_BUILD_DIR)/.flags
+COVERAGE_STAMP := $(TEST_DIR)/coverage/.flags
+
+$(HOST_STAMP): FORCE
+	@mkdir -p $(dir $@)
+	@printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' | cmp -s - $@ || \
+	  printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' > $@
+
+$(COVERAGE_STAMP): FORCE
+	@mkdir -p $(dir $@)
+	@printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' | cmp -s - $@ || \
+	  printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' > $@
+
+$(TEST_BUILD_DIR)/%.o: %.c $(HOST_STAMP)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) -c $< -o $@
 
@@ -543,7 +565,7 @@ COVERAGE_MIN_BRANCH := 100
 COVERAGE_DIR        := $(TEST_DIR)/coverage
 COVERAGE_OBJECTS    := $(TEST_SOURCES:%.c=$(COVERAGE_DIR)/%.o)
 
-$(COVERAGE_DIR)/%.o: %.c
+$(COVERAGE_DIR)/%.o: %.c $(COVERAGE_STAMP)
 	@mkdir -p $(dir $@)
 	$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0 -c $< -o $@
 
