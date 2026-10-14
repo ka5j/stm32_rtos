@@ -61,7 +61,6 @@ LDSCRIPT := linker/STM32F446RE.ld
 # so a C constructor is one of those.
 LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections -Wl,--fatal-warnings \
            -Wl,--orphan-handling=error \
-           -Wl,-Map=$(BUILD_DIR)/$(TARGET).map \
            -nostartfiles --specs=nosys.specs
 
 # Objects mirror the source tree: drivers/src/gpio.c -> build/drivers/src/gpio.o
@@ -72,7 +71,7 @@ DEPS    := $(OBJECTS:.o=.d)
 # --- Targets --------------------------------------------------------------
 .DEFAULT_GOAL := all
 
-.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version check-pr hooks FORCE
+.PHONY: all clean flash erase debug size smoke smoke-flash re docs format format-check lint test coverage check-version check-pr hooks FORCE
 
 # Never leave a truncated output that a later run would treat as up to date.
 .DELETE_ON_ERROR:
@@ -107,7 +106,7 @@ $(BUILD_DIR)/%.o: %.S $(FLAGS_STAMP)
 	$(AS) $(ASFLAGS) $(INCLUDES) -c $< -o $@
 
 $(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) $(LDSCRIPT) $(FLAGS_STAMP)
-	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
+	$(LD) $(LDFLAGS) -Wl,-Map=$(@:.elf=.map) $(OBJECTS) -o $@
 
 $(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
 	$(OBJCOPY) -O binary $< $@
@@ -118,8 +117,28 @@ $(BUILD_DIR)/$(TARGET).hex: $(BUILD_DIR)/$(TARGET).elf
 size: $(BUILD_DIR)/$(TARGET).elf
 	$(SIZE) $<
 
+# --- On-target smoke test --------------------------------------------------
+# A second image with tests/target/ in place of app/ (see tests/target/smoke.c).
+# SMOKE_FAULT=1 ends it with a deliberate divide by zero for Fault_Handler.
+SMOKE_SOURCES := $(sort $(wildcard tests/target/*.c))
+SMOKE_OBJECTS := $(filter-out $(BUILD_DIR)/app/%,$(OBJECTS)) $(SMOKE_SOURCES:%.c=$(BUILD_DIR)/%.o)
+SMOKE_ELF     := $(BUILD_DIR)/smoke.elf
+
+ifeq ($(SMOKE_FAULT),1)
+  CFLAGS += -DSMOKE_FAULT=1
+endif
+
+$(SMOKE_ELF): $(SMOKE_OBJECTS) $(LDSCRIPT) $(FLAGS_STAMP)
+	$(LD) $(LDFLAGS) -Wl,-Map=$(@:.elf=.map) $(SMOKE_OBJECTS) -o $@
+
+smoke: $(SMOKE_ELF)
+	$(SIZE) $<
+
 # --- Board (OpenOCD over the on-board ST-LINK) ----------------------------
 flash: $(BUILD_DIR)/$(TARGET).elf
+	openocd -f tools/openocd.cfg -c "program $< verify reset exit"
+
+smoke-flash: $(SMOKE_ELF)
 	openocd -f tools/openocd.cfg -c "program $< verify reset exit"
 
 erase:
@@ -281,4 +300,4 @@ hooks:
 docs:
 	doxygen Doxyfile
 
--include $(DEPS) $(TEST_OBJECTS:.o=.d) $(COVERAGE_OBJECTS:.o=.d)
+-include $(DEPS) $(SMOKE_OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d) $(COVERAGE_OBJECTS:.o=.d)

@@ -113,11 +113,14 @@ Host tests run driver logic against in-memory register structs (see
   in what order. The PWR voltage-scale sequence once shipped inverted with
   every test passing. The reference manual, not the test suite, is the
   authority on ordering and writability.
-- No driver has run on silicon yet: `main()` is an empty loop, so the linker
-  removes all of them. On-target checks are manual (`make flash`,
-  `make debug`) until `main` drives the LED or UART and a smoke test has
-  something to observe. There is deliberately no self-hosted
-  hardware-in-the-loop runner (see [Security](../SECURITY.md)).
+- The on-target smoke test (`tests/target/smoke.c`) covers that gap. It is
+  a second image that runs the BSP and drivers on the board, reads back
+  what the chip did (clock tree, regulator, flash wait states, GPIO, NVIC,
+  SysTick) and reports PASS/FAIL on the VCP. `main()` itself is still an
+  empty loop.
+- The smoke test runs by hand (`make smoke-flash`). CI only builds it: there
+  is deliberately no self-hosted hardware-in-the-loop runner (see
+  [Security](../SECURITY.md)).
 
 ## MISRA C:2012 deviations
 

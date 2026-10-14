@@ -20,8 +20,23 @@ specifically.
   lock up the core.
 - `faultEnable()` gives MemManage, BusFault and UsageFault their own
   handlers and traps integer division by zero (`CCR.DIV_0_TRP`), which
-  otherwise returns 0 silently. Nothing calls it yet; without it those
-  faults escalate to HardFault and CFSR still names the cause.
+  otherwise returns 0 silently. The smoke test calls it; `main()` does not
+  yet. Without it, those faults escalate to HardFault and CFSR still names
+  the cause.
+- On-target smoke test, the first code from this project to run on the chip.
+  `make smoke` builds `build/smoke.elf` from `tests/target/smoke.c` in place
+  of `app/`, and `make smoke-flash` programs it. It runs `bspClockInit()`
+  and the drivers, then reports PASS/FAIL per check on the VCP (115200 8N1):
+  - the clock tree read back from RCC, PWR and FLASH;
+  - GPIO write, read-back and toggle on LD2;
+  - an NVIC interrupt pended, taken, held while disabled, and cleared;
+  - SysTick at 1 kHz timed against 100 ms of UART traffic.
+
+  LD2 then blinks at 1 Hz on a pass and at 5 Hz on any failure. On a
+  NUCLEO-F446RE all 17 checks pass in both debug and release builds. With
+  `SMOKE_FAULT=1` it divides by zero at the end, and `faultRecord` showed
+  UsageFault, CFSR.DIVBYZERO and the stacked PC of the `udiv`. CI builds
+  the image but cannot run it.
 
 ### Changed
 

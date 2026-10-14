@@ -50,6 +50,7 @@ app/             main()
 startup/         Vector table and Reset_Handler
 linker/          Memory layout (STM32F446RE.ld)
 tests/unit/      Host-side Unity tests, one file per module
+tests/target/    On-target smoke test, a second image (make smoke)
 tests/unity/     Vendored Unity
 tools/           Build checks (awk, sh) and openocd.cfg
 docs/            These pages, groups.dox and the Doxygen theme
