@@ -24,7 +24,7 @@ Once `1.0.0` ships, standard SemVer rules apply:
 
 ## Cutting a release
 
-Every release so far (v0.1.4, v0.1.5) was cut this way; the numbered steps are the whole procedure.
+Every release so far (v0.1.4 to v0.1.6) was cut this way; the numbered steps are the whole procedure.
 
 1. **Release branch.** From an up-to-date `develop` whose CI is green and whose `make coverage` is 100%, create `release/vX.Y.Z`. On it:
    - bump `PROJECT_NUMBER` in the [Doxyfile](../Doxyfile) to the new version;
