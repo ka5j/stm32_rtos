@@ -90,6 +90,34 @@
  *        parameter and returns a ::DriverStatus_e where it can fail.
  */
 
+/** @defgroup gpio_driver GPIO
+ *  @ingroup driver_layer
+ *  @brief Pin configuration and digital I/O. */
+
+/** @defgroup rcc_driver RCC
+ *  @ingroup driver_layer
+ *  @brief Peripheral clock gating, oscillators, PLL and SYSCLK switch. */
+
+/** @defgroup flash_driver Flash
+ *  @ingroup driver_layer
+ *  @brief Flash wait states, prefetch and caches. */
+
+/** @defgroup pwr_driver PWR
+ *  @ingroup driver_layer
+ *  @brief Regulator voltage scaling and over-drive. */
+
+/** @defgroup uart_driver UART
+ *  @ingroup driver_layer
+ *  @brief Blocking asynchronous USART/UART transfer. */
+
+/** @defgroup nvic_driver NVIC
+ *  @ingroup driver_layer
+ *  @brief Interrupt enable, pending and priority control. */
+
+/** @defgroup systick_driver SysTick
+ *  @ingroup driver_layer
+ *  @brief The system tick timer. */
+
 /**
  * @defgroup board_support Board Support Package
  * @brief NUCLEO-F446RE configuration built on the drivers: today the

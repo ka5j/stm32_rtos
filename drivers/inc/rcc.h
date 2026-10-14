@@ -1,83 +1,32 @@
 /**
  * @file rcc.h
- * @brief RCC peripheral driver - peripheral clock gating and HSI/HSE-to-PLL
- *        SYSCLK bring-up for the STM32F446xx (device/inc/rcc_reg.h). No
- *        application-facing logic; consumed by bsp/ and, once it exists, api/.
+ * @brief RCC driver: peripheral clock gating and HSI/HSE-to-PLL SYSCLK bring-up.
  *
- * Two halves:
- *   - Clock gating: enabling/disabling the AHB1/APB1/APB2 peripheral
- *     clocks the GPIO, USART2, SYSCFG, and PWR blocks need before their
- *     own registers become accessible. Each enable reads the enable
- *     register back before returning: a peripheral's clock is not
- *     guaranteed to be running on the very next access after the write,
- *     and ST's own HAL (its __HAL_RCC_*_CLK_ENABLE macros) does the same
- *     read-back, commented "Delay after an RCC peripheral clock
- *     enabling". The read cannot be observed in a host test's in-memory
- *     register block.
- *   - SYSCLK bring-up: enabling HSI/HSE, configuring and enabling the
- *     PLL, setting the AHB/APB1/APB2 bus prescalers, and switching SYSCLK
- *     to the configured source via rccSysclkSwitch() - which also applies
- *     the flash access latency (flash.h) the new frequency requires, per
- *     RM0390 Table 5 (section 3.4.1), on whichever side of the switch is
- *     actually safe -
- *     see rccSysclkSwitch()'s own doc comment for why that side depends
- *     on the switch's direction.
+ * Bring-up to a PLL clock must follow this order, which RM0390 imposes (see
+ * [Clock bring-up order](DESIGN.md#clock-bring-up-order)); bspClockInit() is
+ * the worked example:
  *
- * The PWR voltage scale the target frequency needs is *not* sequenced
- * from inside this driver, because the hardware forbids it: RM0390
- * section 5.1.3 allows PWR_CR.VOS to be written only
- * while the PLL is off, and CSR.VOSRDY only reports the regulator
- * settled after the PLL has been switched on. Both of those fall outside
- * the window rccSysclkSwitch() runs in - by the time it is called the
- * PLL must already be locked. The caller therefore owns the full order:
+ * 1. rccPwrClockEnable()
+ * 2. pwrSetVoltageScale(): the PLL must still be off
+ * 3. rccHseEnable() or rccHsiEnable()
+ * 4. rccPllConfig()
+ * 5. rccPllEnable()
+ * 6. pwrWaitVoltageScaleReady()
+ * 7. pwrEnableOverdrive(): only above the scale's normal maximum (180 MHz)
+ * 8. rccBusPrescalerConfig()
+ * 9. rccSysclkSwitch(): also sets the flash latency
  *
- *   1. rccPwrClockEnable(RCC)                  - PWR registers accessible
- *   2. pwrSetVoltageScale(PWR, scale)          - PLL still off
- *   3. rccHsiEnable(RCC) / rccHseEnable(RCC, bypass)
- *   4. rccPllConfig(RCC, source, m, n, p)
- *   5. rccPllEnable(RCC)                       - scale now takes effect
- *   6. pwrWaitVoltageScaleReady(PWR)           - regulator settled
- *   7. pwrEnableOverdrive(PWR)                 - only for the top range
- *                                                (180 MHz); PLL locked,
- *                                                SYSCLK still HSI/HSE
- *   8. rccBusPrescalerConfig(RCC, hpre, ppre1, ppre2)
- *   9. rccSysclkSwitch(RCC, FLASH, source, latency)
+ * Steps 2 and 3 can swap. Running directly from HSI or HSE needs only steps 3
+ * and 9, plus 8 if the buses must be divided:
+ * @code
+ * if (rccHseEnable(RCC, RCC_CR_HSEBYP) != DRIVER_STATUS_OK) { ... }
+ * if (rccSysclkSwitch(RCC, FLASH, RCC_CFGR_SYSCLK_HSE, 0U) != DRIVER_STATUS_OK) { ... } // 8 MHz
+ * @endcode
  *
- * Steps 2 and 3 are independent of each other (both only need the PLL to
- * still be off), so a caller may do them in either order; bsp/'s
- * bspClockInit() brings HSE up first so a missing clock fails before the
- * regulator is touched.
- *
- * Steps 1, 2 and 6 are skippable only when running SYSCLK straight off
- * HSI or HSE with no PLL: with the PLL off the regulator runs at scale 3
- * whatever CR.VOS holds (CR.VOS itself resets to 0b11, which is scale 1
- * once the PLL is on - pwr.h), and scale 3 covers that frequency range. Step 7 is needed only for
- * frequencies above the selected scale's normal maximum. Its position
- * follows ST's own 180 MHz example for this part (PLL on, then
- * over-drive, then the prescalers and the SYSCLK switch with 5 flash wait
- * states), and matches RM0390 section 5.1.3's "Entering Over-drive mode"
- * steps except that the manual overlaps the over-drive switch with the PLL
- * lock phase "to optimize the configuration time"; waiting for the lock
- * first, as here, is the same sequence without that optimisation.
- *
- * Every hardware-ready wait here (HSIRDY/HSERDY/PLLRDY/SWS/VOSRDY/ODRDY/ODSWRDY) is a
- * bounded iteration-count retry, not a wall-clock timeout: SysTick is not
- * configured this early in bring-up (its reload value depends on the
- * SYSCLK frequency this code is in the middle of establishing), the same
- * reasoning CMSIS's own system_stm32f4xx.c SetSysClock() uses for its
- * HSE/PLL ready-waits. This is what makes bring-up host-testable off-
- * target the same way clock gating already is: the ready bit (e.g.
- * CR.HSERDY) is a field distinct from what the driver itself writes
- * (CR.HSEON), so a test can hold it clear indefinitely in a plain
- * in-memory RccRegisters_t to exercise the timeout branch - see
- * tests/unit/test_rcc.c.
- *
- * Takes RCC's register block as a parameter (RccRegisters_t *) even
- * though RCC is a hardware singleton, and identifies a GPIO port by its
- * existing GpioRegisters_t * (GPIOA, GPIOB, ...) rather than a new port
- * enum - see CONTRIBUTING.md's error-handling contract section for why
- * this project parameterizes every driver by its register block
- * regardless of instance count.
+ * Every wait is a bounded poll count, not a time (see
+ * [Poll-count timeouts](DESIGN.md#poll-count-timeouts)). Each enable reads the
+ * enable register back, so the clock is running before the caller's first
+ * access to the peripheral.
  */
 #ifndef RCC_H
 #define RCC_H
@@ -90,346 +39,194 @@
 #include <stdint.h>
 
 /**
- * @addtogroup driver_layer
+ * @addtogroup rcc_driver
  * @{
  */
 
-/* ======================================================================
- * Peripheral clock gating
- * ==================================================================== */
+/** @name Peripheral clock gating
+ *  @{ */
 
 /**
- * @brief Enable a GPIO port's AHB1 peripheral clock.
- *
- * Must be called before any gpio.h function touches @p port's registers -
- * see gpio.h's gpioInit() @pre.
- *
- * @param rcc  RCC register block (e.g. RCC).
- * @param port GPIO port register block to enable (e.g. GPIOA). Identified
- *             by pointer identity against GPIOA..GPIOH (gpio_reg.h) -
- *             never dereferenced, only compared.
- * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if port is not one of
- *         GPIOA..GPIOH.
+ * @brief Enable a GPIO port's clock.
+ * @param rcc  RCC block (e.g. RCC).
+ * @param port Port to enable, GPIOA to GPIOH; compared by address, never dereferenced.
+ * @retval DRIVER_STATUS_OK                Enabled.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM @p port is not GPIOA to GPIOH.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccGpioClockEnable(RccRegisters_t *rcc,
                                                     const GpioRegisters_t *port);
 
 /**
- * @brief Disable a GPIO port's AHB1 peripheral clock.
- *
- * @param rcc  RCC register block (e.g. RCC).
- * @param port GPIO port register block to disable (e.g. GPIOA). Identified
- *             by pointer identity against GPIOA..GPIOH (gpio_reg.h) -
- *             never dereferenced, only compared.
- * @return DRIVER_STATUS_OK on success.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if port is not one of
- *         GPIOA..GPIOH.
+ * @brief Disable a GPIO port's clock.
+ * @param rcc  RCC block (e.g. RCC).
+ * @param port Port to disable, GPIOA to GPIOH.
+ * @retval DRIVER_STATUS_OK                Disabled.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM @p port is not GPIOA to GPIOH.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccGpioClockDisable(RccRegisters_t *rcc,
                                                      const GpioRegisters_t *port);
 
-/**
- * @brief Enable USART2's APB1 peripheral clock.
- * @param rcc RCC register block (e.g. RCC).
- */
+/** @brief Enable USART2's clock.
+ *  @param rcc RCC block (e.g. RCC). */
 void rccUsart2ClockEnable(RccRegisters_t *rcc);
 
-/**
- * @brief Disable USART2's APB1 peripheral clock.
- * @param rcc RCC register block (e.g. RCC).
- */
+/** @brief Disable USART2's clock.
+ *  @param rcc RCC block (e.g. RCC). */
 void rccUsart2ClockDisable(RccRegisters_t *rcc);
 
-/**
- * @brief Enable SYSCFG's APB2 peripheral clock.
- *
- * Must be called before any syscfg_reg.h register is accessed (e.g. to
- * route a GPIO pin to an EXTI line via EXTICR) - see syscfg_reg.h's
- * file-level comment.
- *
- * @param rcc RCC register block (e.g. RCC).
- */
+/** @brief Enable SYSCFG's clock; needed before any SYSCFG access (e.g. EXTI routing).
+ *  @param rcc RCC block (e.g. RCC). */
 void rccSyscfgClockEnable(RccRegisters_t *rcc);
 
-/**
- * @brief Disable SYSCFG's APB2 peripheral clock.
- * @param rcc RCC register block (e.g. RCC).
- */
+/** @brief Disable SYSCFG's clock.
+ *  @param rcc RCC block (e.g. RCC). */
 void rccSyscfgClockDisable(RccRegisters_t *rcc);
 
-/**
- * @brief Enable PWR's APB1 peripheral clock.
- *
- * Must be called before any pwr_reg.h register is accessed - see
- * device/inc/rcc_reg.h's RCC_APB1ENR_PWREN comment.
- *
- * @param rcc RCC register block (e.g. RCC).
- */
+/** @brief Enable PWR's clock; needed before any PWR access.
+ *  @param rcc RCC block (e.g. RCC). */
 void rccPwrClockEnable(RccRegisters_t *rcc);
 
-/**
- * @brief Disable PWR's APB1 peripheral clock.
- * @param rcc RCC register block (e.g. RCC).
- */
+/** @brief Disable PWR's clock.
+ *  @param rcc RCC block (e.g. RCC). */
 void rccPwrClockDisable(RccRegisters_t *rcc);
 
-/* ======================================================================
- * Oscillators (HSI, HSE)
- * ==================================================================== */
+/** @} */
+
+/** @name Oscillators
+ *  @{ */
 
 /**
- * @brief Enable the internal 16 MHz RC oscillator (HSI) and wait for it
- *        to stabilize.
+ * @brief Turn on the 16 MHz internal oscillator (HSI) and wait until ready.
  *
- * HSI is already running at reset (it is the boot clock); calling this
- * again is harmless and returns quickly once HSIRDY is already set.
+ * HSI is the reset clock, so this normally returns at once.
  *
- * @param rcc RCC register block (e.g. RCC).
- * @return DRIVER_STATUS_OK once CR.HSIRDY is observed set.
- * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSIRDY never set within
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations - see this file's
- *         top comment on why this is a bounded retry, not a wall-clock
- *         timeout. HSION stays set; to abandon the attempt, call
- *         rccHsiDisable().
+ * @param rcc RCC block (e.g. RCC).
+ * @retval DRIVER_STATUS_OK          HSIRDY is set.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT HSIRDY did not set; HSION stays set.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHsiEnable(RccRegisters_t *rcc);
 
 /**
- * @brief Disable the internal 16 MHz RC oscillator (HSI).
- *
- * @param rcc RCC register block (e.g. RCC).
- * @return DRIVER_STATUS_OK once CR.HSION is cleared and CR.HSIRDY has
- *         followed it down (the ready flag drops a few cycles after the
- *         ON bit, and a quick re-enable would otherwise read it stale).
- * @return DRIVER_STATUS_ERR_BUSY if HSI is feeding SYSCLK: CFGR.SWS reports
- *         HSI directly, or reports the PLL while PLLCFGR.PLLSRC selects
- *         HSI as its input (RM0390 does not let HSION be cleared in
- *         either case). Switch SYSCLK to a different, already-ready
- *         source via rccSysclkSwitch() first.
- * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSIRDY stayed set for
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after HSION was
- *         cleared. HSION stays cleared.
+ * @brief Turn off HSI and wait until HSIRDY clears.
+ * @param rcc RCC block (e.g. RCC).
+ * @retval DRIVER_STATUS_OK          HSI is off.
+ * @retval DRIVER_STATUS_ERR_BUSY    HSI feeds SYSCLK, directly or through the PLL; nothing
+ *                                   written.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT HSIRDY stayed set; HSION is cleared.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHsiDisable(RccRegisters_t *rcc);
 
 /**
- * @brief Enable the external oscillator (HSE) and wait for it to
- *        stabilize.
- *
- * @param rcc    RCC register block (e.g. RCC).
- * @param bypass CR.HSEBYP field value: ::RCC_CR_HSEBYP to bypass the
- *               oscillator with an external digital clock signal on
- *               OSC_IN (e.g. a board's MCO passthrough), or `0U` for a
- *               crystal/resonator on OSC_IN/OSC_OUT (RM0390's default
- *               mode). RM0390 only permits writing HSEBYP while
- *               CR.HSEON is clear, which this function's own BUSY guard
- *               below already ensures.
- * @return DRIVER_STATUS_OK once CR.HSERDY is observed set.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if bypass is not `0U` or
- *         ::RCC_CR_HSEBYP.
- * @return DRIVER_STATUS_ERR_BUSY if CR.HSEON is already set - HSEBYP
- *         cannot be safely reconfigured without disabling HSE first (see
- *         rccHseDisable()).
- * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSERDY never set within
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations. HSEON stays
- *         set, so calling this again reports BUSY; call rccHseDisable()
- *         first to retry (or to abandon the attempt).
+ * @brief Turn on the external oscillator (HSE) and wait until ready.
+ * @param rcc    RCC block (e.g. RCC).
+ * @param bypass ::RCC_CR_HSEBYP for an external clock on OSC_IN (the NUCLEO's
+ *               ST-LINK MCO), or 0 for a crystal.
+ * @retval DRIVER_STATUS_OK                HSERDY is set.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM @p bypass is neither value.
+ * @retval DRIVER_STATUS_ERR_BUSY          HSE is already on; call rccHseDisable() first.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT       HSERDY did not set; HSEON stays set.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHseEnable(RccRegisters_t *rcc, uint32_t bypass);
 
 /**
- * @brief Disable the external oscillator (HSE).
- *
- * @param rcc RCC register block (e.g. RCC).
- * @return DRIVER_STATUS_OK once CR.HSEON is cleared and CR.HSERDY has
- *         followed it down.
- * @return DRIVER_STATUS_ERR_BUSY if HSE is feeding SYSCLK: CFGR.SWS reports
- *         HSE directly, or reports the PLL while PLLCFGR.PLLSRC selects
- *         HSE as its input (RM0390 does not let HSEON be cleared in
- *         either case). Switch SYSCLK to a different, already-ready
- *         source via rccSysclkSwitch() first.
- *         Does not check an enabled PLL that is *not* the active SYSCLK
- *         source: that PLL loses its input, which is the caller's to
- *         sequence (rccPllDisable() first).
- * @return DRIVER_STATUS_ERR_TIMEOUT if CR.HSERDY stayed set for
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after HSEON was
- *         cleared. HSEON stays cleared.
+ * @brief Turn off HSE and wait until HSERDY clears.
+ * @param rcc RCC block (e.g. RCC).
+ * @retval DRIVER_STATUS_OK          HSE is off.
+ * @retval DRIVER_STATUS_ERR_BUSY    HSE feeds SYSCLK, directly or through the PLL; nothing
+ *                                   written.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT HSERDY stayed set; HSEON is cleared.
+ * @warning A PLL that is on but not feeding SYSCLK loses its input. Disable it first.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccHseDisable(RccRegisters_t *rcc);
 
-/* ======================================================================
- * PLL
- * ==================================================================== */
+/** @} */
+
+/** @name Main PLL
+ *  @{ */
 
 /**
- * @brief Configure the main PLL's input source and M/N/P dividers.
+ * @brief Set the PLL's input source and M, N and P.
  *
- * RM0390 forbids writing PLLCFGR while the PLL is enabled - this
- * function's own BUSY guard enforces that. RM0390 also says PLLSRC can be
- * written only while PLLI2S is disabled too; this driver has no PLLI2S
- * support and never enables it, so that is not checked here. Does not configure PLLQ
- * (USB OTG FS/SDIO 48 MHz output) - see rcc_reg.h's file-level comment
- * on why this project omits it.
+ * Checks the register ranges, not the VCO frequency limits. PLLQ is left
+ * unchanged.
  *
- * @param rcc    RCC register block (e.g. RCC).
- * @param source PLLCFGR.PLLSRC field value: ::RCC_PLLCFGR_PLLSRC_HSI or
- *               ::RCC_PLLCFGR_PLLSRC_HSE. The selected source must
- *               already be enabled and ready (rccHsiEnable()/
- *               rccHseEnable()) before rccPllEnable() is called, though
- *               this function itself does not check that - only
- *               rccPllEnable()'s ready-wait can observe it.
- * @param m      PLLM divider (PLLCFGR bits 5:0): VCO input = source / m.
- *               Valid range 2-63 per RM0390 (0 and 1 are reserved).
- * @param n      PLLN multiplier (PLLCFGR bits 14:6): VCO output =
- *               (source / m) * n. Valid range 50-432 per RM0390.
- * @param p      PLLP field value (PLLCFGR bits 17:16): one of
- *               ::RCC_PLLCFGR_PLLP_DIV2, ::RCC_PLLCFGR_PLLP_DIV4,
- *               ::RCC_PLLCFGR_PLLP_DIV6, ::RCC_PLLCFGR_PLLP_DIV8. SYSCLK
- *               (if the PLL is selected) = VCO output / this divisor.
- * @return DRIVER_STATUS_OK once PLLCFGR has been written.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if source, m, n, or p is
- *         outside its documented range.
- * @return DRIVER_STATUS_ERR_BUSY if CR.PLLON is already set.
+ * @param rcc    RCC block (e.g. RCC).
+ * @param source ::RCC_PLLCFGR_PLLSRC_HSI or ::RCC_PLLCFGR_PLLSRC_HSE.
+ * @param m      Input divider, 2-63. VCO input = source / m, must be 1-2 MHz.
+ * @param n      Multiplier, 50-432. VCO output = VCO input x n, must be 100-432 MHz.
+ * @param p      A `RCC_PLLCFGR_PLLP_DIV*` value. SYSCLK = VCO output / p.
+ * @retval DRIVER_STATUS_OK                PLLCFGR written.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM A parameter is out of range.
+ * @retval DRIVER_STATUS_ERR_BUSY          The PLL is on; PLLCFGR is writable only while it is off.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccPllConfig(RccRegisters_t *rcc, uint32_t source, uint32_t m,
                                               uint32_t n, uint32_t p);
 
 /**
- * @brief Enable the main PLL and wait for it to lock.
- *
- * @param rcc RCC register block (e.g. RCC).
- * @pre rccPllConfig() has already configured PLLCFGR, and its selected
- *      source is already enabled and ready.
- * @return DRIVER_STATUS_OK once CR.PLLRDY is observed set.
- * @return DRIVER_STATUS_ERR_TIMEOUT if CR.PLLRDY never set within
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations - typically means
- *         PLLCFGR's source was never actually made ready before this call.
- *         PLLON stays set, so rccPllConfig() reports BUSY; call
- *         rccPllDisable() first to reconfigure or retry.
+ * @brief Turn on the PLL and wait for lock.
+ * @param rcc RCC block (e.g. RCC).
+ * @pre rccPllConfig() has run and its source oscillator is ready.
+ * @retval DRIVER_STATUS_OK          PLLRDY is set.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT PLLRDY did not set, usually because the source is not
+ *                                   ready. PLLON stays set; call rccPllDisable() to retry.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccPllEnable(RccRegisters_t *rcc);
 
 /**
- * @brief Disable the main PLL.
- *
- * @param rcc RCC register block (e.g. RCC).
- * @return DRIVER_STATUS_OK once CR.PLLON is cleared and CR.PLLRDY has
- *         followed it down. rccPllEnable() returns as soon as PLLRDY is
- *         set, and rccPllConfig() is only permitted with PLLON clear, so
- *         a stale PLLRDY after a disable would let a re-enable report a
- *         lock that has not happened.
- * @return DRIVER_STATUS_ERR_BUSY if CFGR.SWS currently reports the PLL as
- *         the active SYSCLK source - disabling it would stop the running
- *         clock. Switch SYSCLK to a different, already-ready source via
- *         rccSysclkSwitch() first.
- * @return DRIVER_STATUS_ERR_TIMEOUT if CR.PLLRDY stayed set for
- *         RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after PLLON was
- *         cleared. PLLON stays cleared.
+ * @brief Turn off the PLL and wait until PLLRDY clears.
+ * @param rcc RCC block (e.g. RCC).
+ * @retval DRIVER_STATUS_OK          The PLL is off.
+ * @retval DRIVER_STATUS_ERR_BUSY    The PLL is the SYSCLK source; nothing written.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT PLLRDY stayed set; PLLON is cleared.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccPllDisable(RccRegisters_t *rcc);
 
-/* ======================================================================
- * Bus prescalers and SYSCLK switch
- * ==================================================================== */
+/** @} */
+
+/** @name Bus prescalers and SYSCLK
+ *  @{ */
 
 /**
- * @brief Configure the AHB, APB1, and APB2 bus prescalers.
+ * @brief Set the AHB, APB1 and APB2 prescalers.
  *
- * RM0390 documents no ready/busy flag for these fields, so there is
- * nothing to poll, and (RCC_CFGR, HPRE/PPRE) the clocks are divided with
- * the new prescaler "from 1 to 16 AHB cycles after" the write rather than
- * on it: do not rely on the new bus clock in the very next instruction. (bspClockInit() does not:
- * it programs the prescalers while SYSCLK is still the slow HSI, with several register accesses
- * before the switch to the PLL.) Get this right before switching to a fast SYSCLK source: APB1's
- * peripherals are rated to 45 MHz max and APB2's to 90 MHz max on the F446, regardless of SYSCLK.
+ * The new division takes effect 1 to 16 AHB cycles after the write. Does not
+ * check the bus maximums: APB1 at most 45 MHz, APB2 at most 90 MHz.
  *
- * @param rcc   RCC register block (e.g. RCC).
- * @param hpre  CFGR.HPRE field value - one of the 9 ::RCC_CFGR_HPRE_DIV1
- *              .. ::RCC_CFGR_HPRE_DIV512 macros (device/inc/rcc_reg.h;
- *              not every 4-bit code is a distinct, documented divisor).
- * @param ppre1 CFGR.PPRE1 field value - one of the 5
- *              ::RCC_CFGR_PPRE_DIV1 .. ::RCC_CFGR_PPRE_DIV16 macros.
- * @param ppre2 CFGR.PPRE2 field value - one of the same 5
- *              ::RCC_CFGR_PPRE_DIV1 .. ::RCC_CFGR_PPRE_DIV16 macros.
- * @return DRIVER_STATUS_OK once CFGR has been written.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if hpre, ppre1, or ppre2 is not
- *         one of its documented values.
+ * @param rcc   RCC block (e.g. RCC).
+ * @param hpre  A `RCC_CFGR_HPRE_DIV*` value.
+ * @param ppre1 A `RCC_CFGR_PPRE_DIV*` value for APB1.
+ * @param ppre2 A `RCC_CFGR_PPRE_DIV*` value for APB2.
+ * @retval DRIVER_STATUS_OK                CFGR written.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM A value is not one of its macros.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccBusPrescalerConfig(RccRegisters_t *rcc, uint32_t hpre,
                                                        uint32_t ppre1, uint32_t ppre2);
 
 /**
- * @brief Switch SYSCLK to the given source, applying the flash access
- *        latency the new frequency requires on whichever side of the
- *        switch is actually safe.
+ * @brief Switch SYSCLK to a ready source and set the flash latency it needs.
  *
- * The latency change is *not* unconditionally sequenced before CFGR.SW -
- * which side it lands on depends on whether @p latency raises or lowers
- * what ACR.LATENCY currently holds:
- *   - Raising: applied here, before CFGR.SW, same as flash.h's
- *     flashSetLatency() describes - a higher latency is always safe to
- *     apply early, and reading flash at too few wait states for the
- *     frequency SYSCLK is about to become is the failure this avoids.
- *   - Lowering: deferred until *after* CFGR.SWS confirms the switch
- *     completed. Applying a lower latency before the switch would expose
- *     every fetch between that write and the switch actually landing -
- *     including this function's own CFGR.SW write - to too few wait
- *     states at the still-higher frequency SYSCLK has not yet left. If
- *     the switch times out, the lowering step is skipped entirely and
- *     ACR.LATENCY is left at its higher, still-safe current value rather
- *     than lowered under a frequency it was never rated for.
+ * A higher latency is written before the switch; a lower one only after
+ * CFGR.SWS confirms the switch, so flash is never read with too few wait
+ * states.
  *
- * Confirms the requested source is actually ready before switching (a
- * caller that forgot to call rccHsiEnable()/rccHseEnable()/
- * rccPllEnable() first gets a clear DRIVER_STATUS_ERR_NOT_INITIALIZED
- * here rather than a much harder to diagnose failure from the CFGR.SWS
- * poll below).
- *
- * The PWR voltage scale is deliberately not this function's concern -
- * see this file's top comment for the hardware ordering constraint that
- * puts pwrSetVoltageScale() and pwrWaitVoltageScaleReady() on either
- * side of rccPllEnable(), both before this call.
- *
- * @param rcc     RCC register block (e.g. RCC).
- * @param flash   Flash interface register block (e.g. FLASH).
- * @param source  CFGR.SW field value: ::RCC_CFGR_SYSCLK_HSI,
- *                ::RCC_CFGR_SYSCLK_HSE, or ::RCC_CFGR_SYSCLK_PLL.
- * @param latency Target flash access latency - see flashSetLatency().
- * @pre For a PLL source, the full bring-up order in this file's top
- *      comment has already run - in particular the voltage scale is
- *      selected and settled, since this function requires the PLL to be
- *      locked by the time it is called and the scale can no longer be
- *      changed at that point.
- * @return DRIVER_STATUS_OK once CFGR.SWS confirms the switch completed
- *         and, if @p latency was a lowering change, once it has also
- *         been applied.
- * @return DRIVER_STATUS_ERR_INVALID_PARAM if source is not one of the
- *         three documented values, or propagated from flashSetLatency()
- *         if latency is invalid - always caught on the raising side
- *         above, since an out-of-range value is always a raise relative
- *         to ACR.LATENCY's current, always-in-range contents.
- * @return DRIVER_STATUS_ERR_HW_FAULT propagated from flashSetLatency() if
- *         ACR.LATENCY does not read back the value written. If this
- *         happens on the deferred (lowering) side, CFGR.SWS has already
- *         confirmed the switch to the new, slower source; ACR.LATENCY
- *         still holds its old, higher value, which remains safe for the
- *         new, slower SYSCLK even though the lowering write itself
- *         failed.
- * @return DRIVER_STATUS_ERR_TIMEOUT if CFGR.SWS never reports @p source
- *         within RCC_CLOCK_READY_TIMEOUT_ITERATIONS iterations after the
- *         switch. A lowering @p latency is never applied in this case.
- * @return DRIVER_STATUS_ERR_NOT_INITIALIZED if @p source's ready bit
- *         (HSIRDY/HSERDY/PLLRDY) is not set - it was never enabled, or
- *         never finished becoming ready.
- *
- * On either of those last two returns a *raising* @p latency has already
- * been written, because it is applied before the ready check and the
- * switch. That is safe - more wait states than the current SYSCLK needs
- * only slow flash reads down - and it is left in place rather than undone.
+ * @param rcc     RCC block (e.g. RCC).
+ * @param flash   Flash interface block (e.g. FLASH).
+ * @param source  ::RCC_CFGR_SYSCLK_HSI, ::RCC_CFGR_SYSCLK_HSE or ::RCC_CFGR_SYSCLK_PLL.
+ * @param latency Wait states for the new SYSCLK (RM0390 Table 5); see flashSetLatency().
+ * @pre For the PLL, steps 1 to 8 of the bring-up order above have run.
+ * @retval DRIVER_STATUS_OK                  Switched, and the latency is set.
+ * @retval DRIVER_STATUS_ERR_INVALID_PARAM   @p source or @p latency is invalid.
+ * @retval DRIVER_STATUS_ERR_NOT_INITIALIZED @p source is not ready.
+ * @retval DRIVER_STATUS_ERR_TIMEOUT         SWS never reported @p source.
+ * @retval DRIVER_STATUS_ERR_HW_FAULT        ACR.LATENCY did not read back as written.
+ * @note On NOT_INITIALIZED or TIMEOUT a raised latency stays written. That is
+ *       safe: extra wait states only slow flash down. A lowered latency is never
+ *       written unless the switch completed.
  */
 DRIVER_MUST_CHECK DriverStatus_e rccSysclkSwitch(RccRegisters_t *rcc, FlashRegisters_t *flash,
                                                  uint32_t source, uint32_t latency);
+
+/** @} */
 
 /** @} */
 

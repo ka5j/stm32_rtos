@@ -1,35 +1,14 @@
 /**
  * @file driver_status.h
- * @brief Shared error-status contract for every driver in drivers/.
+ * @brief The status every fallible driver function returns.
  *
- * DriverStatus_e is a small, closed set of failure *categories* used
- * for control-flow decisions at the call site (retry, halt, propagate).
- * It is not a substitute for module-specific failure detail (which
- * check failed, on which peripheral, at which register). Introduce a
- * per-module detail enum, returned alongside DriverStatus_e via an
- * out-parameter, only once a specific driver actually requires that
- * granularity. Do not add peripheral-specific values to this enum.
+ * - A function that can fail returns ::DriverStatus_e and is
+ *   ::DRIVER_MUST_CHECK.
+ * - One that cannot fail returns `void`.
+ * - Compare explicitly: `if (status != DRIVER_STATUS_OK)`, never `if (status)`.
  *
- * Every driver function that can genuinely fail - a bounded hardware
- * wait times out, the hardware reports a real fault via a status
- * flag, a caller uses a peripheral before it is initialized, or a
- * runtime-supplied parameter is outside its valid domain - returns
- * DriverStatus_e, marked ::DRIVER_MUST_CHECK. A function with no
- * possible failure mode (a single deterministic register write, with
- * no polling and nothing hardware-reportable) returns void instead;
- * never return DriverStatus_e defensively where nothing can fail.
- *
- * One exception to "validate runtime parameters": the GPIO functions that
- * return void or a pin level (gpioWritePin(), gpioReadPin(),
- * gpioTogglePin(), gpioDeinit()) have no status to return, so they do not
- * validate the pin number. An out-of-range pin is undefined behaviour
- * there, and each states the valid domain as an `@pre` instead (see
- * GpioPin_e in gpio.h).
- *
- * Callers compare explicitly: `if (status != DRIVER_STATUS_OK)`. Never
- * `if (status)` / `if (!status)` - this relies implicitly on
- * DRIVER_STATUS_OK's numeric value and breaks silently if the enum is
- * ever reordered.
+ * See [Error contract](DESIGN.md#error-contract) for the rules and their
+ * one exception.
  */
 #ifndef DRIVER_STATUS_H
 #define DRIVER_STATUS_H
@@ -39,66 +18,33 @@
  * @{
  */
 
-/**
- * @brief Marks a function's return value as mandatory to check.
- *
- * Wraps the underlying compiler attribute so the mechanism lives in
- * one place. Supported by both toolchains this project builds
- * drivers with: arm-none-eabi-gcc (target) and the host gcc/clang
- * `cc` used by tests/unit/ (see the Makefile's HOST_CC).
- */
+/** Make ignoring a function's result a compile error (with `-Werror`). */
 #define DRIVER_MUST_CHECK __attribute__((warn_unused_result))
 
 /**
- * @brief Result of a driver operation.
+ * @brief Outcome of a driver call: a category for control flow, not a diagnosis.
  *
- * DRIVER_STATUS_OK is deliberately not 0; DRIVER_STATUS_UNINITIALIZED
- * occupies 0 instead. The default build is -O0 (see the
- * Makefile's CFLAGS; BUILD=release uses -O2), where the compiler's uninitialized-variable
- * analysis is weakest. If a DriverStatus_e variable is declared and a
- * code path fails to assign it, it must not read as success by
- * coincidence; naming 0 explicitly also gives a `switch` over this
- * enum a concrete, documented value for its `default` case to catch,
- * rather than an implicit, unnamed gap. Combined with the mandatory
- * explicit-comparison rule above, DRIVER_STATUS_UNINITIALIZED is never
- * a value a driver function deliberately returns.
+ * Success is deliberately not 0, so a status variable a code path forgot
+ * to assign never reads as success. Add a per-module detail code beside it
+ * only when a driver needs one; never add peripheral-specific values here.
  */
 typedef enum DriverStatus_e
 {
-    /** A DriverStatus_e variable was read before being assigned by a
-     *  driver function. Never returned deliberately - its presence
-     *  means a code path failed to set the status it claims to report. */
+    /** Never returned. The variable was read before any call assigned it. */
     DRIVER_STATUS_UNINITIALIZED = 0,
-
-    /** Operation completed successfully. */
+    /** Succeeded. */
     DRIVER_STATUS_OK = 1,
-
-    /** A runtime-supplied parameter is outside its valid domain. */
+    /** A parameter is outside its valid domain. Nothing was written. */
     DRIVER_STATUS_ERR_INVALID_PARAM = 2,
-
-    /** Peripheral was used before its init/config function ran. */
+    /** The peripheral or clock source was used before it was enabled or ready. */
     DRIVER_STATUS_ERR_NOT_INITIALIZED = 3,
-
-    /** A bounded wait on a hardware status flag expired before the
-     *  expected condition became true. */
+    /** A bounded wait for a hardware flag ran out. */
     DRIVER_STATUS_ERR_TIMEOUT = 4,
-
-    /** The hardware reported a real fault via a status/error flag
-     *  (e.g. USART_SR.ORE/FE/PE, FLASH_SR.WRPERR). Distinct from
-     *  DRIVER_STATUS_ERR_TIMEOUT: the hardware responded, and what it
-     *  reported was a fault. */
+    /** The hardware answered with a fault, such as a UART framing error or a rejected write. */
     DRIVER_STATUS_ERR_HW_FAULT = 5,
-
-    /** A precondition state conflict: the block is already running or in
-     *  use in a way that makes the request unsafe right now (for example
-     *  enabling HSE or the PLL that is already on, reconfiguring a PLL
-     *  that is running, or disabling an oscillator that is feeding
-     *  SYSCLK). Also what a non-blocking/interrupt-driven driver would
-     *  return for a peripheral that is mid-operation. */
+    /** The hardware is in a state that makes the request unsafe, such as a running PLL. */
     DRIVER_STATUS_ERR_BUSY = 6,
-
-    /** The requested configuration is not implemented by this driver,
-     *  even if it is architecturally valid on the peripheral. */
+    /** Valid on the hardware, but not implemented by this driver. */
     DRIVER_STATUS_ERR_UNSUPPORTED = 7,
 } DriverStatus_e;
 
