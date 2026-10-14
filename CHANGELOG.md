@@ -8,6 +8,13 @@ specifically.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-14
+
+Documentation, tooling and CI only: the firmware image is byte-identical to
+0.1.6 in both the debug and release builds, and nothing has run on
+hardware. `main()` is still an empty loop, so no driver or `bspClockInit()`
+has executed on the board.
+
 ### Changed
 
 - `Doxyfile`: cut from the 1079-line default template to the 20-odd
@@ -1415,7 +1422,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/ka5j/stm32_rtos/compare/v0.1.3...v0.1.4
