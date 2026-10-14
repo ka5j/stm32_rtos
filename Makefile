@@ -221,7 +221,7 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # Sources compiled into the host tests: each takes its register block as a
 # parameter. Coverage gates drivers/src and bsp/src at 100%.
 TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
-                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c \
+                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c drivers/src/fault.c \
                        bsp/src/bsp.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
