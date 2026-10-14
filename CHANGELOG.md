@@ -38,6 +38,28 @@ specifically.
   UsageFault, CFSR.DIVBYZERO and the stacked PC of the `udiv`. CI builds
   the image but cannot run it.
 
+- EXTI driver (`drivers/inc/exti.h`):
+  - `extiSelectPort()` routes a GPIO port to lines 0-15 through
+    SYSCFG_EXTICR, taking the port's register block as `rccGpioClockEnable()`
+    does. It rejects GPIOH above line 1, since GPIOH has only pins 0 and 1.
+  - `extiConfigure()` sets the rising, falling or both edges.
+  - `extiEnableInterrupt()`, `extiDisableInterrupt()`, `extiTriggerSoftware()`,
+    `extiIsPending()` and `extiClearPending()`.
+
+  Every function rejects line 19, which has no source on the F446, and lines
+  past 22. `extiClearPending()` writes PR with a single store, never `|=`:
+  PR is write-1-to-clear, so a read-modify-write would clear every pending
+  line. Event mode (EMR) is not offered, since nothing uses it yet.
+
+  The smoke test checks it on the board, where all 24 checks pass in debug
+  and release:
+  - line 13 (PC13) raised from software through `EXTI15_10_IRQHandler`, with
+    clearing PR also clearing SWIER;
+  - line 5 routed to PA5 (LD2), whose input stage stays live as an output,
+    so driving the LED makes real pin edges. Rising-only configuration takes
+    the rising edge and ignores the falling one, and falling-only does the
+    reverse.
+
 ### Changed
 
 - The link fails on any section `linker/STM32F446RE.ld` does not name

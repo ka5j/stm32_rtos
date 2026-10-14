@@ -230,6 +230,8 @@ lint:
 	  --suppress=misra-c2012-2.5:device/inc/flash_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/pwr_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/uart_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/exti_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/syscfg_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/nvic_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/systick_reg.h \
@@ -257,7 +259,7 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # Sources compiled into the host tests: each takes its register block as a
 # parameter. Coverage gates drivers/src and bsp/src at 100%.
 TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
-                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c drivers/src/fault.c \
+                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c drivers/src/fault.c drivers/src/exti.c \
                        bsp/src/bsp.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)

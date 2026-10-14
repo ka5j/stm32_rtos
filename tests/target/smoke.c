@@ -17,6 +17,7 @@
  * `p/x faultRecord` in GDB.
  */
 #include "bsp.h"
+#include "exti.h"
 #include "fault.h"
 #include "gpio.h"
 #include "nvic.h"
@@ -43,6 +44,8 @@
 
 static volatile uint32_t ticks;
 static volatile uint32_t spare_irq_count;
+static volatile uint32_t exti5_count;
+static volatile uint32_t exti13_count;
 static uint32_t checks_run;
 static uint32_t checks_failed;
 /** Set if any console write timed out; the report may then be incomplete. */
@@ -62,6 +65,28 @@ void SysTick_Handler(void)
 void TIM7_IRQHandler(void)
 {
     spare_irq_count++;
+}
+
+/** Count and clear one line of a shared EXTI vector. */
+static void extiCountLine(uint32_t line, volatile uint32_t *count)
+{
+    bool pending = false;
+
+    if ((extiIsPending(EXTI, line, &pending) == DRIVER_STATUS_OK) && pending
+        && (extiClearPending(EXTI, line) == DRIVER_STATUS_OK))
+    {
+        (*count)++;
+    }
+}
+
+void EXTI9_5_IRQHandler(void)
+{
+    extiCountLine(5U, &exti5_count);
+}
+
+void EXTI15_10_IRQHandler(void)
+{
+    extiCountLine(13U, &exti13_count);
 }
 
 /* --- Console ------------------------------------------------------------ */
@@ -340,6 +365,103 @@ static void checkSystick(void)
           (status == DRIVER_STATUS_OK) && (elapsed >= 99U) && (elapsed <= 101U), "ticks", elapsed);
 }
 
+/** Wait a bounded time for an interrupt to bring @p count to @p expected. */
+static bool waitForCount(const volatile uint32_t *count, uint32_t expected)
+{
+    for (uint32_t i = 0U; (i < 10000U) && (*count != expected); i++)
+    {
+    }
+
+    return *count == expected;
+}
+
+/**
+ * Line 13 (PC13, the B1 button) raised from software, and line 5 routed to
+ * PA5 (LD2), whose input stage stays live as an output. Driving the LED makes
+ * real pin edges, with no wiring.
+ */
+static void checkExti(void)
+{
+    DriverStatus_e status;
+
+    rccSyscfgClockEnable(RCC);
+
+    status = extiSelectPort(SYSCFG, 13U, GPIOC);
+    check("exti_route_pc13",
+          (status == DRIVER_STATUS_OK) && (((SYSCFG->EXTICR[3] >> 4U) & 0xFU) == SYSCFG_EXTICR_PC),
+          "EXTICR4", SYSCFG->EXTICR[3]);
+
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiConfigure(EXTI, 13U, EXTI_EDGE_FALLING);
+    }
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiClearPending(EXTI, 13U);
+    }
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiEnableInterrupt(EXTI, 13U);
+    }
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = nvicEnableIrq(NVIC, EXTI15_10_IRQn);
+    }
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiTriggerSoftware(EXTI, 13U);
+        syncBarrier();
+    }
+    check("exti_software_trigger_taken",
+          (status == DRIVER_STATUS_OK) && waitForCount(&exti13_count, 1U), "count", exti13_count);
+    /* RM0390 10.3.5: clearing PR also clears the SWIER bit. */
+    check("exti_clear_pending_clears_swier", (EXTI->SWIER & (1U << 13U)) == 0U, "SWIER",
+          EXTI->SWIER);
+
+    /* Line 5 from PA5, rising edge only, starting low. */
+    gpioWritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+    status = extiSelectPort(SYSCFG, 5U, GPIOA);
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiConfigure(EXTI, 5U, EXTI_EDGE_RISING);
+    }
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiClearPending(EXTI, 5U);
+    }
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiEnableInterrupt(EXTI, 5U);
+    }
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = nvicEnableIrq(NVIC, EXTI9_5_IRQn);
+    }
+
+    gpioWritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+    check("exti_rising_edge_taken", (status == DRIVER_STATUS_OK) && waitForCount(&exti5_count, 1U),
+          "count", exti5_count);
+    gpioWritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+    check("exti_falling_edge_ignored", !waitForCount(&exti5_count, 2U), "count", exti5_count);
+
+    if (status == DRIVER_STATUS_OK)
+    {
+        status = extiConfigure(EXTI, 5U, EXTI_EDGE_FALLING);
+    }
+    gpioWritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+    check("exti_rising_edge_ignored", !waitForCount(&exti5_count, 2U), "count", exti5_count);
+    gpioWritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+    check("exti_falling_edge_taken", (status == DRIVER_STATUS_OK) && waitForCount(&exti5_count, 2U),
+          "count", exti5_count);
+
+    /* The LED blinks from here on; stop it raising line 5. */
+    if ((extiDisableInterrupt(EXTI, 5U) != DRIVER_STATUS_OK)
+        || (nvicDisableIrq(NVIC, EXTI9_5_IRQn) != DRIVER_STATUS_OK))
+    {
+        check("exti_line5_disable", false, "status", 0U);
+    }
+}
+
 /* --- main --------------------------------------------------------------- */
 
 int main(void)
@@ -364,6 +486,7 @@ int main(void)
     checkGpio();
     checkNvic();
     checkSystick();
+    checkExti();
 
     print(checks_failed == 0U ? "SMOKE PASS " : "SMOKE FAIL ");
     printDec(checks_run - checks_failed);

@@ -86,12 +86,14 @@ contexts at once. When tasks and interrupts exist:
 
 - **Safe on distinct bits:** single stores such as `gpioWritePin()` (BSRR),
   `nvicEnableIrq()`/`nvicDisableIrq()`/`nvicSetPending()`/`nvicClearPending()`
-  (write-1-to-act), `nvicSetPriority()` (one byte), and pure reads.
+  (write-1-to-act), `nvicSetPriority()` (one byte), `extiClearPending()`
+  (write-1-to-clear), and pure reads.
 - **Caller must serialise:** read-modify-writes of shared registers, which
   covers every `rcc*Clock*()`, the RCC CR/CFGR/PLLCFGR writers, the PWR and
   Flash functions, `gpioInit()`/`gpioDeinit()`/`gpioSetAlternateFunction()`,
   `uartInit()`, `nvicSetSystemHandlerPriority()` (SHPR3 holds both
-  PendSV and SysTick), and `faultEnable()` (SHCSR, CCR).
+  PendSV and SysTick), `faultEnable()` (SHCSR, CCR), and every other EXTI
+  function (EXTICR, RTSR/FTSR, IMR, SWIER).
 - **Single owner only:** `gpioTogglePin()`, `uartReceiveByte()`/
   `uartReceive()` (the SR-then-DR read clears the error flags), and
   `systickInit()`.
