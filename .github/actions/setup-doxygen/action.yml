@@ -1,16 +1,14 @@
-name: Set up Doxygen
+name: Set up Doxygen and Graphviz
 description: >-
-  Install the pinned Doxygen release into /opt, verified against a pinned
-  SHA256, and add it to PATH. The single place the Doxygen version and
-  checksum live - ci.yml and pages.yml both use it. Does not install
-  graphviz; the caller does that (apt, needs sudo).
+  Install the pinned Doxygen release into /opt (checked against a pinned
+  SHA256) and Graphviz, the docs toolchain for `make docs`. Used by ci.yml
+  and pages.yml, so the version and checksum live in one place.
 
 runs:
   using: composite
   steps:
     - name: Cache Doxygen 1.18.0
-      # Keyed on the version and the first 12 hex digits of the pinned
-      # SHA256 below - see setup-arm-toolchain for why.
+      # The key includes the checksum prefix, so changing the pin invalidates it.
       id: cache-doxygen
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -18,16 +16,9 @@ runs:
         key: doxygen-1.18.0-linux-bin-14fa81bdc341
 
     - name: Download, verify and install Doxygen 1.18.0
-      # Ubuntu's apt package (1.9.8 as of this writing) is far behind the
-      # version this Doxyfile targets (see its header comment and
-      # docs/groups.dox's @addtogroup usage) - dozens of tags silently
-      # ignored, and old-parser quirks can hard-fail under
-      # WARN_AS_ERROR=YES that the intended version doesn't hit. Install
-      # the exact upstream release instead of trusting the distro package
-      # to track it, and check it against a pinned SHA256 before
-      # extracting. Doxygen publishes no checksum file; this value is the
-      # digest GitHub records for the release asset
-      # (gh api repos/doxygen/doxygen/releases/tags/Release_1_18_0).
+      # Ubuntu's package (1.9.x) is too old for this Doxyfile. Doxygen
+      # publishes no checksum; this is the digest GitHub records for the
+      # release asset.
       if: steps.cache-doxygen.outputs.cache-hit != 'true'
       shell: bash
       run: |
@@ -43,3 +34,11 @@ runs:
     - name: Add Doxygen to PATH
       shell: bash
       run: echo "/opt/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
+
+    - name: Install Graphviz
+      # Without `dot`, Doxygen silently drops every diagram. Unpinned: it only
+      # draws, it cannot change what a check enforces.
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y graphviz

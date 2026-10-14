@@ -1,11 +1,8 @@
 name: Deploy Docs
 
-# Builds the Doxygen site and publishes it to GitHub Pages. Only runs on
-# push to main - not develop, not pull_request - so the published site
-# always reflects the last tagged release (PROJECT_NUMBER in Doxyfile is
-# only ever bumped as part of a develop->main release PR, see
-# docs/VERSIONING.md), never in-progress work, and a PR from an untrusted
-# fork can't publish to the live site.
+# Builds the Doxygen site and publishes it to GitHub Pages from main only, so
+# the site shows the last release. The github-pages environment accepts only
+# main, so a manual run on another branch cannot publish.
 on:
   push:
     branches: [main]
@@ -16,26 +13,20 @@ permissions:
   pages: write
   id-token: write
 
-# Only one Pages deployment at a time; let an in-flight one finish rather
-# than cancel it mid-publish.
+# One deployment at a time; never cancel one mid-publish.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Doxygen 1.18.0
-        # Same pinned, checksum-verified install as ci.yml - one shared
-        # composite action.
+      - name: Set up Doxygen 1.18.0 and Graphviz
         uses: ./.github/actions/setup-doxygen
-
-      - name: Install graphviz (for Doxyfile's HAVE_DOT diagrams)
-        run: sudo apt-get update && sudo apt-get install -y graphviz
 
       - name: make docs
         run: make docs
@@ -47,7 +38,7 @@ jobs:
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
       name: github-pages

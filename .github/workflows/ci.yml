@@ -1,83 +1,48 @@
 name: CI
 
-# Public-facing gate: build + test + coverage + docs + format + lint +
-# version-consistency, on a GitHub-hosted runner. Runs on every push to
-# main/develop and every PR - this is the status a reviewer sees, and (via
-# branch protection on main/develop) what actually gates a merge. Nothing
-# here touches real hardware: on-target verification is manual, driven from
-# the development machine the board is attached to (make flash / make
-# debug) - see CONTRIBUTING.md and SECURITY.md.
+# The merge gate: build, test, coverage, lint, docs and version checks.
+# main and develop require the build-and-check job. No hardware is involved;
+# see SECURITY.md.
 #
-# push is scoped to [main, develop], not every branch: a feature branch gets
-# its CI coverage entirely from pull_request once a PR is open (CONTRIBUTING.md's
-# branch convention), so push and pull_request never both fire for the same
-# commit in the common case. The residual case (pushing directly to develop
-# while a develop->main PR is open) is rare, and both runs simply complete.
-#
-# Do not add a cancel-in-progress concurrency group to dedupe those runs.
-# main/develop require this workflow's "build-and-check" status, and a
-# cancelled run's conclusion can stick to a commit alongside a later
-# successful one, leaving the required-check gate BLOCKED even though the
-# same-named check also passed.
+# push is limited to main/develop so a feature branch with an open PR is not
+# built twice. Do not add a cancel-in-progress concurrency group to dedupe
+# runs: a cancelled run's result can stick to the commit and leave the
+# required check BLOCKED even after a later run passes.
 on:
   push:
     branches: [main, develop]
   pull_request:
 
-# Least-privilege default: this workflow only ever reads the repo and
-# runs local build/lint/test/docs commands - it never needs to write
-# anything back to GitHub.
 permissions:
   contents: read
 
 jobs:
   build-and-check:
     runs-on: ubuntu-24.04
-    # A cold run (empty tool caches) takes a few minutes; this is a
-    # generous ceiling so a hung download or step fails the job instead of
-    # holding a required check pending for GitHub's 6-hour default.
+    # A hung download fails the check instead of holding it pending for hours.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0   # full history - required to diff PR head against its base branch below
+          fetch-depth: 0 # the PR file checks diff against the base branch
 
       - name: Set up Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
-        # Version, SHA256 verification and caching live in one shared
-        # composite action - see it for why the compiler is pinned to an
-        # exact upstream release rather than an apt package.
         uses: ./.github/actions/setup-arm-toolchain
 
       - name: Install cppcheck / clang-format (pinned to Ubuntu 24.04 archive versions)
-        # apt's usual `install -y cppcheck clang-format` floats to whatever
-        # noble's archive currently has - pinning the exact package version
-        # means an archive update can only make this step fail loudly
-        # (package no longer available at that version) instead of quietly
-        # changing which MISRA ruleset or formatting rules CI enforces.
-        # Bump these pins deliberately, the same way the Arm toolchain
-        # and Doxygen versions (the setup steps above and below) are bumped by hand.
+        # Pinned so an archive update fails loudly instead of quietly changing
+        # the MISRA or formatting rules CI enforces. Bump deliberately.
         run: |
           sudo apt-get update
           sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
 
-      - name: Install graphviz (for Doxyfile's HAVE_DOT diagrams)
-        # Unpinned, unlike cppcheck/clang-format/Doxygen above: graphviz only
-        # draws the include/directory/group graphs `make docs` embeds, it
-        # doesn't gate pass/fail on anything, so an archive version bump
-        # can't silently change what CI enforces the way a linter or
-        # formatter version bump could.
-        run: sudo apt-get install -y graphviz
-
-      - name: Set up Doxygen 1.18.0
-        # See the composite action for why the distro package is not used.
+      - name: Set up Doxygen 1.18.0 and Graphviz
         uses: ./.github/actions/setup-doxygen
 
       - name: make all
         run: make all
 
-      # The release workflow builds -O2; some warnings (-Wmaybe-uninitialized,
-      # for one) only appear with optimisation, so build it here as well and
-      # not for the first time at release.
+      # Some warnings only appear with optimisation; catch them before a release does.
       - name: make all BUILD=release
         run: make all BUILD=release
 
@@ -88,18 +53,11 @@ jobs:
         run: make test
 
       - name: make test SANITIZE=1
-        # The same suite under AddressSanitizer + UndefinedBehaviorSanitizer.
-        # See the Makefile's SANITIZE note for why UBSan matters to the drivers.
         run: make test SANITIZE=1
 
       - name: Install gcovr 8.6 (pinned, for make coverage)
-        # pip, not apt, since gcovr isn't in Ubuntu's archive at a useful
-        # version - pinned the same way cppcheck/clang-format/Doxygen above
-        # are, so a gcovr release changing its coverage math or CLI flags
-        # can't silently change what this gate enforces. --break-system-
-        # packages: Ubuntu 24.04's system pip enforces PEP 668's
-        # externally-managed-environment restriction; safe here since this
-        # runner VM is discarded after the job, not a persistent system.
+        # Pinned so a gcovr release cannot change the coverage gate.
+        # --break-system-packages is safe on a throwaway runner (PEP 668).
         run: pip install --break-system-packages gcovr==8.6
 
       - name: make coverage
@@ -112,17 +70,10 @@ jobs:
         run: make docs
 
       - name: make check-version
-        # Doxyfile PROJECT_NUMBER and CHANGELOG.md's newest release must
-        # agree (docs/VERSIONING.md) - cheap, so it runs on every PR and
-        # push rather than only at release time.
         run: make check-version
 
       - name: Check touched files have @file blocks and unit tests
-        # PR-only: needs the PR's base branch to diff against, which a plain
-        # push doesn't have. Applies to feature->develop and develop->main
-        # alike. The logic lives in tools/check_pr_files.sh so the same check
-        # runs locally (`make check-pr BASE=origin/develop`); see
-        # CONTRIBUTING.md for what it enforces and why.
+        # PR-only: it needs a base branch to diff against. See CONTRIBUTING.md.
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
