@@ -238,7 +238,6 @@ lint:
 	  --suppress=misra-c2012-2.5:core/inc/nvic_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/systick_reg.h \
-	  --suppress=misra-c2012-2.5:bsp/inc/bsp.h \
 	  --suppress=misra-c2012-2.3:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.4:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
