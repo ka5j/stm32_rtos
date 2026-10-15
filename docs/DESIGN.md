@@ -141,7 +141,8 @@ cppcheck 2.13.0 because other versions report different findings.
 - **2.5, 2.3, 2.4** (unused macro/type/tag) are suppressed per register
   header that models more than its current users need, and **8.7**
   (external linkage used in one file) on `gpio.c`, `uart.c` and `iwdg.c`,
-  which have no second caller yet. Remove each one once the last unused item gets a user.
+  which have no second caller yet. Remove each one once the last unused
+  item gets a user.
 - **12.2** (shift range) is never suppressed. `1U` is an 8-bit essential
   type, so every bit macro is written `((uint32_t)1U << n)`.
 - Any inline `// cppcheck-suppress` states its reason beside it.

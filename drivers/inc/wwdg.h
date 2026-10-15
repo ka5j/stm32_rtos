@@ -40,11 +40,13 @@
 /**
  * @brief Set the window and timer base, then start the watchdog counting from @p counter.
  *
- * Writes CFR first, then CR with WDGA and @p counter in one store, as
- * RM0390 requires. CFR.EWI is kept. It then clears SR.EWIF: the counter runs
- * from the moment its clock is enabled, even before WDGA is set, and sets
- * EWIF each time it passes 0x40, enabled or not. Left set, that stale flag
- * would raise the early wakeup at once, above the window.
+ * Writes CFR, then CR with WDGA and @p counter in one store, so the window
+ * and timer base are in place before the counter starts. CFR.EWI is kept.
+ *
+ * It then clears SR.EWIF. The counter runs from the moment its clock is
+ * enabled, even before WDGA is set, and sets EWIF each time it passes 0x40,
+ * enabled or not. Left set, that stale flag would raise the early wakeup at
+ * once, above the window.
  *
  * @param wwdg      WWDG block (e.g. WWDG).
  * @param prescaler A `WWDG_CFR_WDGTB_DIV*` value.

@@ -1,6 +1,7 @@
 /**
  * @file rcc.h
- * @brief RCC driver: peripheral clock gating and HSI/HSE-to-PLL SYSCLK bring-up.
+ * @brief RCC driver: peripheral clock gating, HSI/HSE-to-PLL SYSCLK bring-up and
+ *        the reset cause.
  *
  * Bring-up to a PLL clock must follow this order, which RM0390 imposes (see
  * [Clock bring-up order](DESIGN.md#clock-bring-up-order)); bspClockInit() is
