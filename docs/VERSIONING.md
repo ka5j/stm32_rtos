@@ -12,8 +12,8 @@ scheduler preempts real tasks, and `api/`, `bsp/` and `rtos/api/` are
 usable by application code. Until then:
 
 - **MINOR** (`0.X.0`) marks a completed layer or milestone. `0.1.0` was the
-  register layer and tooling; `0.2.0` is reserved for a completed driver
-  layer.
+  register layer and tooling, and `0.2.0` the driver layer, run on hardware;
+  `0.3.0` is reserved for a working kernel.
 - **PATCH** (`0.1.X`) covers fixes, small additions, and progress on a
   layer that is not finished yet.
 - Breaking changes are allowed at any time, as SemVer permits for `0.y.z`.

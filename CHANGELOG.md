@@ -8,137 +8,125 @@ specifically.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
+The driver layer is complete and has run on silicon. Every driver,
+`bspClockInit()` and the fault handler pass the on-target smoke test on a
+NUCLEO-F446RE, in both debug and release builds.
+
+Not verified:
+- **UART receive:** it needs a sender, which the board does not have.
+- **Other boards:** only one board was tested.
+- **The application:** `main()` is still an empty loop, so the release
+  firmware image does nothing yet.
+- **The kernel:** there is none yet.
+
 ### Added
 
-- Fault handler. HardFault, MemManage, BusFault and UsageFault entered
-  `Default_Handler`, so a fault looked the same as a stray interrupt. They
-  now enter `Fault_Handler` (startup file), which takes the stacked frame
-  from MSP or PSP as EXC_RETURN bit 2 says, records it with CFSR, HFSR,
-  MMFAR, BFAR and the exception number in `faultRecord` through
-  `faultCapture()`, and spins for the debugger. The frame is not read when
-  CFSR reports a stacking error, since it is not there and reading it could
-  lock up the core.
-- `faultEnable()` gives MemManage, BusFault and UsageFault their own
-  handlers and traps integer division by zero (`CCR.DIV_0_TRP`), which
-  otherwise returns 0 silently. The smoke test calls it; `main()` does not
-  yet. Without it, those faults escalate to HardFault and CFSR still names
-  the cause.
-- On-target smoke test, the first code from this project to run on the chip.
-  `make smoke` builds `build/smoke.elf` from `tests/target/smoke.c` in place
-  of `app/`, and `make smoke-flash` programs it. It runs `bspClockInit()`
-  and the drivers, then reports PASS/FAIL per check on the VCP (115200 8N1):
-  - the clock tree read back from RCC, PWR and FLASH;
-  - GPIO write, read-back and toggle on LD2;
-  - an NVIC interrupt pended, taken, held while disabled, and cleared;
-  - SysTick at 1 kHz timed against 100 ms of UART traffic.
+- **Fault handling.** HardFault, MemManage, BusFault and UsageFault entered
+  `Default_Handler`, so a fault looked like a stray interrupt. They now enter
+  `Fault_Handler`:
+  - it takes the stacked frame from MSP or PSP, as EXC_RETURN bit 2 says;
+  - `faultCapture()` records the frame with CFSR, HFSR, MMFAR, BFAR and the
+    exception number in `faultRecord`, which you read with
+    `p/x faultRecord` in GDB;
+  - the core then spins.
 
-  LD2 then blinks at 1 Hz on a pass and at 5 Hz on any failure. On a
-  NUCLEO-F446RE all 17 checks pass in both debug and release builds. With
-  `SMOKE_FAULT=1` it divides by zero at the end, and `faultRecord` showed
-  UsageFault, CFSR.DIVBYZERO and the stacked PC of the `udiv`. CI builds
-  the image but cannot run it.
+  The frame is not read when CFSR reports a stacking error: it is not
+  there, and reading it could lock up the core. `faultEnable()` gives
+  MemManage, BusFault and UsageFault their own handlers, and traps integer
+  division by zero, which otherwise returns 0 silently.
+- **EXTI driver** (`exti.h`):
+  - `extiSelectPort()` routes GPIO pins to lines 0-15 through SYSCFG.
+  - `extiConfigure()` sets the edges.
+  - The interrupt mask, software trigger and pending bit each have a
+    function.
 
-- EXTI driver (`drivers/inc/exti.h`):
-  - `extiSelectPort()` routes a GPIO port to lines 0-15 through
-    SYSCFG_EXTICR, taking the port's register block as `rccGpioClockEnable()`
-    does. It rejects GPIOH above line 1, since GPIOH has only pins 0 and 1.
-  - `extiConfigure()` sets the rising, falling or both edges.
-  - `extiEnableInterrupt()`, `extiDisableInterrupt()`, `extiTriggerSoftware()`,
-    `extiIsPending()` and `extiClearPending()`.
-
-  Every function rejects line 19, which has no source on the F446, and lines
-  past 22. `extiClearPending()` writes PR with a single store, never `|=`:
-  PR is write-1-to-clear, so a read-modify-write would clear every pending
-  line. Event mode (EMR) is not offered, since nothing uses it yet.
-
-  The smoke test checks it on the board, where all 24 checks pass in debug
-  and release:
-  - line 13 (PC13) raised from software through `EXTI15_10_IRQHandler`, with
-    clearing PR also clearing SWIER;
-  - line 5 routed to PA5 (LD2), whose input stage stays live as an output,
-    so driving the LED makes real pin edges. Rising-only configuration takes
-    the rising edge and ignores the falling one, and falling-only does the
-    reverse.
-
-- IWDG driver (`drivers/inc/iwdg.h`):
-  - `iwdgStart()` starts the watchdog, then sets its prescaler and reload.
-    Starting comes first because PR and RLR only take a value while the LSI
-    runs, and starting the IWDG is what turns the LSI on. It waits for
-    SR.PVU/RVU to clear before refreshing, so the new reload is in the
-    counter on return.
-  - `iwdgRefresh()` writes the reload key.
+  `extiClearPending()` writes PR with a single store: PR is write-1-to-clear,
+  so a read-modify-write would clear every other pending line.
+- **IWDG driver** (`iwdg.h`):
+  - `iwdgStart()` starts the watchdog before writing PR and RLR, because they
+    only take a value while the LSI runs and starting the IWDG turns the LSI
+    on. It waits for the update to finish before the final refresh.
+  - `iwdgRefresh()` reloads the counter.
   - `iwdgFreezeInDebug()` stops the counter while a debugger halts the core.
-  - `IWDG_PR_DIV*` values join `iwdg_reg.h`, and `dbgmcu_reg.h` models the
-    debug freeze register.
-- `rccResetFlags()` and `rccClearResetFlags()` read and clear the reset
-  cause in RCC_CSR.
-- The smoke test checks the IWDG across two boots, and both pass in debug
-  and release:
-  - **First boot (28/28):** PR and RLR read back after the unlock key, and
-    300 ms of 20 ms refreshes hold off a 69-190 ms timeout. Refreshes then
-    stop.
-  - **Second boot (25/25):** reports `RCC_CSR.IWDGRSTF`.
+- **WWDG driver** (`wwdg.h`):
+  - `wwdgStart()` and `wwdgRefresh()`.
+  - Early-wakeup interrupt control.
+  - `wwdgFreezeInDebug()`.
 
-  The flags confirmed that PINRSTF accompanies an IWDG reset. A GDB session
-  held the core halted for 2 s with the freeze bit set, and nothing reset.
-  As a control, the same hold with the bit cleared reset the chip under the
-  debugger. OpenOCD sets the freeze bits itself when it attaches, so the
-  smoke test clears the bit before checking the driver's write.
+  The board showed that the WWDG counter runs, and sets EWIF each time it
+  passes 0x40, from the moment its clock is enabled, even before WDGA is
+  set. `wwdgStart()` therefore clears that stale flag. Left set, the early
+  wakeup fires at once, and a refresh from it lands above the window and
+  resets the chip.
+- **RCC:**
+  - `rccResetFlags()` and `rccClearResetFlags()` read and clear the reset
+    cause;
+  - `rccWwdgClockEnable()` and `rccWwdgClockDisable()` gate the WWDG clock.
+- **Register headers:**
+  - `dbgmcu_reg.h` (the debug freeze bits);
+  - the `IWDG_PR_DIV*` and `WWDG_CFR_WDGTB_DIV*` values;
+  - `RCC_APB1ENR_WWDGEN`.
+- **On-target smoke test.** `make smoke` builds `build/smoke.elf` from
+  `tests/target/smoke.c` in place of `app/`, and `make smoke-flash`
+  programs it. It reports PASS/FAIL for each check on the ST-LINK virtual COM
+  port (115200 8N1). Readable output itself confirms the clock tree, because
+  the baud rate comes from PCLK1. The checks cover:
+  - the 180 MHz clock tree, read back from RCC, PWR and FLASH;
+  - GPIO;
+  - NVIC pend, take, mask and clear;
+  - SysTick, timed against 100 ms of UART traffic;
+  - EXTI from software and from real pin edges, with LD2's pin driving its
+    own input;
+  - both watchdogs.
 
-- WWDG driver (`drivers/inc/wwdg.h`):
-  - `wwdgStart()` sets the window and timer base, then starts the counter.
-  - `wwdgRefresh()` reloads the counter.
-  - `wwdgEnableEarlyWakeup()` and `wwdgClearEarlyWakeup()` drive the
-    interrupt raised at 0x40, one count before reset.
-  - `wwdgFreezeInDebug()` stops the counter while a debugger halts the core.
-  - `rccWwdgClockEnable()` and `rccWwdgClockDisable()` gate its clock.
-  - `RCC_APB1ENR_WWDGEN`, the `WWDG_CFR_WDGTB_DIV*` values and the WWDG
-    freeze bit join the register headers.
+  A watchdog's reset can only be shown across a reset, so a full run is
+  three boots, told apart by the reset cause:
+  1. The first boot runs every check, then starves the IWDG.
+  2. The boot after the IWDG reset holds the WWDG off from its early wakeup
+     (exactly the predicted 4 wakeups in 200 ms), then refreshes it above the
+     window.
+  3. The boot after the WWDG reset reports its cause.
 
-  The board found a defect before this shipped. The WWDG counter runs from
-  the moment its clock is enabled, even with WDGA clear, and sets SR.EWIF
-  each time it passes 0x40 whether or not EWI is enabled. So the early
-  wakeup fired the instant its IRQ was enabled, and the handler's refresh
-  came at 0x7B, above the 0x5F window, which reset the chip. `wwdgStart()`
-  now clears EWIF after the start, and a host test pins it.
-- The smoke test now runs as a three-boot chain, told apart by the reset
-  cause. A boot provokes the next reset only if all its checks passed:
-  1. First boot: the IWDG checks, then the IWDG is starved.
-  2. After the IWDG reset (29/29): the WWDG runs from its early-wakeup
-     handler, which gives exactly the predicted 4 wakeups in 200 ms. Then
-     it is refreshed above its window, which must reset the chip at once.
-  3. After the WWDG reset (25/25): `RCC_CSR.WWDGRSTF` is reported.
+  LD2 then blinks slowly if the whole chain passed and fast if anything
+  failed. `SMOKE_FAULT=1` ends the run with a deliberate divide by zero for
+  the fault handler. CI builds the image but cannot run it.
 
-  The whole chain passes in debug and release. The WWDG debug freeze was
-  checked with a 2 s halt, during which its counter held at 0x5F. The
-  control, the same halt with the bit cleared, ended in a WWDG reset.
+  Results on the board: every check passes in debug and release. A
+  deliberate divide by zero recorded UsageFault, CFSR.DIVBYZERO and the
+  stacked PC of the `udiv`. Both watchdogs' debug freezes held through a
+  2 s debugger halt; with the freeze bit cleared, the same halt reset the
+  chip.
 
 ### Changed
 
-- The link fails on any section `linker/STM32F446RE.ld` does not name
-  (`-Wl,--orphan-handling=error`). Before, ld placed such a section by
-  heuristic, so a C constructor (`.init_array`) or a `_Thread_local`
+- **Linking.** The link fails on any section `linker/STM32F446RE.ld` does
+  not name (`-Wl,--orphan-handling=error`). Before, ld placed such sections
+  by heuristic, so a C constructor (`.init_array`) or a `_Thread_local`
   variable linked cleanly and was never initialised. The script now names
-  the linker veneers (in `.text`), the IFUNC tables (asserted empty, since
-  `Reset_Handler` does not apply `.rel.iplt`) and the debug and note
-  sections that are not loaded. The firmware image is byte-identical in
-  both builds.
-- `make format` and `make format-check` use clang-format 18, the version
-  CI pins, from Homebrew's keg-only `llvm@18` when it is installed. They
-  warn when they fall back to another version, as `make lint` already does
-  for cppcheck. Before, a Mac with a newer default clang-format could
-  pass or fail differently from CI.
-- The pre-commit hook also builds the smoke image, as CI does.
+  the veneers, the IFUNC tables (asserted empty) and the unloaded debug
+  sections.
+- **Map files.** Each image writes its own map file next to its ELF.
+- **clang-format.** `make format` and `make format-check` use clang-format 18,
+  the version CI pins, from Homebrew's keg-only `llvm@18` when it is
+  installed. They warn when they fall back to another version.
+- **Pre-commit hook.** It also builds the smoke image, as CI does.
+- **Kernel placeholders.** The empty files in `rtos/kernel/` are gone; the
+  kernel will add its own.
+- **Docs.** Corrected where a review found them inaccurate or stale. That
+  includes the README's macOS `SDKROOT` workaround, which current Command
+  Line Tools no longer need.
 
 ### Fixed
 
-- Switching `BUILD`, `SANITIZE` or coverage on could keep objects built
-  with the old flags under GNU Make 3.81, macOS's `/usr/bin/make`. That
-  version compares whole-second mtimes, so a flags stamp rewritten in the
-  second the previous build finished did not count as newer: running
+- **Flag switches under GNU Make 3.81** (macOS's `/usr/bin/make`). Switching
+  `BUILD`, `SANITIZE` or coverage could keep objects built with the old
+  flags. That make compares whole-second timestamps, so running
   `make all && make all BUILD=release` linked the `-O0` objects into the
-  "release" image. A changed stamp is now written after a one-second wait.
-  GNU Make 4, which CI uses, was not affected.
+  "release" image. A changed flags stamp is now written after a one-second
+  wait, so it is always newer than the old outputs. GNU Make 4, which CI
+  uses, was not affected.
 
 ## [0.1.7] - 2026-10-14
 
@@ -1554,7 +1542,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...v0.2.0
 [0.1.7]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5

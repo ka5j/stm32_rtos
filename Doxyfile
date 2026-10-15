@@ -10,7 +10,7 @@
 PROJECT_NAME           = "STM32 RTOS"
 # Version of the last release on main - bumped only by a release PR
 # (docs/VERSIONING.md). `make check-version` checks it against CHANGELOG.md.
-PROJECT_NUMBER         = 0.1.7
+PROJECT_NUMBER         = 0.2.0
 PROJECT_BRIEF          = "Bare-metal preemptive RTOS for STM32F446RE"
 OUTPUT_DIRECTORY       = docs
 
