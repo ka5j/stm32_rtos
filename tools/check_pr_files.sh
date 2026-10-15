@@ -7,8 +7,7 @@
 #      Doxygen comment, so a file with none is otherwise invisible to it.
 #   2. Every touched .c under drivers/, api/, bsp/ or rtos/ has a
 #      tests/unit/test_<name>.c, and every touched *_reg.h is included by
-#      some file in tests/unit/. "Touched" means added or modified: several
-#      files began as empty scaffolding, so filling one in is a modification.
+#      some file in tests/unit/. "Touched" means added or modified.
 #
 # Usage: tools/check_pr_files.sh <base-ref>   e.g. origin/develop
 set -u
