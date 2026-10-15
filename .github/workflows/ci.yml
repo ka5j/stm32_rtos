@@ -46,6 +46,10 @@ jobs:
       - name: make all BUILD=release
         run: make all BUILD=release
 
+      # Built so it cannot rot; it runs only on a board (see tests/target/smoke.c).
+      - name: make smoke (debug and release)
+        run: make smoke && make smoke BUILD=release
+
       - name: make format-check
         run: make format-check
 

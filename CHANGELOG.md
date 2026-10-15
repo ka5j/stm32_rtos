@@ -8,6 +8,126 @@ specifically.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
+The driver layer is complete and has run on silicon. Every driver,
+`bspClockInit()` and the fault handler pass the on-target smoke test on a
+NUCLEO-F446RE, in both debug and release builds.
+
+Not verified:
+- **UART receive:** it needs a sender, which the board does not have.
+- **Other boards:** only one board was tested.
+- **The application:** `main()` is still an empty loop, so the release
+  firmware image does nothing yet.
+- **The kernel:** there is none yet.
+
+### Added
+
+- **Fault handling.** HardFault, MemManage, BusFault and UsageFault entered
+  `Default_Handler`, so a fault looked like a stray interrupt. They now enter
+  `Fault_Handler`:
+  - it takes the stacked frame from MSP or PSP, as EXC_RETURN bit 2 says;
+  - `faultCapture()` records the frame with CFSR, HFSR, MMFAR, BFAR and the
+    exception number in `faultRecord`, which you read with
+    `p/x faultRecord` in GDB;
+  - the core then spins.
+
+  The frame is not read when CFSR reports a stacking error: it is not
+  there, and reading it could lock up the core. `faultEnable()` gives
+  MemManage, BusFault and UsageFault their own handlers, and traps integer
+  division by zero, which otherwise returns 0 silently.
+- **EXTI driver** (`exti.h`):
+  - `extiSelectPort()` routes GPIO pins to lines 0-15 through SYSCFG.
+  - `extiConfigure()` sets the edges.
+  - The interrupt mask, software trigger and pending bit each have a
+    function.
+
+  `extiClearPending()` writes PR with a single store: PR is write-1-to-clear,
+  so a read-modify-write would clear every other pending line.
+- **IWDG driver** (`iwdg.h`):
+  - `iwdgStart()` starts the watchdog before writing PR and RLR, because they
+    only take a value while the LSI runs and starting the IWDG turns the LSI
+    on. It waits for the update to finish before the final refresh.
+  - `iwdgRefresh()` reloads the counter.
+  - `iwdgFreezeInDebug()` stops the counter while a debugger halts the core.
+- **WWDG driver** (`wwdg.h`):
+  - `wwdgStart()` and `wwdgRefresh()`.
+  - Early-wakeup interrupt control.
+  - `wwdgFreezeInDebug()`.
+
+  The board showed that the WWDG counter runs, and sets EWIF each time it
+  passes 0x40, from the moment its clock is enabled, even before WDGA is
+  set. `wwdgStart()` therefore clears that stale flag. Left set, the early
+  wakeup fires at once, and a refresh from it lands above the window and
+  resets the chip.
+- **RCC:**
+  - `rccResetFlags()` and `rccClearResetFlags()` read and clear the reset
+    cause;
+  - `rccWwdgClockEnable()` and `rccWwdgClockDisable()` gate the WWDG clock.
+- **Register headers:**
+  - `dbgmcu_reg.h` (the debug freeze bits);
+  - the `IWDG_PR_DIV*` and `WWDG_CFR_WDGTB_DIV*` values;
+  - `RCC_APB1ENR_WWDGEN`.
+- **On-target smoke test.** `make smoke` builds `build/smoke.elf` from
+  `tests/target/smoke.c` in place of `app/`, and `make smoke-flash`
+  programs it. It reports PASS/FAIL for each check on the ST-LINK virtual COM
+  port (115200 8N1). Readable output itself confirms the clock tree, because
+  the baud rate comes from PCLK1. The checks cover:
+  - the 180 MHz clock tree, read back from RCC, PWR and FLASH;
+  - GPIO;
+  - NVIC pend, take, mask and clear;
+  - SysTick, timed against 100 ms of UART traffic;
+  - EXTI from software and from real pin edges, with LD2's pin driving its
+    own input;
+  - both watchdogs.
+
+  A watchdog's reset can only be shown across a reset, so a full run is
+  three boots, told apart by the reset cause:
+  1. The first boot runs every check, then starves the IWDG.
+  2. The boot after the IWDG reset holds the WWDG off from its early wakeup
+     (exactly the predicted 4 wakeups in 200 ms), then refreshes it above the
+     window.
+  3. The boot after the WWDG reset reports its cause.
+
+  LD2 then blinks slowly if the whole chain passed and fast if anything
+  failed. `SMOKE_FAULT=1` ends the run with a deliberate divide by zero for
+  the fault handler. CI builds the image but cannot run it.
+
+  Results on the board: every check passes in debug and release. A
+  deliberate divide by zero recorded UsageFault, CFSR.DIVBYZERO and the
+  stacked PC of the `udiv`. Both watchdogs' debug freezes held through a
+  2 s debugger halt; with the freeze bit cleared, the same halt reset the
+  chip.
+
+### Changed
+
+- **Linking.** The link fails on any section `linker/STM32F446RE.ld` does
+  not name (`-Wl,--orphan-handling=error`). Before, ld placed such sections
+  by heuristic, so a C constructor (`.init_array`) or a `_Thread_local`
+  variable linked cleanly and was never initialised. The script now names
+  the veneers, the IFUNC tables (asserted empty) and the unloaded debug
+  sections.
+- **Map files.** Each image writes its own map file next to its ELF.
+- **clang-format.** `make format` and `make format-check` use clang-format 18,
+  the version CI pins, from Homebrew's keg-only `llvm@18` when it is
+  installed. They warn when they fall back to another version.
+- **Pre-commit hook.** It also builds the smoke image, as CI does.
+- **Kernel placeholders.** The empty files in `rtos/kernel/` are gone; the
+  kernel will add its own.
+- **Docs.** Corrected where a review found them inaccurate or stale. That
+  includes the README's macOS `SDKROOT` workaround, which current Command
+  Line Tools no longer need.
+
+### Fixed
+
+- **Flag switches under GNU Make 3.81** (macOS's `/usr/bin/make`). Switching
+  `BUILD`, `SANITIZE` or coverage could keep objects built with the old
+  flags. That make compares whole-second timestamps, so running
+  `make all && make all BUILD=release` linked the `-O0` objects into the
+  "release" image. A changed flags stamp is now written after a one-second
+  wait, so it is always newer than the old outputs. GNU Make 4, which CI
+  uses, was not affected.
+
 ## [0.1.7] - 2026-10-14
 
 Documentation, tooling and CI only: the firmware image is byte-identical to
@@ -1422,7 +1542,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...v0.2.0
 [0.1.7]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/ka5j/stm32_rtos/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/ka5j/stm32_rtos/compare/v0.1.4...v0.1.5

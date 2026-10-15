@@ -127,6 +127,28 @@ void test_rcc_driver_usart2_clock_disable_clears_bit_only(void)
     TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_APB1ENR_USART2EN, rcc.APB1ENR);
 }
 
+/* --- rccWwdgClockEnable / rccWwdgClockDisable --- */
+
+/** Sets WWDGEN without touching any other APB1ENR bit. */
+void test_rcc_driver_wwdg_clock_enable_sets_bit_only(void)
+{
+    RccRegisters_t rcc = {.APB1ENR = 0xFFFFFFFFU & ~RCC_APB1ENR_WWDGEN};
+
+    rccWwdgClockEnable(&rcc);
+
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU, rcc.APB1ENR);
+}
+
+/** Clears WWDGEN without touching any other APB1ENR bit. */
+void test_rcc_driver_wwdg_clock_disable_clears_bit_only(void)
+{
+    RccRegisters_t rcc = {.APB1ENR = 0xFFFFFFFFU};
+
+    rccWwdgClockDisable(&rcc);
+
+    TEST_ASSERT_EQUAL_HEX32(0xFFFFFFFFU & ~RCC_APB1ENR_WWDGEN, rcc.APB1ENR);
+}
+
 /* --- rccSyscfgClockEnable / rccSyscfgClockDisable --- */
 
 /** Sets SYSCFGEN without touching any other APB2ENR bit. */
@@ -1017,4 +1039,27 @@ void test_rcc_driver_sysclk_switch_checks_the_requested_sources_own_ready_bit(vo
         TEST_ASSERT_EQUAL(DRIVER_STATUS_ERR_NOT_INITIALIZED, status);
         TEST_ASSERT_EQUAL_HEX32(0U, rcc.CFGR & RCC_CFGR_SW_Msk);
     }
+}
+
+/* --- rccResetFlags / rccClearResetFlags --- */
+
+/** Returns only the reset-cause flags, not LSION/LSIRDY or RMVF. */
+void test_rcc_driver_reset_flags_masks_to_cause_flags(void)
+{
+    RccRegisters_t rcc = {.CSR = 0xFFFFFFFFU};
+
+    TEST_ASSERT_EQUAL_HEX32(0xFE000000U, rccResetFlags(&rcc));
+
+    rcc.CSR = RCC_CSR_IWDGRSTF | RCC_CSR_PINRSTF | RCC_CSR_LSION | RCC_CSR_LSIRDY;
+    TEST_ASSERT_EQUAL_HEX32(RCC_CSR_IWDGRSTF | RCC_CSR_PINRSTF, rccResetFlags(&rcc));
+}
+
+/** Clearing sets RMVF and keeps LSION. */
+void test_rcc_driver_clear_reset_flags_sets_rmvf(void)
+{
+    RccRegisters_t rcc = {.CSR = RCC_CSR_LSION};
+
+    rccClearResetFlags(&rcc);
+
+    TEST_ASSERT_EQUAL_HEX32(RCC_CSR_LSION | RCC_CSR_RMVF, rcc.CSR);
 }

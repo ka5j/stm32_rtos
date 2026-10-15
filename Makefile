@@ -55,10 +55,12 @@ LDSCRIPT := linker/STM32F446RE.ld
 
 # -nostartfiles: Reset_Handler does crt0's job, and linking crt0 pulled in
 # newlib stubs that warned on every link. With the link silent,
-# --fatal-warnings makes any new linker warning an error. Nothing runs
-# .init_array, so C constructors are unsupported.
+# --fatal-warnings makes any new linker warning an error.
+# --orphan-handling=error: a section the linker script does not name fails
+# the link instead of being placed by heuristic. Nothing runs .init_array,
+# so a C constructor is one of those.
 LDFLAGS := $(MCU_FLAGS) -T$(LDSCRIPT) -Wl,--gc-sections -Wl,--fatal-warnings \
-           -Wl,-Map=$(BUILD_DIR)/$(TARGET).map \
+           -Wl,--orphan-handling=error \
            -nostartfiles --specs=nosys.specs
 
 # Objects mirror the source tree: drivers/src/gpio.c -> build/drivers/src/gpio.o
@@ -69,19 +71,23 @@ DEPS    := $(OBJECTS:.o=.d)
 # --- Targets --------------------------------------------------------------
 .DEFAULT_GOAL := all
 
-.PHONY: all clean flash erase debug size re docs format format-check lint test coverage check-version check-pr hooks FORCE
+.PHONY: all clean flash erase debug size smoke smoke-flash re docs format format-check lint test coverage check-version check-pr hooks FORCE
 
 # Never leave a truncated output that a later run would treat as up to date.
 .DELETE_ON_ERROR:
 
 # Flags stamp: holds the compile and link command lines and is rewritten only
 # when they change, so switching BUILD (or any flag) rebuilds everything.
+# STAMP_WAIT runs before a rewrite: GNU Make 3.81 (macOS's /usr/bin/make)
+# compares whole-second mtimes, so a stamp rewritten in the second the last
+# build finished would not count as newer and the old objects would be kept.
 FLAGS_STAMP := $(BUILD_DIR)/.flags
+STAMP_WAIT  := sleep 1
 
 $(FLAGS_STAMP): FORCE
 	@mkdir -p $(BUILD_DIR)
 	@printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' | cmp -s - $@ || \
-	  printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' > $@
+	  { $(STAMP_WAIT); printf '%s\n' '$(CC) $(CFLAGS) | $(AS) $(ASFLAGS) | $(LD) $(LDFLAGS)' > $@; }
 
 FORCE:
 
@@ -100,7 +106,7 @@ $(BUILD_DIR)/%.o: %.S $(FLAGS_STAMP)
 	$(AS) $(ASFLAGS) $(INCLUDES) -c $< -o $@
 
 $(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) $(LDSCRIPT) $(FLAGS_STAMP)
-	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
+	$(LD) $(LDFLAGS) -Wl,-Map=$(@:.elf=.map) $(OBJECTS) -o $@
 
 $(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
 	$(OBJCOPY) -O binary $< $@
@@ -111,8 +117,28 @@ $(BUILD_DIR)/$(TARGET).hex: $(BUILD_DIR)/$(TARGET).elf
 size: $(BUILD_DIR)/$(TARGET).elf
 	$(SIZE) $<
 
+# --- On-target smoke test --------------------------------------------------
+# A second image with tests/target/ in place of app/ (see tests/target/smoke.c).
+# SMOKE_FAULT=1 ends it with a deliberate divide by zero for Fault_Handler.
+SMOKE_SOURCES := $(sort $(wildcard tests/target/*.c))
+SMOKE_OBJECTS := $(filter-out $(BUILD_DIR)/app/%,$(OBJECTS)) $(SMOKE_SOURCES:%.c=$(BUILD_DIR)/%.o)
+SMOKE_ELF     := $(BUILD_DIR)/smoke.elf
+
+ifeq ($(SMOKE_FAULT),1)
+  CFLAGS += -DSMOKE_FAULT=1
+endif
+
+$(SMOKE_ELF): $(SMOKE_OBJECTS) $(LDSCRIPT) $(FLAGS_STAMP)
+	$(LD) $(LDFLAGS) -Wl,-Map=$(@:.elf=.map) $(SMOKE_OBJECTS) -o $@
+
+smoke: $(SMOKE_ELF)
+	$(SIZE) $<
+
 # --- Board (OpenOCD over the on-board ST-LINK) ----------------------------
 flash: $(BUILD_DIR)/$(TARGET).elf
+	openocd -f tools/openocd.cfg -c "program $< verify reset exit"
+
+smoke-flash: $(SMOKE_ELF)
 	openocd -f tools/openocd.cfg -c "program $< verify reset exit"
 
 erase:
@@ -157,11 +183,28 @@ BASE ?= origin/develop
 check-pr:
 	tools/check_pr_files.sh $(BASE)
 
+# CI uses clang-format 18, and other major versions format differently.
+# Homebrew's llvm@18 is keg-only (not on PATH), so look for it there first.
+CLANG_FORMAT_CI_MAJOR := 18
+CLANG_FORMAT_PINNED   := $(firstword $(wildcard /opt/homebrew/opt/llvm@18/bin/clang-format \
+                                                /usr/local/opt/llvm@18/bin/clang-format))
+CLANG_FORMAT          ?= $(if $(CLANG_FORMAT_PINNED),$(CLANG_FORMAT_PINNED),clang-format)
+FORMAT_FILES           = $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
+
+define check-clang-format-version
+	@v=$$($(CLANG_FORMAT) --version | sed -n 's/.*version \([0-9]*\).*/\1/p'); \
+	if [ "$$v" != "$(CLANG_FORMAT_CI_MAJOR)" ]; then \
+	  echo "make $@: warning: clang-format $$v is not CI's $(CLANG_FORMAT_CI_MAJOR), so the result may differ from CI - install clang-format 18 (macOS: brew install llvm@18)" >&2; \
+	fi
+endef
+
 format:
-	clang-format -i $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
+	$(check-clang-format-version)
+	$(CLANG_FORMAT) -i $(FORMAT_FILES)
 
 format-check:
-	clang-format --dry-run --Werror $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
+	$(check-clang-format-version)
+	$(CLANG_FORMAT) --dry-run --Werror $(FORMAT_FILES)
 
 # CI pins cppcheck 2.13.0, and other versions report different MISRA findings.
 # tools/install_cppcheck.sh builds it into CPPCHECK_PINNED, which lint then uses.
@@ -187,14 +230,19 @@ lint:
 	  --suppress=misra-c2012-2.5:device/inc/flash_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/pwr_reg.h \
 	  --suppress=misra-c2012-2.5:device/inc/uart_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/exti_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/syscfg_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/iwdg_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/dbgmcu_reg.h \
+	  --suppress=misra-c2012-2.5:device/inc/wwdg_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/nvic_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.5:core/inc/systick_reg.h \
-	  --suppress=misra-c2012-2.5:bsp/inc/bsp.h \
 	  --suppress=misra-c2012-2.3:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-2.4:core/inc/scb_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
+	  --suppress=misra-c2012-8.7:drivers/src/iwdg.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # --- Host tests (native compiler, in-memory register structs) -------------
@@ -214,7 +262,7 @@ TEST_BUILD_DIR := $(TEST_DIR)/build
 # Sources compiled into the host tests: each takes its register block as a
 # parameter. Coverage gates drivers/src and bsp/src at 100%.
 TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
-                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c \
+                       drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c drivers/src/fault.c drivers/src/exti.c drivers/src/iwdg.c drivers/src/wwdg.c \
                        bsp/src/bsp.c
 
 TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
@@ -229,12 +277,12 @@ COVERAGE_STAMP := $(TEST_DIR)/coverage/.flags
 $(HOST_STAMP): FORCE
 	@mkdir -p $(dir $@)
 	@printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' | cmp -s - $@ || \
-	  printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' > $@
+	  { $(STAMP_WAIT); printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES)' > $@; }
 
 $(COVERAGE_STAMP): FORCE
 	@mkdir -p $(dir $@)
 	@printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' | cmp -s - $@ || \
-	  printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' > $@
+	  { $(STAMP_WAIT); printf '%s\n' '$(HOST_CC) $(HOST_CFLAGS) $(TEST_INCLUDES) --coverage -O0' > $@; }
 
 $(TEST_BUILD_DIR)/%.o: %.c $(HOST_STAMP)
 	@mkdir -p $(dir $@)
@@ -274,4 +322,4 @@ hooks:
 docs:
 	doxygen Doxyfile
 
--include $(DEPS) $(TEST_OBJECTS:.o=.d) $(COVERAGE_OBJECTS:.o=.d)
+-include $(DEPS) $(SMOKE_OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d) $(COVERAGE_OBJECTS:.o=.d)

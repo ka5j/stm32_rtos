@@ -1,6 +1,7 @@
 /**
  * @file rcc.h
- * @brief RCC driver: peripheral clock gating and HSI/HSE-to-PLL SYSCLK bring-up.
+ * @brief RCC driver: peripheral clock gating, HSI/HSE-to-PLL SYSCLK bring-up and
+ *        the reset cause.
  *
  * Bring-up to a PLL clock must follow this order, which RM0390 imposes (see
  * [Clock bring-up order](DESIGN.md#clock-bring-up-order)); bspClockInit() is
@@ -74,6 +75,14 @@ void rccUsart2ClockEnable(RccRegisters_t *rcc);
  *  @param rcc RCC block (e.g. RCC). */
 void rccUsart2ClockDisable(RccRegisters_t *rcc);
 
+/** @brief Enable the WWDG's clock; needed before any WWDG access.
+ *  @param rcc RCC block (e.g. RCC). */
+void rccWwdgClockEnable(RccRegisters_t *rcc);
+
+/** @brief Disable the WWDG's clock. Once the WWDG is started, only a reset stops it.
+ *  @param rcc RCC block (e.g. RCC). */
+void rccWwdgClockDisable(RccRegisters_t *rcc);
+
 /** @brief Enable SYSCFG's clock; needed before any SYSCFG access (e.g. EXTI routing).
  *  @param rcc RCC block (e.g. RCC). */
 void rccSyscfgClockEnable(RccRegisters_t *rcc);
@@ -89,6 +98,38 @@ void rccPwrClockEnable(RccRegisters_t *rcc);
 /** @brief Disable PWR's clock.
  *  @param rcc RCC block (e.g. RCC). */
 void rccPwrClockDisable(RccRegisters_t *rcc);
+
+/** @} */
+
+/** @name Reset cause
+ *  @{ */
+
+/** Every CSR reset-cause flag; rccResetFlags() returns a subset of these. */
+#define RCC_RESET_FLAGS_Msk                                                                        \
+    (RCC_CSR_BORRSTF | RCC_CSR_PINRSTF | RCC_CSR_PORRSTF | RCC_CSR_SFTRSTF | RCC_CSR_IWDGRSTF      \
+     | RCC_CSR_WWDGRSTF | RCC_CSR_LPWRRSTF)
+
+/**
+ * @brief The reset-cause flags set since they were last cleared.
+ *
+ * Several can be set at once: a power-on reset also sets PINRSTF and
+ * BORRSTF, and every internal reset also drives the NRST pin, so PINRSTF
+ * accompanies IWDGRSTF, WWDGRSTF and SFTRSTF. Test the specific flag.
+ *
+ * @param rcc RCC block (e.g. RCC).
+ * @return CSR masked to ::RCC_RESET_FLAGS_Msk, such as ::RCC_CSR_IWDGRSTF.
+ */
+uint32_t rccResetFlags(const RccRegisters_t *rcc);
+
+/**
+ * @brief Clear every reset-cause flag (CSR.RMVF).
+ *
+ * Read them first with rccResetFlags(): they accumulate across resets until
+ * cleared.
+ *
+ * @param rcc RCC block (e.g. RCC).
+ */
+void rccClearResetFlags(RccRegisters_t *rcc);
 
 /** @} */
 

@@ -24,17 +24,19 @@ This table is the single source of truth for project status.
 | Layer                                       | Status                                                     |
 | ------------------------------------------- | ---------------------------------------------------------- |
 | Boot (`startup/`, `linker/`)                | Done                                                       |
-| Registers (`core/inc/`, `device/inc/`)      | Done: 4 core and 9 device peripherals                      |
-| Drivers (`drivers/`)                        | GPIO, RCC, Flash, PWR, UART, NVIC, SysTick. No EXTI, IWDG or WWDG driver yet |
+| Registers (`core/inc/`, `device/inc/`)      | Done: 4 core and 10 device peripherals                     |
+| Drivers (`drivers/`)                        | GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI, IWDG, WWDG |
 | Board support (`bsp/`)                      | 180 MHz clock bring-up (`bspClockInit()`); pin mapping not started |
 | Peripheral API (`api/`)                     | Not started                                                |
 | Kernel and RTOS API (`rtos/`)               | Not started                                                |
 | Application (`app/`)                        | `main()` is an empty loop                                  |
 | Tooling (build, lint, tests, docs, CI)      | Done                                                       |
 
-**Not yet verified on hardware.** Drivers and the BSP have 100% line and
-branch coverage on the host. Because `main()` calls nothing, the linker drops
-all of them, so none has run on the chip. See
+**Hardware:** the drivers, `bspClockInit()` and the fault handler pass the
+on-target smoke test (`make smoke-flash`) on a NUCLEO-F446RE, in debug and
+release builds. On the host, drivers and the BSP have 100% line and branch
+coverage. UART receive is not checked on the board, since it needs a sender,
+and `main()` is still an empty loop. See
 [Host testing and its limits](docs/DESIGN.md#host-testing-and-its-limits).
 
 **Known limitations:**
@@ -46,7 +48,8 @@ all of them, so none has run on the chip. See
 - **Startup:**
   - it never sets `SCB->VTOR`, which is fine when booting from flash at
     `0x08000000`;
-  - nothing runs `.init_array`, so C constructors would not run;
+  - nothing runs `.init_array`, so C constructors are unsupported; the
+    link fails on one rather than leaving it uncalled;
   - stack overflow is not detected at run time.
 - **RCC:**
   - `rccPllConfig()` does not check the VCO frequency limits, and
@@ -57,6 +60,8 @@ all of them, so none has run on the chip. See
 - **SysTick:** `systickInit()` does not clear a pending SysTick exception.
 - **Clock bring-up:** `bspClockInit()` does not unwind on failure, so it
   cannot simply be retried.
+- **Faults:** `Fault_Handler` records the fault and spins. Nothing recovers,
+  and `faultRecord` does not survive a reset.
 
 ## Getting started
 
@@ -67,17 +72,12 @@ all of them, so none has run on the chip. See
 | [Arm GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) | building, `make debug` | CI uses 15.2.rel1 |
 | GNU Make, a host `cc` | everything; `make test`, `make coverage` | |
 | [OpenOCD](https://openocd.org/), `nc` | `make flash`, `erase`, `debug` | |
-| `clang-format` 18 | `make format-check` | Other versions can format differently from CI |
+| `clang-format` 18 | `make format-check` | Other versions can format differently from CI; `make` warns, and finds Homebrew's keg-only `llvm@18` by itself |
 | `cppcheck` 2.13.0 | `make lint` | Other versions report different MISRA findings; `tools/install_cppcheck.sh` builds 2.13.0 without sudo and `make lint` uses it automatically |
 | Doxygen 1.18.0, Graphviz | `make docs` | Distribution packages are usually too old; without Graphviz the diagrams are silently dropped |
 | `gcovr` 8.6 | `make coverage` | Needs Python 3.10 or newer |
 
-On macOS: `brew install clang-format cppcheck doxygen graphviz gcovr`.
-
-> **macOS 27:** the Command Line Tools' default SDK breaks host linking
-> (`tapi error: malformed file`), which stops `make test`, `make coverage`
-> and the pre-commit hook. Point at the previous SDK in your shell profile:
-> `export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`
+On macOS: `brew install llvm@18 cppcheck doxygen graphviz gcovr`.
 
 References used throughout the code:
 - RM0390, the F446 reference manual. Section numbers are from Rev 6.
@@ -105,6 +105,8 @@ Read [Contributing](CONTRIBUTING.md) before changing code.
 | `make flash`          | Build if needed, program and verify over ST-LINK, then reset         |
 | `make erase`          | Mass-erase the chip                                                  |
 | `make debug`          | Start OpenOCD, attach GDB, load the ELF and halt at reset            |
+| `make smoke`          | Build the on-target smoke test, `build/smoke.elf`                    |
+| `make smoke-flash`    | Flash the smoke test; it reports PASS/FAIL on the VCP (115200 8N1)   |
 | `make test`           | Build and run the host unit tests, plus the vector-table and test-registration checks; `SANITIZE=1` adds ASan and UBSan |
 | `make coverage`       | Run the tests instrumented; fail below 100% line or branch coverage of `drivers/` and `bsp/` |
 | `make lint`           | cppcheck with the MISRA C:2012 addon; fail on any finding            |

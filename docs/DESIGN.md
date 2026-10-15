@@ -51,8 +51,8 @@ flags, so its parameter is non-`const` on purpose.
 
 ## Poll-count timeouts
 
-Every hardware wait (HSIRDY, HSERDY, PLLRDY, SWS, VOSRDY, ODRDY, ODSWRDY, and
-UART TXE/TC/RXNE) is a bounded number of register polls, not a wall-clock
+Every hardware wait (HSIRDY, HSERDY, PLLRDY, SWS, VOSRDY, ODRDY, ODSWRDY, IWDG
+PVU/RVU, and UART TXE/TC/RXNE) is a bounded number of register polls, not a wall-clock
 timeout.
 
 - During clock bring-up there is no timebase yet: SysTick's reload depends on
@@ -86,12 +86,20 @@ contexts at once. When tasks and interrupts exist:
 
 - **Safe on distinct bits:** single stores such as `gpioWritePin()` (BSRR),
   `nvicEnableIrq()`/`nvicDisableIrq()`/`nvicSetPending()`/`nvicClearPending()`
-  (write-1-to-act), `nvicSetPriority()` (one byte), and pure reads.
+  (write-1-to-act), `nvicSetPriority()` (one byte), `extiClearPending()`
+  (write-1-to-clear), `iwdgRefresh()` (one key write), `wwdgRefresh()` and
+  `wwdgClearEarlyWakeup()` (one store each), and pure reads.
 - **Caller must serialise:** read-modify-writes of shared registers, which
   covers every `rcc*Clock*()`, the RCC CR/CFGR/PLLCFGR writers, the PWR and
   Flash functions, `gpioInit()`/`gpioDeinit()`/`gpioSetAlternateFunction()`,
-  `uartInit()`, and `nvicSetSystemHandlerPriority()` (SHPR3 holds both
-  PendSV and SysTick).
+  `uartInit()`, `nvicSetSystemHandlerPriority()` (SHPR3 holds both
+  PendSV and SysTick), `faultEnable()` (SHCSR, CCR), every other EXTI
+  function (EXTICR, RTSR/FTSR, IMR, SWIER), `rccClearResetFlags()` (CSR),
+  `rccWwdgClockEnable()`/`rccWwdgClockDisable()` (APB1ENR),
+  `wwdgStart()` and `wwdgEnableEarlyWakeup()` (CFR), and
+  `iwdgFreezeInDebug()`/`wwdgFreezeInDebug()` (APB1_FZ).
+- **One context, once:** `iwdgStart()`. Its key sequence must not be
+  interleaved with a refresh, which would relock PR and RLR.
 - **Single owner only:** `gpioTogglePin()`, `uartReceiveByte()`/
   `uartReceive()` (the SR-then-DR read clears the error flags), and
   `systickInit()`.
@@ -113,11 +121,14 @@ Host tests run driver logic against in-memory register structs (see
   in what order. The PWR voltage-scale sequence once shipped inverted with
   every test passing. The reference manual, not the test suite, is the
   authority on ordering and writability.
-- No driver has run on silicon yet: `main()` is an empty loop, so the linker
-  removes all of them. On-target checks are manual (`make flash`,
-  `make debug`) until `main` drives the LED or UART and a smoke test has
-  something to observe. There is deliberately no self-hosted
-  hardware-in-the-loop runner (see [Security](../SECURITY.md)).
+- The on-target smoke test (`tests/target/smoke.c`) covers that gap. It is
+  a second image that runs the BSP and drivers on the board, reads back
+  what the chip did (clock tree, regulator, flash wait states, GPIO, NVIC,
+  SysTick) and reports PASS/FAIL on the VCP. `main()` itself is still an
+  empty loop.
+- The smoke test runs by hand (`make smoke-flash`). CI only builds it: there
+  is deliberately no self-hosted hardware-in-the-loop runner (see
+  [Security](../SECURITY.md)).
 
 ## MISRA C:2012 deviations
 
@@ -129,8 +140,9 @@ cppcheck 2.13.0 because other versions report different findings.
   reach memory-mapped hardware in standard C.
 - **2.5, 2.3, 2.4** (unused macro/type/tag) are suppressed per register
   header that models more than its current users need, and **8.7**
-  (external linkage used in one file) on `gpio.c` and `uart.c`, which have no
-  second caller yet. Remove each one once the last unused item gets a user.
+  (external linkage used in one file) on `gpio.c`, `uart.c` and `iwdg.c`,
+  which have no second caller yet. Remove each one once the last unused
+  item gets a user.
 - **12.2** (shift range) is never suppressed. `1U` is an 8-bit essential
   type, so every bit macro is written `((uint32_t)1U << n)`.
 - Any inline `// cppcheck-suppress` states its reason beside it.

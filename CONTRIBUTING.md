@@ -85,12 +85,15 @@ register header is included by a test.
 - Drivers and the BSP must stay at 100% line and branch coverage. Read
   [Host testing and its limits](docs/DESIGN.md#host-testing-and-its-limits)
   before excluding anything.
+- What only the chip can show (register writes it accepts, clocks,
+  interrupts) goes in `tests/target/smoke.c`, checked with
+  `make smoke-flash` on the board.
 
 ## Workflow
 
 One-time setup: `make hooks`. The pre-commit hook then runs
-`format-check`, `test`, `lint`, `docs` and `all` on the working tree
-(not just what is staged).
+`format-check`, `test`, `lint`, `docs`, `all` and `smoke` on the working
+tree (not just what is staged).
 
 | Command                   | Use                                                        |
 | ------------------------- | ---------------------------------------------------------- |

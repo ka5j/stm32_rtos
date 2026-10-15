@@ -48,6 +48,10 @@
  * @brief STM32F446 peripherals, from RM0390.
  */
 
+/** @defgroup dbgmcu_registers DBGMCU
+ *  @ingroup device_peripherals
+ *  @brief MCU debug component: peripheral freeze while the core is halted. */
+
 /** @defgroup exti_registers EXTI
  *  @ingroup device_peripherals
  *  @brief External interrupt/event controller. */
@@ -96,7 +100,7 @@
 
 /** @defgroup rcc_driver RCC
  *  @ingroup driver_layer
- *  @brief Peripheral clock gating, oscillators, PLL and SYSCLK switch. */
+ *  @brief Peripheral clock gating, oscillators, PLL, SYSCLK switch and reset cause. */
 
 /** @defgroup flash_driver Flash
  *  @ingroup driver_layer
@@ -117,6 +121,22 @@
 /** @defgroup systick_driver SysTick
  *  @ingroup driver_layer
  *  @brief The system tick timer. */
+
+/** @defgroup exti_driver EXTI
+ *  @ingroup driver_layer
+ *  @brief GPIO-to-line routing, edge triggers, interrupt mask and pending bits. */
+
+/** @defgroup iwdg_driver IWDG
+ *  @ingroup driver_layer
+ *  @brief Independent watchdog start, refresh and debug freeze. */
+
+/** @defgroup wwdg_driver WWDG
+ *  @ingroup driver_layer
+ *  @brief Window watchdog start, refresh, early wakeup and debug freeze. */
+
+/** @defgroup fault_driver Fault
+ *  @ingroup driver_layer
+ *  @brief Configurable fault enables and the fault record. */
 
 /**
  * @defgroup board_support Board Support Package

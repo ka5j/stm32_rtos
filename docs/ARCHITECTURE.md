@@ -15,7 +15,7 @@ flowchart TD
     rapi["rtos/api/<br/>tasks, semaphores, queues"]
     bsp["bsp/<br/>board support"]
     kernel["rtos/kernel/<br/>scheduler, context switch"]
-    drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick"]
+    drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI, IWDG, WWDG"]
     regs["core/ + device/<br/>register structs"]
     app --> api
     app --> rapi
@@ -41,8 +41,8 @@ the rule; review does.
 
 ```
 core/inc/        Cortex-M4 core registers: MPU, NVIC, SCB/FPU, SysTick
-device/inc/      STM32F446 registers: EXTI, Flash, GPIO, IWDG, PWR, RCC,
-                 SYSCFG, USART/UART, WWDG
+device/inc/      STM32F446 registers: DBGMCU, EXTI, Flash, GPIO, IWDG, PWR,
+                 RCC, SYSCFG, USART/UART, WWDG
 drivers/         Drivers and the DriverStatus_e error contract
 bsp/             NUCLEO-F446RE support (180 MHz clock bring-up)
 api/, rtos/      Reserved for the peripheral API and the kernel
@@ -50,6 +50,7 @@ app/             main()
 startup/         Vector table and Reset_Handler
 linker/          Memory layout (STM32F446RE.ld)
 tests/unit/      Host-side Unity tests, one file per module
+tests/target/    On-target smoke test, a second image (make smoke)
 tests/unity/     Vendored Unity
 tools/           Build checks (awk, sh) and openocd.cfg
 docs/            These pages, groups.dox and the Doxygen theme
@@ -70,9 +71,13 @@ flowchart LR
 
 - The FPU is enabled before any C runs because every file is built
   hard-float.
-- Each handler in the vector table is a weak alias of `Default_Handler`, an
-  infinite loop, until a real one is defined. That includes `PendSV_Handler`
-  and `SysTick_Handler`, which belong to the future kernel.
+- HardFault, MemManage, BusFault and UsageFault are weak aliases of
+  `Fault_Handler`. It records the cause and the stacked registers in
+  `faultRecord` (`drivers/inc/fault.h`) and spins; halt and run
+  `p/x faultRecord` in GDB.
+- Every other handler is a weak alias of `Default_Handler`, an infinite
+  loop, until a real one is defined. That includes `PendSV_Handler` and
+  `SysTick_Handler`, which belong to the future kernel.
 - `tools/check_vector_table.awk` checks the table against `IRQn_e` in
   `core/inc/nvic_reg.h`.
 
@@ -108,6 +113,10 @@ Defined in `linker/STM32F446RE.ld`.
 - The stack starts at the top of RAM.
 - The link fails if `.data` + `.bss` leave less than the 512-byte heap plus
   1 KB stack reserve free.
+- The link also fails on any section the script does not name
+  (`--orphan-handling=error`), such as `.init_array` from a C constructor or
+  `.tbss` from `_Thread_local`, since nothing at startup would initialise
+  either.
 
 ## Board (NUCLEO-F446RE)
 
