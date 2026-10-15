@@ -24,7 +24,7 @@ This table is the single source of truth for project status.
 | Layer                                       | Status                                                     |
 | ------------------------------------------- | ---------------------------------------------------------- |
 | Boot (`startup/`, `linker/`)                | Done                                                       |
-| Registers (`core/inc/`, `device/inc/`)      | Done: 4 core and 9 device peripherals                      |
+| Registers (`core/inc/`, `device/inc/`)      | Done: 4 core and 10 device peripherals                     |
 | Drivers (`drivers/`)                        | GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI, IWDG, WWDG |
 | Board support (`bsp/`)                      | 180 MHz clock bring-up (`bspClockInit()`); pin mapping not started |
 | Peripheral API (`api/`)                     | Not started                                                |
@@ -60,6 +60,8 @@ and `main()` is still an empty loop. See
 - **SysTick:** `systickInit()` does not clear a pending SysTick exception.
 - **Clock bring-up:** `bspClockInit()` does not unwind on failure, so it
   cannot simply be retried.
+- **Faults:** `Fault_Handler` records the fault and spins. Nothing recovers,
+  and `faultRecord` does not survive a reset.
 
 ## Getting started
 
@@ -76,11 +78,6 @@ and `main()` is still an empty loop. See
 | `gcovr` 8.6 | `make coverage` | Needs Python 3.10 or newer |
 
 On macOS: `brew install llvm@18 cppcheck doxygen graphviz gcovr`.
-
-> **macOS 27:** the Command Line Tools' default SDK breaks host linking
-> (`tapi error: malformed file`), which stops `make test`, `make coverage`
-> and the pre-commit hook. Point at the previous SDK in your shell profile:
-> `export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`
 
 References used throughout the code:
 - RM0390, the F446 reference manual. Section numbers are from Rev 6.

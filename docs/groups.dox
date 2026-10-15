@@ -48,6 +48,10 @@
  * @brief STM32F446 peripherals, from RM0390.
  */
 
+/** @defgroup dbgmcu_registers DBGMCU
+ *  @ingroup device_peripherals
+ *  @brief MCU debug component: peripheral freeze while the core is halted. */
+
 /** @defgroup exti_registers EXTI
  *  @ingroup device_peripherals
  *  @brief External interrupt/event controller. */
@@ -76,10 +80,6 @@
  *  @ingroup device_peripherals
  *  @brief System configuration: EXTI routing and I/O compensation. */
 
-/** @defgroup dbgmcu_registers DBGMCU
- *  @ingroup device_peripherals
- *  @brief MCU debug component: peripheral freeze while the core is halted. */
-
 /** @defgroup uart_registers USART/UART
  *  @ingroup device_peripherals
  *  @brief USART1-3/6 and UART4-5. */
@@ -100,7 +100,7 @@
 
 /** @defgroup rcc_driver RCC
  *  @ingroup driver_layer
- *  @brief Peripheral clock gating, oscillators, PLL and SYSCLK switch. */
+ *  @brief Peripheral clock gating, oscillators, PLL, SYSCLK switch and reset cause. */
 
 /** @defgroup flash_driver Flash
  *  @ingroup driver_layer

@@ -63,8 +63,9 @@ DRIVER_MUST_CHECK DriverStatus_e extiSelectPort(SyscfgRegisters_t *syscfg, uint3
 /**
  * @brief Set which edges trigger @p line; the other edge is cleared.
  *
- * A change of edge can itself be seen as an edge, so configure a line while
- * its interrupt is disabled and clear its pending bit before enabling it.
+ * An edge that arrives while RTSR or FTSR is being written is not latched
+ * (RM0390 section 10.3). Configure a line while its interrupt is masked, and
+ * clear its pending bit before unmasking it.
  *
  * @param exti EXTI block (e.g. EXTI).
  * @param line 0 to ::EXTI_LINE_MAX, except 19.
