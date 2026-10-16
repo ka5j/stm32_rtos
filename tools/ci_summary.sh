@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Writes CI's job summary: the release images' sizes (with the change
-# against the pull request's base branch), the host test results and the
-# coverage. Locally it prints the same Markdown to stdout.
+# against the pull request's base branch), the deepest stack frames, the
+# host test results and the coverage. Locally it prints the same Markdown
+# to stdout.
 #
 # Environment (all optional):
 #   GITHUB_STEP_SUMMARY  where to append the Markdown (default: stdout)
@@ -73,6 +74,17 @@ delta() {
         fi
         git worktree remove --force "$base/tree" >/dev/null 2>&1
         rm -rf "$base"
+    fi
+
+    if [ "$built" = yes ]; then
+        echo
+        echo "## Deepest stack frames (release build)"
+        echo
+        echo "Per function; a call chain needs the sum of its frames."
+        echo
+        echo '```'
+        make -s stack-usage | head -n 15
+        echo '```'
     fi
 
     echo

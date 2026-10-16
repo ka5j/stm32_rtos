@@ -106,10 +106,12 @@ Read [Contributing](CONTRIBUTING.md) before changing code.
 | `make erase`          | Mass-erase the chip                                                  |
 | `make debug`          | Start OpenOCD, attach GDB, load the ELF and halt at reset            |
 | `make smoke`          | Build the on-target smoke test, `build/smoke.elf`                    |
+| `make stack-usage`    | List each function's stack frame from the last build, deepest first  |
 | `make smoke-flash`    | Flash the smoke test; it reports PASS/FAIL on the VCP (115200 8N1)   |
 | `make test`           | Build and run the host unit tests, plus the vector-table and test-registration checks; `SANITIZE=1` adds ASan and UBSan |
 | `make coverage`       | Run the tests instrumented; fail below 100% line or branch coverage of `drivers/` and `bsp/` |
 | `make lint`           | cppcheck with the MISRA C:2012 addon; fail on any finding            |
+| `make all ANALYZE=1`  | Also run GCC's static analyzer (`-fanalyzer`); fail on any finding   |
 | `make format`         | Apply `.clang-format`                                                |
 | `make format-check`   | Fail if any file needs formatting                                    |
 | `make docs`           | Generate `docs/html/`; fail on any Doxygen warning                   |
