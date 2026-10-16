@@ -1,0 +1,14 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "unity",
+      "severity": "error",
+      "pattern": [
+        {
+          "regexp": "^.+?:\\d+:(\\w+:FAIL.*)$",
+          "message": 1
+        }
+      ]
+    }
+  ]
+}

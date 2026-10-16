@@ -112,6 +112,14 @@ The full command list is in the [README](README.md#make-commands).
 - **Build:** debug and release builds.
 - **Checks:** format, test (plain and sanitized), coverage, lint, docs,
   version, and the pull-request file checks.
+- **Feedback:**
+  - every check runs even after an earlier one fails, so one push reports
+    every problem;
+  - compiler, clang-format, cppcheck, Doxygen and Unity failures are
+    annotated on the pull request;
+  - the run's summary page shows the release image sizes (and their change
+    against the base branch), the test results and coverage.
+  `tools/ci_summary.sh` prints the same report locally.
 - **Other workflows:**
   - `codeql.yml` runs static analysis;
   - `pages.yml` publishes the docs from `main`;

@@ -211,6 +211,9 @@ format-check:
 CPPCHECK_CI_VERSION := 2.13.0
 CPPCHECK_PINNED     := $(HOME)/.local/share/cppcheck-$(CPPCHECK_CI_VERSION)/bin/cppcheck
 CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cppcheck)
+# Output format: cppcheck's default unless set. CI sets gcc, which its
+# problem matcher turns into annotations on the pull request.
+CPPCHECK_TEMPLATE   ?=
 
 # Each suppression is justified in docs/DESIGN.md, "MISRA C:2012 deviations":
 # 11.4 for the register-pointer casts, and 2.3/2.4/2.5/8.7 per file until the
@@ -223,6 +226,7 @@ lint:
 	$(CPPCHECK) --addon=misra \
 	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
+	  $(if $(CPPCHECK_TEMPLATE),--template=$(CPPCHECK_TEMPLATE)) \
 	  --suppress=missingIncludeSystem \
 	  --suppress=misra-c2012-11.4:'*_reg.h' \
 	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
