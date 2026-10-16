@@ -102,6 +102,7 @@ tree (not just what is staged).
 | `make test SANITIZE=1`    | The suite under ASan and UBSan, as CI runs it.             |
 | `make coverage`           | 100% line and branch gate (CI only, not the hook).         |
 | `make all ANALYZE=1`      | GCC's static analyzer (CI only, not the hook).             |
+| `make spell`              | codespell; add a real word to `.codespellrc` with a reason. |
 | `make check-pr`           | CI's pull-request file checks, against `BASE` (default `origin/develop`). |
 
 The full command list is in the [README](README.md#make-commands).

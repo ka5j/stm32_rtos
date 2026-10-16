@@ -1,0 +1,6 @@
+[codespell]
+# Generated, vendored or build output, not prose this project writes.
+skip = ./.git,./build,./docs/html,./docs/theme,./tests/build,./tests/coverage,./tests/unity
+# RM0390 register and signal names that read as misspellings: HSI (internal
+# oscillator), ORE (overrun error), TE (transmitter enable), UE (USART enable).
+ignore-words-list = hsi,ore,te,ue

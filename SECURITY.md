@@ -60,7 +60,10 @@ manually.
   pre-release. It is checked against the same pinned SHA256, so the mirror
   can make CI available but cannot change the compiler. A new toolchain
   version needs a new mirror release.
-- **Python tools** (gcovr) are installed from `tools/ci/requirements.txt`
+- **actionlint and ShellCheck** are release binaries checked against SHA256s
+  pinned in `ci.yml`, so a runner image update cannot change what they
+  report. Bump the version and checksum together, by hand.
+- **Python tools** (gcovr, codespell) are installed from `tools/ci/requirements.txt`
   with `pip install --require-hashes`. Every package, dependencies
   included, is pinned to a version and its hashes, on a Python version
   pinned by `actions/setup-python`. Edit `tools/ci/requirements.in`, then
