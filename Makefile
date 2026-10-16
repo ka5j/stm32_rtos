@@ -46,9 +46,21 @@ endif
 # -Wundef catch the mask/shift and undefined-macro mistakes register code invites.
 WARN_FLAGS := -Wall -Wextra -Wshadow -Wconversion -Wundef -Werror
 
+# -fstack-usage writes each function's stack frame size to a .su file beside
+# its object (see `make stack-usage`); it does not change the generated code.
 CFLAGS  := $(MCU_FLAGS) $(INCLUDES) -std=c11 \
            $(WARN_FLAGS) \
-           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP
+           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP -fstack-usage
+
+# make ANALYZE=1: also run GCC's static analyzer. Its findings are errors
+# under -Werror. Slower, so CI runs it and the pre-commit hook does not.
+# -Wno-analyzer-infinite-loop: that check fires only on a loop it can prove
+# makes no progress, which in firmware is always a deliberate parking loop
+# (main(), the smoke test's no-console path); every hardware wait here is a
+# bounded poll.
+ifeq ($(ANALYZE),1)
+  CFLAGS += -fanalyzer -Wno-analyzer-infinite-loop
+endif
 ASFLAGS := $(MCU_FLAGS) -g3 -MMD -MP
 
 LDSCRIPT := linker/STM32F446RE.ld
@@ -71,7 +83,7 @@ DEPS    := $(OBJECTS:.o=.d)
 # --- Targets --------------------------------------------------------------
 .DEFAULT_GOAL := all
 
-.PHONY: all clean flash erase debug size smoke smoke-flash re docs format format-check lint test coverage check-version check-pr hooks FORCE
+.PHONY: all clean flash erase debug size smoke smoke-flash stack-usage re docs format format-check lint test coverage check-version check-pr hooks FORCE
 
 # Never leave a truncated output that a later run would treat as up to date.
 .DELETE_ON_ERROR:
@@ -133,6 +145,16 @@ $(SMOKE_ELF): $(SMOKE_OBJECTS) $(LDSCRIPT) $(FLAGS_STAMP)
 
 smoke: $(SMOKE_ELF)
 	$(SIZE) $<
+
+# Each function's stack frame from the last build, deepest first: bytes,
+# GCC's qualifier (static = fixed size, dynamic = depends on the call), and
+# file:line:column:function. Frames only; a call chain needs their sum.
+stack-usage:
+	@if [ -z "$$(find $(BUILD_DIR) -name '*.su' 2>/dev/null)" ]; then \
+	  echo "make stack-usage: no .su files; run make all or make smoke first" >&2; exit 1; \
+	fi
+	@find $(BUILD_DIR) -name '*.su' -exec cat {} + | sort -t "$$(printf '\t')" -k2,2nr | \
+	  awk -F'\t' '{ printf "%6d  %-8s  %s\n", $$2, $$3, $$1 }'
 
 # --- Board (OpenOCD over the on-board ST-LINK) ----------------------------
 flash: $(BUILD_DIR)/$(TARGET).elf

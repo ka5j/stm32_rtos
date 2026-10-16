@@ -30,6 +30,15 @@ specifically.
   release image sizes against the 512 KB flash and 128 KB RAM, their change
   against the pull request's base branch, the test results and coverage
   (`tools/ci_summary.sh`, which also runs locally).
+- **GCC's static analyzer** runs in CI (`make all ANALYZE=1`, also for the
+  smoke image): null dereferences, out-of-bounds accesses and uninitialised
+  values that cppcheck and CodeQL can miss. The drivers, BSP and smoke test
+  are clean under it. Its infinite-loop check is off: it fires only on
+  deliberate parking loops such as `main()`'s.
+- **Stack usage:** every object records its functions' stack frames
+  (`-fstack-usage`, which leaves the generated code byte-identical).
+  `make stack-usage` lists them, deepest first, and CI's summary shows the
+  release build's deepest 15. Kernel task stacks will be sized from these.
 
 ## [0.2.0] - 2026-10-15
 

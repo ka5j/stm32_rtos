@@ -86,6 +86,12 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make smoke && make smoke BUILD=release
 
+      - name: GCC static analyzer (make all and smoke, ANALYZE=1)
+        # Path-sensitive checks (null dereference, out-of-bounds, use of
+        # uninitialised values) that cppcheck and CodeQL can miss.
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make all ANALYZE=1 && make smoke ANALYZE=1
+
       - name: make format-check
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make format-check
