@@ -49,6 +49,10 @@ specifically.
 
   Both linters are release binaries pinned by version and SHA256, and their
   findings are annotated on the pull request like compiler errors.
+- **macOS job:** `host-tests (macOS)` runs the host tests, plain and
+  sanitized, on macOS 15 with Apple clang and `/usr/bin/make` 3.81, the
+  tools a developer on a Mac uses. Linux CI cannot see Mac-only breakage
+  such as the SDK link failure or make 3.81's whole-second timestamps.
 
 ## [0.2.0] - 2026-10-15
 
