@@ -76,6 +76,7 @@ and `main()` is still an empty loop. See
 | `cppcheck` 2.13.0 | `make lint` | Other versions report different MISRA findings; `tools/install_cppcheck.sh` builds 2.13.0 without sudo and `make lint` uses it automatically |
 | Doxygen 1.18.0, Graphviz | `make docs` | Distribution packages are usually too old; without Graphviz the diagrams are silently dropped |
 | `gcovr` 8.6 | `make coverage` | Needs Python 3.10 or newer |
+| `codespell` 2.4.3 | `make spell` | CI runs it; `pip install --require-hashes -r tools/ci/requirements.txt` installs CI's exact gcovr and codespell |
 
 On macOS: `brew install llvm@18 cppcheck doxygen graphviz gcovr`.
 
@@ -112,6 +113,7 @@ Read [Contributing](CONTRIBUTING.md) before changing code.
 | `make coverage`       | Run the tests instrumented; fail below 100% line or branch coverage of `drivers/` and `bsp/` |
 | `make lint`           | cppcheck with the MISRA C:2012 addon; fail on any finding            |
 | `make all ANALYZE=1`  | Also run GCC's static analyzer (`-fanalyzer`); fail on any finding   |
+| `make spell`          | codespell over code, comments and docs (settings in `.codespellrc`)  |
 | `make format`         | Apply `.clang-format`                                                |
 | `make format-check`   | Fail if any file needs formatting                                    |
 | `make docs`           | Generate `docs/html/`; fail on any Doxygen warning                   |

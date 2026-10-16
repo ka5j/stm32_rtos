@@ -52,13 +52,31 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install gcovr (hash-locked, tools/ci/requirements.txt)
+      - name: Install gcovr and codespell (hash-locked, tools/ci/requirements.txt)
         # Every package, gcovr's dependencies included, is pinned with its
         # hashes, so no upstream release can change the coverage gate.
         run: |
           python -m venv "$RUNNER_TEMP/ci-venv"
           "$RUNNER_TEMP/ci-venv/bin/pip" install --require-hashes -r tools/ci/requirements.txt
           echo "$RUNNER_TEMP/ci-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install actionlint 1.7.12 and ShellCheck 0.11.0 (pinned, checksummed)
+        # Release binaries checked against pinned SHA256s, so a runner image
+        # update cannot change what these linters report.
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/lint-bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz -C "$bin" actionlint
+          curl -fsSL --retry 3 -o shellcheck.tar.gz \
+            https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz
+          echo "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6  shellcheck.tar.gz" | sha256sum -c -
+          tar -xzf shellcheck.tar.gz --strip-components=1 -C "$bin" shellcheck-v0.11.0/shellcheck
+          echo "$bin" >> "$GITHUB_PATH"
 
       - name: Register problem matchers
         # Compiler, clang-format, cppcheck, Doxygen and Unity failures become
@@ -91,6 +109,21 @@ jobs:
         # uninitialised values) that cppcheck and CodeQL can miss.
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make all ANALYZE=1 && make smoke ANALYZE=1
+
+      - name: Lint workflows and shell scripts (actionlint, ShellCheck)
+        # Both print file:line:col: error:, so the gcc problem matcher
+        # annotates their findings too.
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: |
+          # The single-quoted argument is a Go template for actionlint, not shell.
+          # shellcheck disable=SC2016
+          actionlint -shellcheck "$(command -v shellcheck)" \
+            -format '{{range $e := .}}{{$e.Filepath}}:{{$e.Line}}:{{$e.Column}}: error: {{$e.Message}} [{{$e.Kind}}]\n{{end}}'
+          shellcheck -f gcc tools/*.sh .githooks/pre-commit
+
+      - name: make spell
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make spell
 
       - name: make format-check
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}

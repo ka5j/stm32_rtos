@@ -39,6 +39,16 @@ specifically.
   (`-fstack-usage`, which leaves the generated code byte-identical).
   `make stack-usage` lists them, deepest first, and CI's summary shows the
   release build's deepest 15. Kernel task stacks will be sized from these.
+- **Linters for prose, workflows and scripts:**
+  - codespell runs over code, comments and docs (`make spell`, settings in
+    `.codespellrc`). It found no typos, only four RM0390 register names it
+    misread (HSI, ORE, TE, UE), which are on its ignore list with that reason.
+  - actionlint checks every workflow, with ShellCheck checking the scripts
+    inside them, and ShellCheck also checks `tools/*.sh` and the pre-commit
+    hook.
+
+  Both linters are release binaries pinned by version and SHA256, and their
+  findings are annotated on the pull request like compiler errors.
 
 ## [0.2.0] - 2026-10-15
 

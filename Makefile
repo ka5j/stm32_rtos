@@ -83,7 +83,7 @@ DEPS    := $(OBJECTS:.o=.d)
 # --- Targets --------------------------------------------------------------
 .DEFAULT_GOAL := all
 
-.PHONY: all clean flash erase debug size smoke smoke-flash stack-usage re docs format format-check lint test coverage check-version check-pr hooks FORCE
+.PHONY: all clean flash erase debug size smoke smoke-flash stack-usage spell re docs format format-check lint test coverage check-version check-pr hooks FORCE
 
 # Never leave a truncated output that a later run would treat as up to date.
 .DELETE_ON_ERROR:
@@ -270,6 +270,12 @@ lint:
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
 	  --suppress=misra-c2012-8.7:drivers/src/iwdg.c \
 	  $(INCLUDES) $(SRC_DIRS)
+
+# Spelling in code, comments and docs; settings and the ignore list are in
+# .codespellrc. codespell comes from tools/ci/requirements.txt (CI runs it;
+# the pre-commit hook does not).
+spell:
+	codespell
 
 # --- Host tests (native compiler, in-memory register structs) -------------
 # See docs/DESIGN.md, "Host testing and its limits".
