@@ -13,7 +13,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: /opt/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi
-        key: arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi-597893282ac8
+        key: arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi-597893282ac8-fallbacktest
 
     - name: Download, verify and install Arm GNU Toolchain 15.2.rel1
       # An exact upstream release, not apt's: the compiler decides the code.
@@ -30,7 +30,7 @@ runs:
         archive=arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz
         sha256=597893282ac8c6ab1a4073977f2362990184599643b4c5ee34870a8215783a16
         curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
-          "https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/$archive" || {
+          "https://developer.arm.com/does-not-exist/$archive" || {
           echo "::warning::developer.arm.com download failed; using this repository's mirror"
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" "$MIRROR/$archive"
         }
