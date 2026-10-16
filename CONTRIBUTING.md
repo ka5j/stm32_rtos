@@ -109,7 +109,9 @@ The full command list is in the [README](README.md#make-commands).
 
 ## CI
 
-`ci.yml` runs on every pull request and on pushes to `main` and `develop`.
+`ci.yml` runs on every pull request, on pushes to `main` and `develop`, and
+twice a week on `main` to catch changes outside the repository (runner
+images, upstream downloads).
 
 - **Build:** debug and release builds.
 - **macOS:** `host-tests (macOS)` runs the host tests (plain and sanitized)
@@ -128,6 +130,11 @@ The full command list is in the [README](README.md#make-commands).
   - `codeql.yml` runs static analysis;
   - `pages.yml` publishes the docs from `main`;
   - `release.yml` publishes a release from a `vX.Y.Z` tag.
+
+Dependabot opens a monthly pull request per ecosystem (GitHub Actions, CI's
+Python tools) against `develop`. Review it like any other: read the release
+notes, check CI, merge with a merge commit. Pull requests start from
+`.github/pull_request_template.md`.
 
 The trust boundaries for each workflow are described in
 [SECURITY.md](SECURITY.md).

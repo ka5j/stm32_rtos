@@ -1,5 +1,7 @@
 # STM32F446RE Bare-Metal RTOS
 
+[![CI](https://github.com/ka5j/stm32_rtos/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/ka5j/stm32_rtos/actions/workflows/ci.yml?query=branch%3Adevelop)
+
 A preemptive RTOS for the STM32F446RE (Cortex-M4F), written from scratch on
 direct register access. There is no HAL, LL or CMSIS device header: every
 register struct is derived from the reference manuals and mapped to its

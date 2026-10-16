@@ -53,6 +53,16 @@ specifically.
   sanitized, on macOS 15 with Apple clang and `/usr/bin/make` 3.81, the
   tools a developer on a Mac uses. Linux CI cannot see Mac-only breakage
   such as the SDK link failure or make 3.81's whole-second timestamps.
+- **Automation:**
+  - Dependabot checks the action pins and CI's Python tools monthly, and
+    opens one grouped pull request per ecosystem against `develop`. Nothing
+    merges automatically.
+  - CI also runs twice a week on `main`, to catch runner image or upstream
+    changes before a pull request does and to keep the toolchain caches
+    warm. A failure is emailed.
+  - Both need to be on `main`, the default branch, to run.
+- **Contributor experience:** a pull request template with the project's
+  checklist, and a CI status badge in the README.
 
 ## [0.2.0] - 2026-10-15
 
