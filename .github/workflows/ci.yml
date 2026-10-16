@@ -12,9 +12,21 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+  # Tuesday and Friday 06:00 UTC (CodeQL runs Monday). Catches a runner image
+  # or upstream change before a pull request runs into it, and keeps the
+  # 7-day toolchain caches warm. Scheduled runs use main, the default
+  # branch; GitHub emails the owner when one fails.
+  schedule:
+    - cron: "0 6 * * 2,5"
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# bash with -eo pipefail, so a failure inside `make ... | tee` fails the step.
+defaults:
+  run:
+    shell: bash
 
 jobs:
   build-and-check:
@@ -24,6 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false # nothing here pushes
           fetch-depth: 0 # the PR file checks diff against the base branch
 
       - name: Set up Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
@@ -33,54 +46,165 @@ jobs:
         # Pinned so an archive update fails loudly instead of quietly changing
         # the MISRA or formatting rules CI enforces. Bump deliberately.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
 
       - name: Set up Doxygen 1.18.0 and Graphviz
         uses: ./.github/actions/setup-doxygen
 
+      - name: Set up Python 3.12
+        # Pinned so a runner image update cannot change the interpreter the
+        # Python tools run on.
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install gcovr and codespell (hash-locked, tools/ci/requirements.txt)
+        # Every package, gcovr's dependencies included, is pinned with its
+        # hashes, so no upstream release can change the coverage gate.
+        run: |
+          python -m venv "$RUNNER_TEMP/ci-venv"
+          "$RUNNER_TEMP/ci-venv/bin/pip" install --require-hashes -r tools/ci/requirements.txt
+          echo "$RUNNER_TEMP/ci-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install actionlint 1.7.12 and ShellCheck 0.11.0 (pinned, checksummed)
+        # Release binaries checked against pinned SHA256s, so a runner image
+        # update cannot change what these linters report.
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/lint-bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz -C "$bin" actionlint
+          curl -fsSL --retry 3 -o shellcheck.tar.gz \
+            https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.gz
+          echo "b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6  shellcheck.tar.gz" | sha256sum -c -
+          tar -xzf shellcheck.tar.gz --strip-components=1 -C "$bin" shellcheck-v0.11.0/shellcheck
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Register problem matchers
+        # Compiler, clang-format, cppcheck, Doxygen and Unity failures become
+        # annotations on the pull request's changed lines.
+        id: setup
+        run: |
+          for matcher in gcc doxygen unity; do
+            echo "::add-matcher::.github/problem-matchers/$matcher.json"
+          done
+
+      # Every check below runs once setup has succeeded, even if an earlier
+      # check failed, so one push reports every problem. Any failed step
+      # still fails the job.
       - name: make all
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make all
 
       # Some warnings only appear with optimisation; catch them before a release does.
       - name: make all BUILD=release
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make all BUILD=release
 
       # Built so it cannot rot; it runs only on a board (see tests/target/smoke.c).
       - name: make smoke (debug and release)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make smoke && make smoke BUILD=release
 
+      - name: GCC static analyzer (make all and smoke, ANALYZE=1)
+        # Path-sensitive checks (null dereference, out-of-bounds, use of
+        # uninitialised values) that cppcheck and CodeQL can miss.
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make all ANALYZE=1 && make smoke ANALYZE=1
+
+      - name: Lint workflows and shell scripts (actionlint, ShellCheck)
+        # Both print file:line:col: error:, so the gcc problem matcher
+        # annotates their findings too.
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: |
+          # The single-quoted argument is a Go template for actionlint, not shell.
+          # shellcheck disable=SC2016
+          actionlint -shellcheck "$(command -v shellcheck)" \
+            -format '{{range $e := .}}{{$e.Filepath}}:{{$e.Line}}:{{$e.Column}}: error: {{$e.Message}} [{{$e.Kind}}]\n{{end}}'
+          shellcheck -f gcc tools/*.sh .githooks/pre-commit
+
+      - name: make spell
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make spell
+
       - name: make format-check
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make format-check
 
       - name: make test
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make test
 
       - name: make test SANITIZE=1
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make test SANITIZE=1
 
-      - name: Install gcovr 8.6 (pinned, for make coverage)
-        # Pinned so a gcovr release cannot change the coverage gate.
-        # --break-system-packages is safe on a throwaway runner (PEP 668).
-        run: pip install --break-system-packages gcovr==8.6
-
       - name: make coverage
-        run: make coverage
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make coverage | tee "$RUNNER_TEMP/coverage.log"
 
       - name: make lint
-        run: make lint
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make lint CPPCHECK_TEMPLATE=gcc
 
       - name: make docs
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make docs
 
       - name: make check-version
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make check-version
 
       - name: Check touched files have @file blocks and unit tests
         # PR-only: it needs a base branch to diff against. See CONTRIBUTING.md.
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && github.event_name == 'pull_request' }}
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           git fetch origin "$BASE_REF"
           make check-pr BASE="origin/$BASE_REF"
+
+      - name: Job summary (sizes, size change, tests, coverage)
+        # Also after a failure, so the summary shows how far things got.
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          COVERAGE_LOG: ${{ runner.temp }}/coverage.log
+        run: tools/ci_summary.sh
+
+  host-tests-macos:
+    # The host tests as a developer on macOS runs them: Apple clang and
+    # /usr/bin/make (GNU Make 3.81). Linux CI cannot see Mac-only breakage,
+    # such as an SDK that will not link or make 3.81's whole-second
+    # timestamps. The label is pinned, never macos-latest, so an image switch
+    # is a deliberate edit.
+    name: host-tests (macOS)
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # nothing here pushes
+
+      - name: Register problem matchers
+        id: setup
+        run: |
+          for matcher in gcc unity; do
+            echo "::add-matcher::.github/problem-matchers/$matcher.json"
+          done
+
+      - name: make test (Apple clang, make 3.81)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: |
+          /usr/bin/make --version | head -n 1
+          cc --version | head -n 1
+          /usr/bin/make test
+
+      - name: make test SANITIZE=1 (Apple clang, make 3.81)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: /usr/bin/make test SANITIZE=1

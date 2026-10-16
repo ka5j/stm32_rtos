@@ -1,0 +1,27 @@
+# Opens one pull request per ecosystem each month when a pinned dependency
+# has a newer release. It keeps SHA pins and their "# vX.Y.Z" comments, and
+# regenerates tools/ci/requirements.txt with its hashes. CI checks every
+# update and a person merges it: nothing here merges by itself. The
+# toolchain, Doxygen, actionlint, ShellCheck and apt pins are not covered
+# and are bumped by hand (see SECURITY.md).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    target-branch: develop
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/tools/ci"
+    target-branch: develop
+    schedule:
+      interval: monthly
+    groups:
+      ci-python-tools:
+        patterns: ["*"]

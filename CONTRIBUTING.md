@@ -101,21 +101,40 @@ tree (not just what is staged).
 | `make lint`               | cppcheck + MISRA. Run `tools/install_cppcheck.sh` once for CI's version. |
 | `make test SANITIZE=1`    | The suite under ASan and UBSan, as CI runs it.             |
 | `make coverage`           | 100% line and branch gate (CI only, not the hook).         |
+| `make all ANALYZE=1`      | GCC's static analyzer (CI only, not the hook).             |
+| `make spell`              | codespell; add a real word to `.codespellrc` with a reason. |
 | `make check-pr`           | CI's pull-request file checks, against `BASE` (default `origin/develop`). |
 
 The full command list is in the [README](README.md#make-commands).
 
 ## CI
 
-`ci.yml` runs on every pull request and on pushes to `main` and `develop`.
+`ci.yml` runs on every pull request, on pushes to `main` and `develop`, and
+twice a week on `main` to catch changes outside the repository (runner
+images, upstream downloads).
 
 - **Build:** debug and release builds.
+- **macOS:** `host-tests (macOS)` runs the host tests (plain and sanitized)
+  with Apple clang and `/usr/bin/make`, as on a developer's Mac.
 - **Checks:** format, test (plain and sanitized), coverage, lint, docs,
   version, and the pull-request file checks.
+- **Feedback:**
+  - every check runs even after an earlier one fails, so one push reports
+    every problem;
+  - compiler, clang-format, cppcheck, Doxygen and Unity failures are
+    annotated on the pull request;
+  - the run's summary page shows the release image sizes (and their change
+    against the base branch), the test results and coverage.
+  `tools/ci_summary.sh` prints the same report locally.
 - **Other workflows:**
   - `codeql.yml` runs static analysis;
   - `pages.yml` publishes the docs from `main`;
   - `release.yml` publishes a release from a `vX.Y.Z` tag.
+
+Dependabot opens a monthly pull request per ecosystem (GitHub Actions, CI's
+Python tools) against `develop`. Review it like any other: read the release
+notes, check CI, merge with a merge commit. Pull requests start from
+`.github/pull_request_template.md`.
 
 The trust boundaries for each workflow are described in
 [SECURITY.md](SECURITY.md).

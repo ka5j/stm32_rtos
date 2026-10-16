@@ -1,5 +1,7 @@
 # STM32F446RE Bare-Metal RTOS
 
+[![CI](https://github.com/ka5j/stm32_rtos/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/ka5j/stm32_rtos/actions/workflows/ci.yml?query=branch%3Adevelop)
+
 A preemptive RTOS for the STM32F446RE (Cortex-M4F), written from scratch on
 direct register access. There is no HAL, LL or CMSIS device header: every
 register struct is derived from the reference manuals and mapped to its
@@ -76,6 +78,7 @@ and `main()` is still an empty loop. See
 | `cppcheck` 2.13.0 | `make lint` | Other versions report different MISRA findings; `tools/install_cppcheck.sh` builds 2.13.0 without sudo and `make lint` uses it automatically |
 | Doxygen 1.18.0, Graphviz | `make docs` | Distribution packages are usually too old; without Graphviz the diagrams are silently dropped |
 | `gcovr` 8.6 | `make coverage` | Needs Python 3.10 or newer |
+| `codespell` 2.4.3 | `make spell` | CI runs it; `pip install --require-hashes -r tools/ci/requirements.txt` installs CI's exact gcovr and codespell |
 
 On macOS: `brew install llvm@18 cppcheck doxygen graphviz gcovr`.
 
@@ -106,10 +109,13 @@ Read [Contributing](CONTRIBUTING.md) before changing code.
 | `make erase`          | Mass-erase the chip                                                  |
 | `make debug`          | Start OpenOCD, attach GDB, load the ELF and halt at reset            |
 | `make smoke`          | Build the on-target smoke test, `build/smoke.elf`                    |
+| `make stack-usage`    | List each function's stack frame from the last build, deepest first  |
 | `make smoke-flash`    | Flash the smoke test; it reports PASS/FAIL on the VCP (115200 8N1)   |
 | `make test`           | Build and run the host unit tests, plus the vector-table and test-registration checks; `SANITIZE=1` adds ASan and UBSan |
 | `make coverage`       | Run the tests instrumented; fail below 100% line or branch coverage of `drivers/` and `bsp/` |
 | `make lint`           | cppcheck with the MISRA C:2012 addon; fail on any finding            |
+| `make all ANALYZE=1`  | Also run GCC's static analyzer (`-fanalyzer`); fail on any finding   |
+| `make spell`          | codespell over code, comments and docs (settings in `.codespellrc`)  |
 | `make format`         | Apply `.clang-format`                                                |
 | `make format-check`   | Fail if any file needs formatting                                    |
 | `make docs`           | Generate `docs/html/`; fail on any Doxygen warning                   |

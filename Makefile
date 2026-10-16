@@ -46,9 +46,21 @@ endif
 # -Wundef catch the mask/shift and undefined-macro mistakes register code invites.
 WARN_FLAGS := -Wall -Wextra -Wshadow -Wconversion -Wundef -Werror
 
+# -fstack-usage writes each function's stack frame size to a .su file beside
+# its object (see `make stack-usage`); it does not change the generated code.
 CFLAGS  := $(MCU_FLAGS) $(INCLUDES) -std=c11 \
            $(WARN_FLAGS) \
-           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP
+           -ffunction-sections -fdata-sections $(OPT_FLAGS) -MMD -MP -fstack-usage
+
+# make ANALYZE=1: also run GCC's static analyzer. Its findings are errors
+# under -Werror. Slower, so CI runs it and the pre-commit hook does not.
+# -Wno-analyzer-infinite-loop: that check fires only on a loop it can prove
+# makes no progress, which in firmware is always a deliberate parking loop
+# (main(), the smoke test's no-console path); every hardware wait here is a
+# bounded poll.
+ifeq ($(ANALYZE),1)
+  CFLAGS += -fanalyzer -Wno-analyzer-infinite-loop
+endif
 ASFLAGS := $(MCU_FLAGS) -g3 -MMD -MP
 
 LDSCRIPT := linker/STM32F446RE.ld
@@ -71,7 +83,7 @@ DEPS    := $(OBJECTS:.o=.d)
 # --- Targets --------------------------------------------------------------
 .DEFAULT_GOAL := all
 
-.PHONY: all clean flash erase debug size smoke smoke-flash re docs format format-check lint test coverage check-version check-pr hooks FORCE
+.PHONY: all clean flash erase debug size smoke smoke-flash stack-usage spell re docs format format-check lint test coverage check-version check-pr hooks FORCE
 
 # Never leave a truncated output that a later run would treat as up to date.
 .DELETE_ON_ERROR:
@@ -133,6 +145,16 @@ $(SMOKE_ELF): $(SMOKE_OBJECTS) $(LDSCRIPT) $(FLAGS_STAMP)
 
 smoke: $(SMOKE_ELF)
 	$(SIZE) $<
+
+# Each function's stack frame from the last build, deepest first: bytes,
+# GCC's qualifier (static = fixed size, dynamic = depends on the call), and
+# file:line:column:function. Frames only; a call chain needs their sum.
+stack-usage:
+	@if [ -z "$$(find $(BUILD_DIR) -name '*.su' 2>/dev/null)" ]; then \
+	  echo "make stack-usage: no .su files; run make all or make smoke first" >&2; exit 1; \
+	fi
+	@find $(BUILD_DIR) -name '*.su' -exec cat {} + | sort -t "$$(printf '\t')" -k2,2nr | \
+	  awk -F'\t' '{ printf "%6d  %-8s  %s\n", $$2, $$3, $$1 }'
 
 # --- Board (OpenOCD over the on-board ST-LINK) ----------------------------
 flash: $(BUILD_DIR)/$(TARGET).elf
@@ -211,6 +233,9 @@ format-check:
 CPPCHECK_CI_VERSION := 2.13.0
 CPPCHECK_PINNED     := $(HOME)/.local/share/cppcheck-$(CPPCHECK_CI_VERSION)/bin/cppcheck
 CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cppcheck)
+# Output format: cppcheck's default unless set. CI sets gcc, which its
+# problem matcher turns into annotations on the pull request.
+CPPCHECK_TEMPLATE   ?=
 
 # Each suppression is justified in docs/DESIGN.md, "MISRA C:2012 deviations":
 # 11.4 for the register-pointer casts, and 2.3/2.4/2.5/8.7 per file until the
@@ -223,6 +248,7 @@ lint:
 	$(CPPCHECK) --addon=misra \
 	  --enable=warning,style,performance,portability \
 	  --std=c11 --error-exitcode=1 --inline-suppr \
+	  $(if $(CPPCHECK_TEMPLATE),--template=$(CPPCHECK_TEMPLATE)) \
 	  --suppress=missingIncludeSystem \
 	  --suppress=misra-c2012-11.4:'*_reg.h' \
 	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
@@ -244,6 +270,12 @@ lint:
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
 	  --suppress=misra-c2012-8.7:drivers/src/iwdg.c \
 	  $(INCLUDES) $(SRC_DIRS)
+
+# Spelling in code, comments and docs; settings and the ignore list are in
+# .codespellrc. codespell comes from tools/ci/requirements.txt (CI runs it;
+# the pre-commit hook does not).
+spell:
+	codespell
 
 # --- Host tests (native compiler, in-memory register structs) -------------
 # See docs/DESIGN.md, "Host testing and its limits".
