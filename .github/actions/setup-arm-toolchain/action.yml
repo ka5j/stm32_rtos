@@ -18,14 +18,22 @@ runs:
     - name: Download, verify and install Arm GNU Toolchain 15.2.rel1
       # An exact upstream release, not apt's: the compiler decides the code.
       # The checksum is Arm's published value (.sha256asc beside the archive).
+      # If developer.arm.com fails, the same archive comes from this repo's
+      # ci-mirror-arm-gnu-toolchain-15.2.rel1 pre-release; the checksum makes
+      # the source irrelevant to what gets installed.
       if: steps.cache-arm-toolchain.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        MIRROR: ${{ github.server_url }}/${{ github.repository }}/releases/download/ci-mirror-arm-gnu-toolchain-15.2.rel1
       run: |
         set -euo pipefail
         archive=arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz
         sha256=597893282ac8c6ab1a4073977f2362990184599643b4c5ee34870a8215783a16
         curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
-          "https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/$archive"
+          "https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/$archive" || {
+          echo "::warning::developer.arm.com download failed; using this repository's mirror"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" "$MIRROR/$archive"
+        }
         echo "$sha256  $RUNNER_TEMP/$archive" | sha256sum -c -
         tar -xJf "$RUNNER_TEMP/$archive" -C /opt
         rm -f "$RUNNER_TEMP/$archive"

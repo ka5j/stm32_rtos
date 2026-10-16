@@ -1,0 +1,4 @@
+# Python tools CI installs. Edit this file, then regenerate requirements.txt:
+#   pip-compile --generate-hashes --strip-extras tools/ci/requirements.in
+# Dependabot regenerates it on its monthly run.
+gcovr==8.6

@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false # nothing here pushes
           fetch-depth: 0 # the PR file checks diff against the base branch
 
       - name: Set up Arm GNU Toolchain 15.2.rel1 (arm-none-eabi)
@@ -33,8 +34,8 @@ jobs:
         # Pinned so an archive update fails loudly instead of quietly changing
         # the MISRA or formatting rules CI enforces. Bump deliberately.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y cppcheck=2.13.0-2ubuntu3 clang-format=1:18.0-59~exp2
 
       - name: Set up Doxygen 1.18.0 and Graphviz
         uses: ./.github/actions/setup-doxygen
@@ -59,10 +60,20 @@ jobs:
       - name: make test SANITIZE=1
         run: make test SANITIZE=1
 
-      - name: Install gcovr 8.6 (pinned, for make coverage)
-        # Pinned so a gcovr release cannot change the coverage gate.
-        # --break-system-packages is safe on a throwaway runner (PEP 668).
-        run: pip install --break-system-packages gcovr==8.6
+      - name: Set up Python 3.12
+        # Pinned so a runner image update cannot change the interpreter the
+        # Python tools run on.
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install gcovr (hash-locked, tools/ci/requirements.txt)
+        # Every package, gcovr's dependencies included, is pinned with its
+        # hashes, so no upstream release can change the coverage gate.
+        run: |
+          python -m venv "$RUNNER_TEMP/ci-venv"
+          "$RUNNER_TEMP/ci-venv/bin/pip" install --require-hashes -r tools/ci/requirements.txt
+          echo "$RUNNER_TEMP/ci-venv/bin" >> "$GITHUB_PATH"
 
       - name: make coverage
         run: make coverage

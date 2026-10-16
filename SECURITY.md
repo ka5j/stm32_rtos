@@ -55,8 +55,19 @@ manually.
   cache key includes the checksum, so changing the pin invalidates the
   cache. A restored cache is trusted, and only this repository's own runs
   can write one.
-- **Apt and PyPI tools:**
-  - `cppcheck`, `clang-format` and `gcovr` are pinned by version, not hash,
-    and rely on their package manager's signing;
+- **Toolchain mirror:** if developer.arm.com fails, CI fetches the same
+  archive from this repository's `ci-mirror-arm-gnu-toolchain-15.2.rel1`
+  pre-release. It is checked against the same pinned SHA256, so the mirror
+  can make CI available but cannot change the compiler. A new toolchain
+  version needs a new mirror release.
+- **Python tools** (gcovr) are installed from `tools/ci/requirements.txt`
+  with `pip install --require-hashes`. Every package, dependencies
+  included, is pinned to a version and its hashes, on a Python version
+  pinned by `actions/setup-python`. Edit `tools/ci/requirements.in`, then
+  regenerate the lock with the `pip-compile` command in its header.
+- **Apt tools:**
+  - `cppcheck` and `clang-format` are pinned by version, not hash, and rely
+    on apt's signing;
   - Graphviz is unpinned because it only draws diagrams and cannot change
     what CI enforces.
+- **Checkouts** do not persist the job token, since no workflow pushes.
