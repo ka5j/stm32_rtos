@@ -12,6 +12,13 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+  # Tuesday and Friday 06:00 UTC (CodeQL runs Monday). Catches a runner image
+  # or upstream change before a pull request runs into it, and keeps the
+  # 7-day toolchain caches warm. Scheduled runs use main, the default
+  # branch; GitHub emails the owner when one fails.
+  schedule:
+    - cron: "0 6 * * 2,5"
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -25,7 +25,7 @@ The firmware has no network stack and no third-party code.
 
 | Workflow      | Runs on                                   | Permissions                     |
 | ------------- | ----------------------------------------- | ------------------------------- |
-| `ci.yml`      | every PR (forks included), push to `main`/`develop` | `contents: read`      |
+| `ci.yml`      | every PR (forks included), push to `main`/`develop`, twice weekly, manual dispatch | `contents: read` |
 | `codeql.yml`  | PR and push to `main`/`develop`, weekly   | `contents: read`, `security-events: write` |
 | `pages.yml`   | push to `main`, manual dispatch           | `pages: write`, `id-token: write` |
 | `release.yml` | `vX.Y.Z` tag push; dry run on PRs         | `contents: write` on its publishing job only |
@@ -38,8 +38,12 @@ manually.
   There is no self-hosted runner. The board is attached to the development
   machine, and no GitHub-triggered job reaches hardware. Do not add a
   self-hosted runner casually.
-- **Merge gates:** `main` and `develop` require `build-and-check` and
-  `Analyze (c-cpp)` to pass.
+- **Merge gates:** `main` and `develop` require `build-and-check`,
+  `host-tests (macOS)` and `Analyze (c-cpp)` to pass.
+- **Allowed actions:** the repository runs only GitHub-owned actions
+  (`actions/*`, `github/*`) and this repository's own, and every action must
+  be pinned to a full commit SHA. Both are enforced in the repository
+  settings, not only by convention.
 - **release.yml:**
   - it refuses a tag whose commit is not on `main`, or whose version
     disagrees with the Doxyfile and changelog;
@@ -48,8 +52,14 @@ manually.
 ## Supply chain
 
 - **Actions** are pinned to full commit SHAs, with a comment naming the
-  exact release (for example `# v7.0.1`, never a floating `# v7`). Bump the
-  SHA and the comment together, by hand, after reading the release notes.
+  exact release (for example `# v7.0.1`, never a floating `# v7`).
+- **Dependabot** (`.github/dependabot.yml`) checks the action pins and
+  `tools/ci/requirements.txt` monthly, and opens one grouped pull request per
+  ecosystem against `develop`. CI checks it, and a person merges it after
+  reading the release notes: nothing merges automatically. The toolchain,
+  Doxygen, actionlint, ShellCheck and apt pins are outside its ecosystems and
+  are bumped by hand. The twice-weekly scheduled CI run is what notices when
+  one of them breaks.
 - **Arm GNU Toolchain and Doxygen** are downloaded from upstream and checked
   against a SHA256 pinned in `.github/actions/` before extraction. The
   cache key includes the checksum, so changing the pin invalidates the
