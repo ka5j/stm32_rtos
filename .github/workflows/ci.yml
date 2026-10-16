@@ -169,3 +169,35 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           COVERAGE_LOG: ${{ runner.temp }}/coverage.log
         run: tools/ci_summary.sh
+
+  host-tests-macos:
+    # The host tests as a developer on macOS runs them: Apple clang and
+    # /usr/bin/make (GNU Make 3.81). Linux CI cannot see Mac-only breakage,
+    # such as an SDK that will not link or make 3.81's whole-second
+    # timestamps. The label is pinned, never macos-latest, so an image switch
+    # is a deliberate edit.
+    name: host-tests (macOS)
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # nothing here pushes
+
+      - name: Register problem matchers
+        id: setup
+        run: |
+          for matcher in gcc unity; do
+            echo "::add-matcher::.github/problem-matchers/$matcher.json"
+          done
+
+      - name: make test (Apple clang, make 3.81)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: |
+          /usr/bin/make --version | head -n 1
+          cc --version | head -n 1
+          /usr/bin/make test
+
+      - name: make test SANITIZE=1 (Apple clang, make 3.81)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: /usr/bin/make test SANITIZE=1

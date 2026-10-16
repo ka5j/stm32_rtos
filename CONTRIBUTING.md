@@ -112,6 +112,8 @@ The full command list is in the [README](README.md#make-commands).
 `ci.yml` runs on every pull request and on pushes to `main` and `develop`.
 
 - **Build:** debug and release builds.
+- **macOS:** `host-tests (macOS)` runs the host tests (plain and sanitized)
+  with Apple clang and `/usr/bin/make`, as on a developer's Mac.
 - **Checks:** format, test (plain and sanitized), coverage, lint, docs,
   version, and the pull-request file checks.
 - **Feedback:**
