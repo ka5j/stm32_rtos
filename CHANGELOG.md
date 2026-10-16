@@ -22,6 +22,14 @@ specifically.
   no longer blocks CI on a cache miss.
 - apt retries failed downloads three times, and no checkout leaves the job
   token in `.git/config`.
+- CI reports every failure in one run, not the first: each check runs
+  after setup even if an earlier check failed, and the job still fails.
+  Compiler, clang-format, cppcheck, Doxygen and Unity failures appear as
+  annotations on the pull request (`.github/problem-matchers/`; `make lint`
+  takes `CPPCHECK_TEMPLATE`, set to `gcc` in CI). The summary page shows the
+  release image sizes against the 512 KB flash and 128 KB RAM, their change
+  against the pull request's base branch, the test results and coverage
+  (`tools/ci_summary.sh`, which also runs locally).
 
 ## [0.2.0] - 2026-10-15
 

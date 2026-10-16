@@ -16,6 +16,11 @@ on:
 permissions:
   contents: read
 
+# bash with -eo pipefail, so a failure inside `make ... | tee` fails the step.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-and-check:
     runs-on: ubuntu-24.04
@@ -40,26 +45,6 @@ jobs:
       - name: Set up Doxygen 1.18.0 and Graphviz
         uses: ./.github/actions/setup-doxygen
 
-      - name: make all
-        run: make all
-
-      # Some warnings only appear with optimisation; catch them before a release does.
-      - name: make all BUILD=release
-        run: make all BUILD=release
-
-      # Built so it cannot rot; it runs only on a board (see tests/target/smoke.c).
-      - name: make smoke (debug and release)
-        run: make smoke && make smoke BUILD=release
-
-      - name: make format-check
-        run: make format-check
-
-      - name: make test
-        run: make test
-
-      - name: make test SANITIZE=1
-        run: make test SANITIZE=1
-
       - name: Set up Python 3.12
         # Pinned so a runner image update cannot change the interpreter the
         # Python tools run on.
@@ -75,23 +60,73 @@ jobs:
           "$RUNNER_TEMP/ci-venv/bin/pip" install --require-hashes -r tools/ci/requirements.txt
           echo "$RUNNER_TEMP/ci-venv/bin" >> "$GITHUB_PATH"
 
+      - name: Register problem matchers
+        # Compiler, clang-format, cppcheck, Doxygen and Unity failures become
+        # annotations on the pull request's changed lines.
+        id: setup
+        run: |
+          for matcher in gcc doxygen unity; do
+            echo "::add-matcher::.github/problem-matchers/$matcher.json"
+          done
+
+      # Every check below runs once setup has succeeded, even if an earlier
+      # check failed, so one push reports every problem. Any failed step
+      # still fails the job.
+      - name: make all
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make all
+
+      # Some warnings only appear with optimisation; catch them before a release does.
+      - name: make all BUILD=release
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make all BUILD=release
+
+      # Built so it cannot rot; it runs only on a board (see tests/target/smoke.c).
+      - name: make smoke (debug and release)
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make smoke && make smoke BUILD=release
+
+      - name: make format-check
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make format-check
+
+      - name: make test
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make test
+
+      - name: make test SANITIZE=1
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make test SANITIZE=1
+
       - name: make coverage
-        run: make coverage
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make coverage | tee "$RUNNER_TEMP/coverage.log"
 
       - name: make lint
-        run: make lint
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: make lint CPPCHECK_TEMPLATE=gcc
 
       - name: make docs
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make docs
 
       - name: make check-version
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: make check-version
 
       - name: Check touched files have @file blocks and unit tests
         # PR-only: it needs a base branch to diff against. See CONTRIBUTING.md.
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && github.event_name == 'pull_request' }}
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           git fetch origin "$BASE_REF"
           make check-pr BASE="origin/$BASE_REF"
+
+      - name: Job summary (sizes, size change, tests, coverage)
+        # Also after a failure, so the summary shows how far things got.
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          COVERAGE_LOG: ${{ runner.temp }}/coverage.log
+        run: tools/ci_summary.sh
