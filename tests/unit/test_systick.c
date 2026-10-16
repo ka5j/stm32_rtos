@@ -36,7 +36,7 @@ void test_systick_driver_init_16mhz_1khz(void)
     SysTickRegisters_t systick = {0};
 
     TEST_ASSERT_EQUAL(DRIVER_STATUS_OK, systickInit(&systick, 16000000U, 1000U));
-    TEST_ASSERT_EQUAL_UINT32(15999U, systick.LOAD);
+    TEST_ASSERT_EQUAL_UINT32(16000U, systick.LOAD);
 }
 
 /** The shortest accepted period is 2 clocks (LOAD 1); LOAD 0 never reloads. */

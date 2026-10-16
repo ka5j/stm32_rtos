@@ -17,7 +17,7 @@
  */
 static DriverStatus_e gpioValidatePin(GpioPin_e pin)
 {
-    DriverStatus_e status = DRIVER_STATUS_OK;
+    DriverStatus_e status   =   DRIVER_STATUS_OK;
 
     if ((uint32_t)pin > (uint32_t)GPIO_PIN_15)
     {

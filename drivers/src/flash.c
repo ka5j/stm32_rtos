@@ -39,6 +39,12 @@ DriverStatus_e flashSetLatency(FlashRegisters_t *flash, uint32_t latency)
 
 void flashEnableCaches(FlashRegisters_t *flash)
 {
+    uint32_t acr;
+
+    if ((acr = flash->ACR) == 0xFFFFFFFFU)
+    {
+        flash->ACR = acr;
+    }
     flash->ACR |= FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN;
 }
 
