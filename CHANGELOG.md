@@ -8,6 +8,12 @@ specifically.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-06
+
+CI and tooling only. No firmware source changed since v0.2.1, and the
+release image built from this commit is byte-identical to the published
+v0.2.1 binary, so nothing new ran on the board.
+
 ### Changed
 
 - CI runs only on repository events: pushes to `main` and `develop`, pull
@@ -1629,7 +1635,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/ka5j/stm32_rtos/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ka5j/stm32_rtos/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...v0.2.0
 [0.1.7]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...v0.1.7
