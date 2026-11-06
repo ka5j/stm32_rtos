@@ -25,8 +25,8 @@ The firmware has no network stack and no third-party code.
 
 | Workflow      | Runs on                                   | Permissions                     |
 | ------------- | ----------------------------------------- | ------------------------------- |
-| `ci.yml`      | every PR (forks included), push to `main`/`develop`, twice weekly, manual dispatch | `contents: read` |
-| `codeql.yml`  | PR and push to `main`/`develop`, weekly   | `contents: read`, `security-events: write` |
+| `ci.yml`      | every PR (forks included), push to `main`/`develop`, manual dispatch | `contents: read` |
+| `codeql.yml`  | PR and push to `main`/`develop`, manual dispatch | `contents: read`, `security-events: write` |
 | `pages.yml`   | push to `main`, manual dispatch           | `pages: write`, `id-token: write` |
 | `release.yml` | `vX.Y.Z` tag push; dry run on PRs         | `contents: write` on its publishing job only |
 
@@ -53,13 +53,12 @@ manually.
 
 - **Actions** are pinned to full commit SHAs, with a comment naming the
   exact release (for example `# v7.0.1`, never a floating `# v7`).
-- **Dependabot** (`.github/dependabot.yml`) checks the action pins and
-  `tools/ci/requirements.txt` monthly, and opens one grouped pull request per
-  ecosystem against `develop`. CI checks it, and a person merges it after
-  reading the release notes: nothing merges automatically. The toolchain,
-  Doxygen, actionlint, ShellCheck and apt pins are outside its ecosystems and
-  are bumped by hand. The twice-weekly scheduled CI run is what notices when
-  one of them breaks.
+- **Bumping pins:** every pin (actions, `tools/ci/requirements.txt`, the
+  toolchain, Doxygen, actionlint, ShellCheck, apt) is bumped by hand, after
+  reading the release notes. Change the SHA or checksum and its version
+  comment together. Nothing runs on a schedule, so an upstream change
+  (a retired action version, a moved download) first shows up as a CI
+  failure on the next pull request.
 - **Arm GNU Toolchain and Doxygen** are downloaded from upstream and checked
   against a SHA256 pinned in `.github/actions/` before extraction. The
   cache key includes the checksum, so changing the pin invalidates the

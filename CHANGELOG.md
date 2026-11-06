@@ -8,6 +8,18 @@ specifically.
 
 ## [Unreleased]
 
+### Changed
+
+- CI runs only on repository events: pushes to `main` and `develop`, pull
+  requests, release tags and manual dispatch. The scheduled CI runs
+  (Tuesday and Friday), the weekly scheduled CodeQL scan and Dependabot
+  (`.github/dependabot.yml`) are removed. Every pin is now bumped by hand
+  after reading the release notes, and an upstream change shows up as a CI
+  failure on the next pull request.
+- CI's tools updated: gcovr 8.8, `actions/setup-python` 7.1.0,
+  `github/codeql-action` 4.39.1 and `actions/deploy-pages` 5.0.1 (#165,
+  #166).
+
 ## [0.2.1] - 2026-10-16
 
 CI and tooling only. No firmware source changed since v0.2.0, and the

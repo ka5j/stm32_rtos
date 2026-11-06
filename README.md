@@ -77,7 +77,7 @@ and `main()` is still an empty loop. See
 | `clang-format` 18 | `make format-check` | Other versions can format differently from CI; `make` warns, and finds Homebrew's keg-only `llvm@18` by itself |
 | `cppcheck` 2.13.0 | `make lint` | Other versions report different MISRA findings; `tools/install_cppcheck.sh` builds 2.13.0 without sudo and `make lint` uses it automatically |
 | Doxygen 1.18.0, Graphviz | `make docs` | Distribution packages are usually too old; without Graphviz the diagrams are silently dropped |
-| `gcovr` 8.6 | `make coverage` | Needs Python 3.10 or newer |
+| `gcovr` 8.8 | `make coverage` | Needs Python 3.10 or newer |
 | `codespell` 2.4.3 | `make spell` | CI runs it; `pip install --require-hashes -r tools/ci/requirements.txt` installs CI's exact gcovr and codespell |
 
 On macOS: `brew install llvm@18 cppcheck doxygen graphviz gcovr`.
