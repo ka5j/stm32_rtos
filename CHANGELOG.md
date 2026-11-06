@@ -8,6 +8,24 @@ specifically.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-06
+
+CI and tooling only. No firmware source changed since v0.2.1, and the
+release image built from this commit is byte-identical to the published
+v0.2.1 binary, so nothing new ran on the board.
+
+### Changed
+
+- CI runs only on repository events: pushes to `main` and `develop`, pull
+  requests, release tags and manual dispatch. The scheduled CI runs
+  (Tuesday and Friday), the weekly scheduled CodeQL scan and Dependabot
+  (`.github/dependabot.yml`) are removed. Every pin is now bumped by hand
+  after reading the release notes, and an upstream change shows up as a CI
+  failure on the next pull request.
+- CI's tools updated: gcovr 8.8, `actions/setup-python` 7.1.0,
+  `github/codeql-action` 4.39.1 and `actions/deploy-pages` 5.0.1 (#165,
+  #166).
+
 ## [0.2.1] - 2026-10-16
 
 CI and tooling only. No firmware source changed since v0.2.0, and the
@@ -1617,7 +1635,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/ka5j/stm32_rtos/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ka5j/stm32_rtos/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...v0.2.0
 [0.1.7]: https://github.com/ka5j/stm32_rtos/compare/v0.1.6...v0.1.7
