@@ -14,10 +14,10 @@ on:
     paths:
       - .github/workflows/release.yml
       - .github/actions/setup-arm-toolchain/**
-      - tools/check_version.awk
-      - tools/changelog_section.awk
+      - scripts/check_version.awk
+      - scripts/changelog_section.awk
       - Makefile
-      - Doxyfile
+      - docs/Doxyfile
       - CHANGELOG.md
 
 # Read-only by default. The release job can write, but only its publish step, which runs on tags only, uses it.
@@ -50,7 +50,7 @@ jobs:
           if [ "$EVENT" = "push" ]; then
             tag="$REF_NAME"
           else
-            tag="v$(awk '$1 == "PROJECT_NUMBER" && $2 == "=" {print $3}' Doxyfile)"
+            tag="v$(awk '$1 == "PROJECT_NUMBER" && $2 == "=" {print $3}' docs/Doxyfile)"
           fi
           echo "TAG=$tag" >> "$GITHUB_ENV"
           echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
@@ -90,7 +90,7 @@ jobs:
           # itself.
           (cd dist && sha256sum -- * > ../SHA256SUMS)
           mv SHA256SUMS dist/
-          awk -v version="$VERSION" -f tools/changelog_section.awk CHANGELOG.md > notes.md
+          awk -v version="$VERSION" -f scripts/changelog_section.awk CHANGELOG.md > notes.md
           echo "--- assets"; ls -l dist
           echo "--- size"; cat "dist/$name.size.txt"
           echo "--- notes (first lines)"; head -n 8 notes.md

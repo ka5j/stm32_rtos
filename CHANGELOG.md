@@ -8,6 +8,31 @@ specifically.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-11
+
+Repository layout only. The firmware sources did not change, only moved,
+and the release image built from this commit is byte-identical to the
+published v0.2.2 binary, so nothing new ran on the board.
+
+### Changed
+
+- The repository is organised by what each part describes:
+  - `arch/cortex-m4/` holds the processor core's registers (was `core/`);
+  - `soc/stm32f446/` holds the chip's registers, startup file and linker
+    script (were `device/`, `startup/` and `linker/`);
+  - `board/nucleo-f446re/` holds the board support and the board's
+    `openocd.cfg` (were `bsp/` and `tools/`);
+  - `app/main.c` replaces `app/src/main.c`;
+  - unit tests sit in `tests/unit/{arch,soc,drivers,board}/`;
+  - vendored code is in `third_party/` (Unity, doxygen-awesome-css);
+  - the build and release scripts are in `scripts/`, with CI-only files in
+    `scripts/ci/`;
+  - the Doxyfile is in `docs/`.
+
+  The empty `api/` and `rtos/` placeholders are gone: a planned layer gets
+  its directory when its code arrives. Headers are still included by bare
+  name, and the firmware is byte-identical.
+
 ## [0.2.2] - 2026-11-06
 
 CI and tooling only. No firmware source changed since v0.2.1, and the
@@ -1635,7 +1660,8 @@ scaffolding - no driver logic implemented yet.
   rule, naming conventions, and the (not-yet-implemented) error-handling
   contract for the layers above the register level.
 
-[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/ka5j/stm32_rtos/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/ka5j/stm32_rtos/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ka5j/stm32_rtos/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ka5j/stm32_rtos/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ka5j/stm32_rtos/compare/v0.1.7...v0.2.0

@@ -21,12 +21,11 @@ MCU_FLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 # Every .c, .s and .S under these directories is built; no list to maintain.
 # .S goes through the C preprocessor, .s does not. Sorted so the link order,
 # and therefore the image, does not depend on the filesystem.
-SRC_DIRS    := core device drivers api bsp rtos app startup
+SRC_DIRS    := arch soc drivers board app
 C_SOURCES   := $(sort $(shell find $(SRC_DIRS) -name '*.c' 2>/dev/null))
 ASM_SOURCES := $(sort $(shell find $(SRC_DIRS) \( -name '*.s' -o -name '*.S' \) 2>/dev/null))
 
-INC_DIRS := core/inc device/inc drivers/inc api/inc bsp/inc \
-            rtos/kernel/inc rtos/api/inc
+INC_DIRS := arch/cortex-m4/inc soc/stm32f446/inc drivers/inc board/nucleo-f446re/inc
 INCLUDES := $(addprefix -I,$(INC_DIRS))
 
 # --- Build profile --------------------------------------------------------
@@ -63,7 +62,7 @@ ifeq ($(ANALYZE),1)
 endif
 ASFLAGS := $(MCU_FLAGS) -g3 -MMD -MP
 
-LDSCRIPT := linker/STM32F446RE.ld
+LDSCRIPT := soc/stm32f446/STM32F446RE.ld
 
 # -nostartfiles: Reset_Handler does crt0's job, and linking crt0 pulled in
 # newlib stubs that warned on every link. With the link silent,
@@ -157,14 +156,16 @@ stack-usage:
 	  awk -F'\t' '{ printf "%6d  %-8s  %s\n", $$2, $$3, $$1 }'
 
 # --- Board (OpenOCD over the on-board ST-LINK) ----------------------------
+OPENOCD_CFG := board/nucleo-f446re/openocd.cfg
+
 flash: $(BUILD_DIR)/$(TARGET).elf
-	openocd -f tools/openocd.cfg -c "program $< verify reset exit"
+	openocd -f $(OPENOCD_CFG) -c "program $< verify reset exit"
 
 smoke-flash: $(SMOKE_ELF)
-	openocd -f tools/openocd.cfg -c "program $< verify reset exit"
+	openocd -f $(OPENOCD_CFG) -c "program $< verify reset exit"
 
 erase:
-	openocd -f tools/openocd.cfg \
+	openocd -f $(OPENOCD_CFG) \
 	  -c "init" -c "reset halt" -c "stm32f4x mass_erase 0" \
 	  -c "reset run" -c "exit"
 
@@ -174,7 +175,7 @@ erase:
 DEBUG_GDB_PORT := 3333
 
 debug: $(BUILD_DIR)/$(TARGET).elf
-	@openocd -f tools/openocd.cfg & \
+	@openocd -f $(OPENOCD_CFG) & \
 	OPENOCD_PID=$$!; \
 	trap 'kill $$OPENOCD_PID 2>/dev/null' EXIT INT TERM; \
 	tries=0; \
@@ -198,12 +199,12 @@ clean:
 
 # --- Checks ---------------------------------------------------------------
 check-version:
-	awk -v tag="$(TAG)" -f tools/check_version.awk Doxyfile CHANGELOG.md
+	awk -v tag="$(TAG)" -f scripts/check_version.awk docs/Doxyfile CHANGELOG.md
 
 BASE ?= origin/develop
 
 check-pr:
-	tools/check_pr_files.sh $(BASE)
+	scripts/check_pr_files.sh $(BASE)
 
 # CI uses clang-format 18, and other major versions format differently.
 # Homebrew's llvm@18 is keg-only (not on PATH), so look for it there first.
@@ -211,7 +212,7 @@ CLANG_FORMAT_CI_MAJOR := 18
 CLANG_FORMAT_PINNED   := $(firstword $(wildcard /opt/homebrew/opt/llvm@18/bin/clang-format \
                                                 /usr/local/opt/llvm@18/bin/clang-format))
 CLANG_FORMAT          ?= $(if $(CLANG_FORMAT_PINNED),$(CLANG_FORMAT_PINNED),clang-format)
-FORMAT_FILES           = $(shell git ls-files '*.c' '*.h' | grep -v '^tests/unity/')
+FORMAT_FILES           = $(shell git ls-files '*.c' '*.h' | grep -v '^third_party/')
 
 define check-clang-format-version
 	@v=$$($(CLANG_FORMAT) --version | sed -n 's/.*version \([0-9]*\).*/\1/p'); \
@@ -229,7 +230,7 @@ format-check:
 	$(CLANG_FORMAT) --dry-run --Werror $(FORMAT_FILES)
 
 # CI pins cppcheck 2.13.0, and other versions report different MISRA findings.
-# tools/install_cppcheck.sh builds it into CPPCHECK_PINNED, which lint then uses.
+# scripts/install_cppcheck.sh builds it into CPPCHECK_PINNED, which lint then uses.
 CPPCHECK_CI_VERSION := 2.13.0
 CPPCHECK_PINNED     := $(HOME)/.local/share/cppcheck-$(CPPCHECK_CI_VERSION)/bin/cppcheck
 CPPCHECK            ?= $(if $(wildcard $(CPPCHECK_PINNED)),$(CPPCHECK_PINNED),cppcheck)
@@ -243,7 +244,7 @@ CPPCHECK_TEMPLATE   ?=
 lint:
 	@v=$$($(CPPCHECK) --version | awk '{print $$2}'); \
 	if [ "$$v" != "$(CPPCHECK_CI_VERSION)" ]; then \
-	  echo "make lint: warning: cppcheck $$v is not CI's $(CPPCHECK_CI_VERSION), so a pass here does not guarantee CI passes - run tools/install_cppcheck.sh" >&2; \
+	  echo "make lint: warning: cppcheck $$v is not CI's $(CPPCHECK_CI_VERSION), so a pass here does not guarantee CI passes - run scripts/install_cppcheck.sh" >&2; \
 	fi
 	$(CPPCHECK) --addon=misra \
 	  --enable=warning,style,performance,portability \
@@ -251,28 +252,28 @@ lint:
 	  $(if $(CPPCHECK_TEMPLATE),--template=$(CPPCHECK_TEMPLATE)) \
 	  --suppress=missingIncludeSystem \
 	  --suppress=misra-c2012-11.4:'*_reg.h' \
-	  --suppress=misra-c2012-2.5:device/inc/gpio_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/rcc_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/flash_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/pwr_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/uart_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/exti_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/syscfg_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/iwdg_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/dbgmcu_reg.h \
-	  --suppress=misra-c2012-2.5:device/inc/wwdg_reg.h \
-	  --suppress=misra-c2012-2.5:core/inc/nvic_reg.h \
-	  --suppress=misra-c2012-2.5:core/inc/scb_reg.h \
-	  --suppress=misra-c2012-2.5:core/inc/systick_reg.h \
-	  --suppress=misra-c2012-2.3:core/inc/scb_reg.h \
-	  --suppress=misra-c2012-2.4:core/inc/scb_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/gpio_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/rcc_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/flash_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/pwr_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/uart_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/exti_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/syscfg_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/iwdg_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/dbgmcu_reg.h \
+	  --suppress=misra-c2012-2.5:soc/stm32f446/inc/wwdg_reg.h \
+	  --suppress=misra-c2012-2.5:arch/cortex-m4/inc/nvic_reg.h \
+	  --suppress=misra-c2012-2.5:arch/cortex-m4/inc/scb_reg.h \
+	  --suppress=misra-c2012-2.5:arch/cortex-m4/inc/systick_reg.h \
+	  --suppress=misra-c2012-2.3:arch/cortex-m4/inc/scb_reg.h \
+	  --suppress=misra-c2012-2.4:arch/cortex-m4/inc/scb_reg.h \
 	  --suppress=misra-c2012-8.7:drivers/src/gpio.c \
 	  --suppress=misra-c2012-8.7:drivers/src/uart.c \
 	  --suppress=misra-c2012-8.7:drivers/src/iwdg.c \
 	  $(INCLUDES) $(SRC_DIRS)
 
 # Spelling in code, comments and docs; settings and the ignore list are in
-# .codespellrc. codespell comes from tools/ci/requirements.txt (CI runs it;
+# .codespellrc. codespell comes from scripts/ci/requirements.txt (CI runs it;
 # the pre-commit hook does not).
 spell:
 	codespell
@@ -292,13 +293,15 @@ TEST_DIR       := tests
 TEST_BUILD_DIR := $(TEST_DIR)/build
 
 # Sources compiled into the host tests: each takes its register block as a
-# parameter. Coverage gates drivers/src and bsp/src at 100%.
+# parameter. Coverage gates drivers/ and board/ at 100%.
 TEST_DRIVER_SOURCES := drivers/src/gpio.c drivers/src/rcc.c drivers/src/flash.c drivers/src/pwr.c \
                        drivers/src/uart.c drivers/src/nvic.c drivers/src/systick.c drivers/src/fault.c drivers/src/exti.c drivers/src/iwdg.c drivers/src/wwdg.c \
-                       bsp/src/bsp.c
+                       board/nucleo-f446re/src/bsp.c
 
-TEST_SOURCES   := $(wildcard $(TEST_DIR)/unit/*.c) $(TEST_DIR)/unity/unity.c $(TEST_DRIVER_SOURCES)
-TEST_INCLUDES  := $(INCLUDES) -I$(TEST_DIR)/unity
+# Unit tests live in tests/unit/<layer>/, beside the runner in tests/unit/.
+UNIT_TEST_SOURCES := $(sort $(shell find $(TEST_DIR)/unit -name '*.c'))
+TEST_SOURCES   := $(UNIT_TEST_SOURCES) third_party/unity/unity.c $(TEST_DRIVER_SOURCES)
+TEST_INCLUDES  := $(INCLUDES) -Ithird_party/unity
 
 TEST_OBJECTS   := $(TEST_SOURCES:%.c=$(TEST_BUILD_DIR)/%.o)
 
@@ -324,8 +327,8 @@ $(TEST_BUILD_DIR)/%.o: %.c $(HOST_STAMP)
 test: $(TEST_OBJECTS)
 	$(HOST_CC) $(HOST_LDFLAGS) $(TEST_OBJECTS) -o $(TEST_BUILD_DIR)/run_tests
 	$(TEST_BUILD_DIR)/run_tests
-	awk -f tools/check_vector_table.awk core/inc/nvic_reg.h startup/startup_stm32f446re.s
-	awk -f tools/check_test_registration.awk $(TEST_DIR)/unit/*.c
+	awk -f scripts/check_vector_table.awk arch/cortex-m4/inc/nvic_reg.h soc/stm32f446/startup_stm32f446re.s
+	awk -f scripts/check_test_registration.awk $(UNIT_TEST_SOURCES)
 
 # The only exclusion is flashSetLatency()'s read-back branch (see flash.c).
 COVERAGE_MIN_LINE   := 100
@@ -342,7 +345,7 @@ coverage: $(COVERAGE_OBJECTS)
 	find $(COVERAGE_DIR) -name '*.gcda' -delete
 	$(HOST_CC) --coverage $(COVERAGE_OBJECTS) -o $(COVERAGE_DIR)/run_tests_cov
 	$(COVERAGE_DIR)/run_tests_cov
-	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' --filter 'bsp/src/.*' \
+	gcovr --root . --object-directory $(COVERAGE_DIR) --filter 'drivers/src/.*' --filter 'board/.*/src/.*' \
 	  --fail-under-line $(COVERAGE_MIN_LINE) --fail-under-branch $(COVERAGE_MIN_BRANCH) \
 	  --print-summary
 
@@ -352,6 +355,6 @@ hooks:
 
 # Fails on any Doxygen warning (WARN_AS_ERROR in the Doxyfile).
 docs:
-	doxygen Doxyfile
+	doxygen docs/Doxyfile
 
 -include $(DEPS) $(SMOKE_OBJECTS:.o=.d) $(TEST_OBJECTS:.o=.d) $(COVERAGE_OBJECTS:.o=.d)

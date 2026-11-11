@@ -1,4 +1,0 @@
-# Python tools CI installs. Edit this file, then regenerate requirements.txt:
-#   pip-compile --generate-hashes --strip-extras tools/ci/requirements.in
-gcovr==8.8
-codespell==2.4.3
