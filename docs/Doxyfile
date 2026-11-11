@@ -1,0 +1,110 @@
+# Doxyfile - Doxygen 1.18.0 (pinned in CI: .github/actions/setup-doxygen).
+#
+# Only settings that differ from Doxygen's defaults, or that the theme or a
+# CI gate depends on, are listed. `doxygen -x Doxyfile` prints the same
+# non-default set; `doxygen -g` writes the full template with every default.
+
+#---------------------------------------------------------------------------
+# Project
+#---------------------------------------------------------------------------
+PROJECT_NAME           = "STM32 RTOS"
+# Version of the last release on main - bumped only by a release PR
+# (docs/VERSIONING.md). `make check-version` checks it against CHANGELOG.md.
+PROJECT_NUMBER         = 0.2.2
+PROJECT_BRIEF          = "Bare-metal preemptive RTOS for STM32F446RE"
+OUTPUT_DIRECTORY       = docs
+
+#---------------------------------------------------------------------------
+# Input
+#---------------------------------------------------------------------------
+# Pages are listed first, in the order the navigation shows them; the
+# README doubles as the site's home page.
+INPUT                  = README.md \
+                         docs/ARCHITECTURE.md \
+                         docs/DESIGN.md \
+                         CONTRIBUTING.md \
+                         docs/VERSIONING.md \
+                         SECURITY.md \
+                         CHANGELOG.md \
+                         docs/groups.dox \
+                         arch \
+                         soc \
+                         drivers \
+                         board \
+                         app
+FILE_PATTERNS          = *.c *.h *.md *.dox
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+# Heading anchors match GitHub's (#design-notes), so the same links work on
+# GitHub and on the site.
+MARKDOWN_ID_STYLE      = GITHUB
+
+#---------------------------------------------------------------------------
+# Language and extraction
+#---------------------------------------------------------------------------
+OPTIMIZE_OUTPUT_FOR_C  = YES
+# The first sentence of a /** */ block is its brief, no @brief needed.
+JAVADOC_AUTOBRIEF      = YES
+# Document file-local helpers too: their contracts matter to reviewers.
+EXTRACT_STATIC         = YES
+# Keep members in source order: register macros follow register layout.
+SORT_MEMBER_DOCS       = NO
+SHOW_ENUM_VALUES       = YES
+
+# \regaccess{rw} renders a register-field access type as a small badge
+# (style in docs/theme/project.css). Values used: rw, ro, wo, rc_w0, rc_w1.
+ALIASES                = "regaccess{1}=@htmlonly<span class=\"regaccess\">@endhtmlonly\1@htmlonly</span>@endhtmlonly"
+
+#---------------------------------------------------------------------------
+# Warnings - `make docs` and CI fail on any of them
+#---------------------------------------------------------------------------
+WARN_NO_PARAMDOC       = YES
+WARN_AS_ERROR          = YES
+
+#---------------------------------------------------------------------------
+# Source browsing and cross-references
+#---------------------------------------------------------------------------
+SOURCE_BROWSER         = YES
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+#---------------------------------------------------------------------------
+# HTML - doxygen-awesome-css v2.5.0, vendored in third_party/ (MIT, see its
+# LICENSE). The theme requires FULL_SIDEBAR = NO, HTML_COLORSTYLE = LIGHT
+# (it supplies its own dark mode) and HTML_COPY_CLIPBOARD = NO (its own copy
+# button replaces Doxygen's).
+#---------------------------------------------------------------------------
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+FULL_SIDEBAR           = NO
+DISABLE_INDEX          = NO
+HTML_HEADER            = docs/theme/header.html
+HTML_EXTRA_STYLESHEET  = third_party/doxygen-awesome-css/doxygen-awesome.css \
+                         third_party/doxygen-awesome-css/doxygen-awesome-sidebar-only.css \
+                         third_party/doxygen-awesome-css/doxygen-awesome-sidebar-only-darkmode-toggle.css \
+                         docs/theme/project.css
+HTML_EXTRA_FILES       = third_party/doxygen-awesome-css/doxygen-awesome-darkmode-toggle.js \
+                         third_party/doxygen-awesome-css/doxygen-awesome-fragment-copy-button.js
+HTML_COLORSTYLE        = LIGHT
+HTML_COPY_CLIPBOARD    = NO
+HTML_DYNAMIC_SECTIONS  = YES
+
+#---------------------------------------------------------------------------
+# Diagrams (Graphviz `dot` must be on the PATH, or every graph is silently
+# dropped)
+#---------------------------------------------------------------------------
+HAVE_DOT               = YES
+# Mermaid diagrams in the Markdown pages render in the browser, as they do on
+# GitHub. The script is fetched from the CDN at view time, pinned to a release.
+MERMAID_RENDER_MODE    = CLIENT_SIDE
+MERMAID_JS_URL         = https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+# C has no classes: the class diagrams would be empty.
+CLASS_GRAPH            = NO
+COLLABORATION_GRAPH    = NO
+GRAPHICAL_HIERARCHY    = NO
+# Call graphs only appear for functions, which today means drivers/ and bsp/.
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+DIR_GRAPH_MAX_DEPTH    = 2

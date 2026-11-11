@@ -25,7 +25,7 @@
 static DriverStatus_e nvicValidateIrq(IRQn_e irqn)
 {
     /* One bit per reserved position (61-62, 79-80, 82-83, 85-86, 88-90), by
-     * ISER word. tools/check_vector_table.awk cannot see this mask: keep it in
+     * ISER word. scripts/check_vector_table.awk cannot see this mask: keep it in
      * step with the vector table by hand (test_nvic.c checks every position). */
     static const uint32_t reserved_mask[4] = {
         0x00000000U, /* 0-31: none */

@@ -6,8 +6,8 @@
  * Source files join a group with `@addtogroup <id>` / `@{` ... `@}` around
  * their definitions. Groups follow the layers in docs/ARCHITECTURE.md and
  * are declared here only once their layer has code. The ids reserved for
- * layers that do not exist yet are `peripheral_api` (api/), `rtos_layer`
- * with `rtos_kernel` and `rtos_api` (rtos/), and `application_layer` (app/).
+ * layers that do not exist yet are `peripheral_api`, `rtos_layer` with
+ * `rtos_kernel` and `rtos_api`, and `application_layer` (app/).
  */
 
 /**

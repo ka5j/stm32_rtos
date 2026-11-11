@@ -1,8 +1,8 @@
 /**
  * @file test_runner.c
- * @brief Unity entry point aggregating every test suite in this directory
- *        (test_*_reg.c for the register headers, test_<name>.c for each
- *        driver and for bsp/) into one run_tests binary.
+ * @brief Unity entry point aggregating every test suite under tests/unit/
+ *        (arch/ and soc/ for the register headers, drivers/ and board/ for
+ *        the code) into one run_tests binary.
  *
  * Each test file owns only its test functions, with
  * no main() and no setUp/tearDown, since Unity requires exactly one

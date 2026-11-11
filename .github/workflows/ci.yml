@@ -53,12 +53,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install gcovr and codespell (hash-locked, tools/ci/requirements.txt)
+      - name: Install gcovr and codespell (hash-locked, scripts/ci/requirements.txt)
         # Every package, gcovr's dependencies included, is pinned with its
         # hashes, so no upstream release can change the coverage gate.
         run: |
           python -m venv "$RUNNER_TEMP/ci-venv"
-          "$RUNNER_TEMP/ci-venv/bin/pip" install --require-hashes -r tools/ci/requirements.txt
+          "$RUNNER_TEMP/ci-venv/bin/pip" install --require-hashes -r scripts/ci/requirements.txt
           echo "$RUNNER_TEMP/ci-venv/bin" >> "$GITHUB_PATH"
 
       - name: Install actionlint 1.7.12 and ShellCheck 0.11.0 (pinned, checksummed)
@@ -120,7 +120,7 @@ jobs:
           # shellcheck disable=SC2016
           actionlint -shellcheck "$(command -v shellcheck)" \
             -format '{{range $e := .}}{{$e.Filepath}}:{{$e.Line}}:{{$e.Column}}: error: {{$e.Message}} [{{$e.Kind}}]\n{{end}}'
-          shellcheck -f gcc tools/*.sh .githooks/pre-commit
+          shellcheck -f gcc scripts/*.sh scripts/ci/*.sh .githooks/pre-commit
 
       - name: make spell
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -169,7 +169,7 @@ jobs:
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           COVERAGE_LOG: ${{ runner.temp }}/coverage.log
-        run: tools/ci_summary.sh
+        run: scripts/ci/ci_summary.sh
 
   host-tests-macos:
     # The host tests as a developer on macOS runs them: Apple clang and

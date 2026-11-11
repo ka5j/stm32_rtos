@@ -3,7 +3,7 @@
  * @brief On-target smoke test: runs the drivers and the BSP on the
  *        NUCLEO-F446RE and checks what the silicon did.
  *
- * Built by `make smoke` in place of app/src/main.c, and flashed by
+ * Built by `make smoke` in place of app/main.c, and flashed by
  * `make smoke-flash`. It is a test, so it calls drivers directly. Each check
  * prints `PASS <name>` or `FAIL <name> <detail>` on the ST-LINK virtual COM
  * port (USART2, 115200 8N1), then a summary. LD2 then blinks at 1 Hz if every

@@ -53,7 +53,7 @@ manually.
 
 - **Actions** are pinned to full commit SHAs, with a comment naming the
   exact release (for example `# v7.0.1`, never a floating `# v7`).
-- **Bumping pins:** every pin (actions, `tools/ci/requirements.txt`, the
+- **Bumping pins:** every pin (actions, `scripts/ci/requirements.txt`, the
   toolchain, Doxygen, actionlint, ShellCheck, apt) is bumped by hand, after
   reading the release notes. Change the SHA or checksum and its version
   comment together. Nothing runs on a schedule, so an upstream change
@@ -72,10 +72,10 @@ manually.
 - **actionlint and ShellCheck** are release binaries checked against SHA256s
   pinned in `ci.yml`, so a runner image update cannot change what they
   report. Bump the version and checksum together, by hand.
-- **Python tools** (gcovr, codespell) are installed from `tools/ci/requirements.txt`
+- **Python tools** (gcovr, codespell) are installed from `scripts/ci/requirements.txt`
   with `pip install --require-hashes`. Every package, dependencies
   included, is pinned to a version and its hashes, on a Python version
-  pinned by `actions/setup-python`. Edit `tools/ci/requirements.in`, then
+  pinned by `actions/setup-python`. Edit `scripts/ci/requirements.in`, then
   regenerate the lock with the `pip-compile` command in its header.
 - **Apt tools:**
   - `cppcheck` and `clang-format` are pinned by version, not hash, and rely

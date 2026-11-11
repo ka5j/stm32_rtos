@@ -6,33 +6,37 @@ reasons behind the conventions are in [Design notes](DESIGN.md).
 ## Layers
 
 Each layer includes headers only from itself and the layers below it.
-Dashed layers are not implemented yet.
+Dashed layers are planned and do not exist yet.
 
 ```mermaid
 flowchart TD
-    app["app/<br/>application tasks"]
-    api["api/<br/>peripheral API"]
-    rapi["rtos/api/<br/>tasks, semaphores, queues"]
-    bsp["bsp/<br/>board support"]
-    kernel["rtos/kernel/<br/>scheduler, context switch"]
+    app["app/<br/>application"]
+    api["Peripheral API<br/>LED, debug print"]
+    rapi["RTOS API<br/>tasks, semaphores, queues"]
+    board["board/nucleo-f446re/<br/>board support"]
+    kernel["kernel/<br/>scheduler, context switch"]
     drivers["drivers/<br/>GPIO, RCC, Flash, PWR, UART, NVIC, SysTick, Fault, EXTI, IWDG, WWDG"]
-    regs["core/ + device/<br/>register structs"]
+    regs["arch/cortex-m4/ + soc/stm32f446/<br/>registers, startup, linker script"]
     app --> api
     app --> rapi
-    api --> bsp
+    api --> board
     rapi --> kernel
-    bsp --> drivers
+    board --> drivers
     kernel --> drivers
     drivers --> regs
     classDef todo stroke-dasharray: 5 5
-    class app,api,rapi,kernel todo
+    class api,rapi,kernel todo
 ```
 
-- `api/` is the peripheral-facing layer (for example an LED or a debug
-  print), built on `bsp/`'s pin mapping and independent of the RTOS.
-- `rtos/api/` is the kernel-facing layer.
-- `app/` uses only those two and never reaches into `drivers/` or
-  `rtos/kernel/`.
+- `arch/cortex-m4/` is the processor core and `soc/stm32f446/` is the chip
+  around it. `board/nucleo-f446re/` is what is soldered to it on this board.
+- The peripheral API is the application-facing layer for the board (for
+  example an LED or a debug print), built on the board's pin mapping and
+  independent of the RTOS. The RTOS API is the kernel-facing layer.
+- `app/` uses only those two and never reaches into `drivers/` or the kernel.
+- A planned layer gets its directory when its code arrives. The kernel is
+  expected in `kernel/`, with its Cortex-M4 context switch in
+  `arch/cortex-m4/src/`.
 
 Every `inc/` directory is on the include path, so the build does not enforce
 the rule; review does.
@@ -40,20 +44,21 @@ the rule; review does.
 ## Directory layout
 
 ```
-core/inc/        Cortex-M4 core registers: MPU, NVIC, SCB/FPU, SysTick
-device/inc/      STM32F446 registers: DBGMCU, EXTI, Flash, GPIO, IWDG, PWR,
-                 RCC, SYSCFG, USART/UART, WWDG
-drivers/         Drivers and the DriverStatus_e error contract
-bsp/             NUCLEO-F446RE support (180 MHz clock bring-up)
-api/, rtos/      Reserved for the peripheral API and the kernel
-app/             main()
-startup/         Vector table and Reset_Handler
-linker/          Memory layout (STM32F446RE.ld)
-tests/unit/      Host-side Unity tests, one file per module
-tests/target/    On-target smoke test, a second image (make smoke)
-tests/unity/     Vendored Unity
-tools/           Build checks (awk, sh) and openocd.cfg
-docs/            These pages, groups.dox and the Doxygen theme
+arch/cortex-m4/inc/    Cortex-M4 core registers: MPU, NVIC, SCB/FPU, SysTick
+soc/stm32f446/inc/     STM32F446 registers: DBGMCU, EXTI, Flash, GPIO, IWDG,
+                       PWR, RCC, SYSCFG, USART/UART, WWDG
+soc/stm32f446/         Vector table and Reset_Handler (startup_stm32f446re.s),
+                       memory layout (STM32F446RE.ld)
+drivers/               Drivers and the DriverStatus_e error contract
+board/nucleo-f446re/   Board support (180 MHz clock bring-up), openocd.cfg
+app/                   main()
+tests/unit/            Host-side Unity tests by layer (arch/, soc/, drivers/,
+                       board/), and the runner
+tests/target/          On-target smoke test, a second image (make smoke)
+third_party/           Vendored code: Unity and doxygen-awesome-css
+scripts/               Build and release checks (awk, sh); ci/ holds the CI
+                       summary script and the hash-locked Python tools
+docs/                  These pages, the Doxyfile, groups.dox, the site theme
 ```
 
 ## Boot sequence
@@ -78,12 +83,13 @@ flowchart LR
 - Every other handler is a weak alias of `Default_Handler`, an infinite
   loop, until a real one is defined. That includes `PendSV_Handler` and
   `SysTick_Handler`, which belong to the future kernel.
-- `tools/check_vector_table.awk` checks the table against `IRQn_e` in
-  `core/inc/nvic_reg.h`.
+- `scripts/check_vector_table.awk` checks the table against `IRQn_e` in
+  `arch/cortex-m4/inc/nvic_reg.h`.
 
 ## Clock tree
 
-`bspClockInit()` produces this configuration (constants in `bsp/inc/bsp.h`):
+`bspClockInit()` produces this configuration (constants in
+`board/nucleo-f446re/inc/bsp.h`):
 
 ```mermaid
 flowchart LR
@@ -102,7 +108,7 @@ RM0390 imposes.
 
 ## Memory map
 
-Defined in `linker/STM32F446RE.ld`.
+Defined in `soc/stm32f446/STM32F446RE.ld`.
 
 | Region | Base         | Size   | Contents                                  |
 | ------ | ------------ | ------ | ----------------------------------------- |
