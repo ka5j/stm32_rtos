@@ -8,8 +8,8 @@ request, so the docs never claim an unreleased version.
 ## Before 1.0.0
 
 `1.0.0` means a working RTOS: it boots, the drivers run on hardware, the
-scheduler preempts real tasks, and `api/`, `bsp/` and `rtos/api/` are
-usable by application code. Until then:
+scheduler preempts real tasks, and the board support, the peripheral API
+and the RTOS API are usable by application code. Until then:
 
 - **MINOR** (`0.X.0`) marks a completed layer or milestone. `0.1.0` was the
   register layer and tooling, and `0.2.0` the driver layer, run on hardware;
@@ -21,7 +21,7 @@ usable by application code. Until then:
 ## From 1.0.0
 
 - **MAJOR:** a breaking change to something application code relies on,
-  such as `api/` or `rtos/api/` signatures, the meaning of
+  such as the peripheral or RTOS API signatures, the meaning of
   `DriverStatus_e`, or scheduler behaviour.
 - **MINOR:** a backward-compatible addition, such as a new driver, RTOS
   primitive or board.
@@ -31,7 +31,7 @@ usable by application code. Until then:
 
 1. **Branch.** From an up-to-date `develop` with green CI, create
    `release/vX.Y.Z`. On it:
-   - set `PROJECT_NUMBER` in the Doxyfile;
+   - set `PROJECT_NUMBER` in `docs/Doxyfile`;
    - rename `CHANGELOG.md`'s `[Unreleased]` to `## [X.Y.Z] - <UTC date>`,
      with one section per kind (Added, Changed, Fixed, Security), and add an
      empty `[Unreleased]` above it;

@@ -8,6 +8,25 @@ specifically.
 
 ## [Unreleased]
 
+### Changed
+
+- The repository is organised by what each part describes:
+  - `arch/cortex-m4/` holds the processor core's registers (was `core/`);
+  - `soc/stm32f446/` holds the chip's registers, startup file and linker
+    script (were `device/`, `startup/` and `linker/`);
+  - `board/nucleo-f446re/` holds the board support and the board's
+    `openocd.cfg` (were `bsp/` and `tools/`);
+  - `app/main.c` replaces `app/src/main.c`;
+  - unit tests sit in `tests/unit/{arch,soc,drivers,board}/`;
+  - vendored code is in `third_party/` (Unity, doxygen-awesome-css);
+  - the build and release scripts are in `scripts/`, with CI-only files in
+    `scripts/ci/`;
+  - the Doxyfile is in `docs/`.
+
+  The empty `api/` and `rtos/` placeholders are gone: a planned layer gets
+  its directory when its code arrives. Headers are still included by bare
+  name, and the firmware is byte-identical.
+
 ## [0.2.2] - 2026-11-06
 
 CI and tooling only. No firmware source changed since v0.2.1, and the

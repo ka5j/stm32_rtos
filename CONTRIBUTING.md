@@ -7,9 +7,12 @@ Conventions and workflow for `stm32_rtos`. The reasons behind them are in
 
 A layer includes headers only from itself and the layers below it (see the
 [layer diagram](docs/ARCHITECTURE.md#layers)). `drivers/` never includes
-`bsp/` or `api/`; `app/` includes only `api/` and `rtos/api/`. If code needs
-to reach two layers down, the layer in between is missing something; add it
-there.
+`board/`; `app/` includes only the peripheral and RTOS APIs once they exist.
+If code needs to reach two layers down, the layer in between is missing
+something; add it there.
+
+A new layer directory goes in the Makefile's `SRC_DIRS` (and `INC_DIRS` for
+its `inc/`), the Doxyfile's `INPUT`, and `scripts/check_pr_files.sh`.
 
 Include headers by bare name (`#include "rcc_reg.h"`). Every `inc/`
 directory is on the include path. Never use a root-relative path.
@@ -23,7 +26,7 @@ directory is on the include path. Never use a root-relative path.
 | Function        | camelCase, module prefix                      | `rccPllConfig()`           |
 | Macro           | `SCREAMING_SNAKE_CASE`                        | `RCC_CR_HSEON`             |
 | Register field  | `<PERIPH>_<REG>_<FIELD>`, plus `_Pos`/`_Msk`  | `RCC_CFGR_SW_Msk`          |
-| Register header | `<peripheral>_reg.h` in `core/inc`, `device/inc` | `gpio_reg.h`            |
+| Register header | `<peripheral>_reg.h` in `arch/cortex-m4/inc/` (core) or `soc/stm32f446/inc/` (chip) | `gpio_reg.h` |
 | Include guard   | `#ifndef FOO_H` ... `#endif /* FOO_H */`      |                            |
 
 Register bit and mask macros cast before shifting, `((uint32_t)1U << n)`
@@ -77,8 +80,9 @@ file at all, and CI rejects the pull request.
 
 ## Tests
 
-Every driver, BSP or API `.c` has a `tests/unit/test_<name>.c`, and every
-register header is included by a test.
+Every `.c` in a code layer has a `test_<name>.c` in the matching
+`tests/unit/<layer>/` folder (`arch/`, `soc/`, `drivers/`, `board/`), and
+every register header is included by a test.
 
 - `tests/unit/test_runner.c` owns `main()` and must declare and `RUN_TEST()`
   every test. `make test` fails if one is missing.
@@ -98,7 +102,7 @@ tree (not just what is staged).
 | Command                   | Use                                                        |
 | ------------------------- | ---------------------------------------------------------- |
 | `make format`             | Apply `.clang-format`. Never hand-format.                  |
-| `make lint`               | cppcheck + MISRA. Run `tools/install_cppcheck.sh` once for CI's version. |
+| `make lint`               | cppcheck + MISRA. Run `scripts/install_cppcheck.sh` once for CI's version. |
 | `make test SANITIZE=1`    | The suite under ASan and UBSan, as CI runs it.             |
 | `make coverage`           | 100% line and branch gate (CI only, not the hook).         |
 | `make all ANALYZE=1`      | GCC's static analyzer (CI only, not the hook).             |
@@ -125,7 +129,7 @@ schedule.
     annotated on the pull request;
   - the run's summary page shows the release image sizes (and their change
     against the base branch), the test results and coverage.
-  `tools/ci_summary.sh` prints the same report locally.
+  `scripts/ci/ci_summary.sh` prints the same report locally.
 - **Other workflows:**
   - `codeql.yml` runs static analysis;
   - `pages.yml` publishes the docs from `main`;
